@@ -1,68 +1,13 @@
 [
-  {
-    "id": "pre",
-    "label": "Before Deicing/Anti-icing",
-    "text": "Captain, please prepare the aircraft for deicing",
-    "fluid": ""
-  },
-  {
-    "id": "complete",
-    "label": "Deicing complete (Type I)",
-    "text": "Deicing complete. Type one fluid applied. Aircraft surfaces are clean.",
-    "fluid": "Type I: Heated glycol-based fluid, used primarily for removing frost, ice, or snow. Provides limited anti-icing holdover time."
-  },
-  {
-    "id": "anti",
-    "label": "Anti-icing applied (Type IV)",
-    "text": "Anti icing applied. Type four fluid applied. Aircraft protected.",
-    "fluid": "Type IV: Thickened anti-icing fluid applied after Type I. Provides extended holdover protection until takeoff."
-  },
-  {
-    "id": "post",
-    "label": "Post Deice Only Communication",
-    "text": "Captain, registration number, deicing complete. Post deicing check complete, deicing personnel and equipment are safely away",
-    "fluid": ""
-  },
-  {
-    "id": "progress",
-    "label": "In progress / hold",
-    "text": "Deicing in progress. Please hold position.",
-    "fluid": ""
-  },
-  {
-    "id": "postFull",
-    "label": "Post Deicing/Anti-icing Communication (Generic)",
-    "text": "Captain, final fluid type applied (Type I or IV), manufacturer and brand name of the fluid. For Type IV specify percentage used: one hundred percent. Local time (HH:MM) when the final anti-icing step began. Post deicing/anti-icing complete, deicing personnel and equipment are safely away.",
-    "fluid": ""
-  },
-  {
-    "id": "postEx1",
-    "label": "Post Deicing/Anti-icing Example – Deicing Only",
-    "text": "Captain, registration number, deicing complete. Post deicing check complete, deicing personnel and equipment are safely away.",
-    "fluid": ""
-  },
-  {
-    "id": "postEx2",
-    "label": "Post Deicing/Anti-icing Example – Type I/Type IV",
-    "text": "Captain, registration number, you have been anti-iced with Type IV, Clariant Safewing MP IV Launch at one hundred percent, starting at 13:48. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away.",
-    "fluid": ""
-  },
-  {
-    "id": "postEx3",
-    "label": "Post Deicing/Anti-icing Example – Type I/Type I",
-    "text": "Captain, registration number, you have been anti-iced with Type I Polar Plus LT, starting at 13:48. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away.",
-    "fluid": ""
-  },
-  {
-    "id": "preTakeoffA",
-    "label": "Pre-Takeoff Contamination Check – Ready",
-    "text": "The Pre-Takeoff Contamination Check has been completed and the aircraft and engines are ready for departure.",
-    "fluid": ""
-  },
-  {
-    "id": "preTakeoffB",
-    "label": "Pre-Takeoff Contamination Check – Require Deicing",
-    "text": "The Pre-Takeoff Contamination Check has been completed and the aircraft and engines require deicing.",
-    "fluid": ""
-  }
+  {"id":"pre","label":"Before Deicing/Anti-icing","text":"Captain, please prepare the aircraft for deicing","fluid":""},
+  {"id":"complete","label":"Deicing complete (Type I)","text":"Deicing complete. Type one fluid applied. Aircraft surfaces are clean.","fluid":"Type I: Heated glycol-based fluid, used primarily for removing frost, ice, or snow. Provides limited anti-icing holdover time."},
+  {"id":"anti","label":"Anti-icing applied (Type IV)","text":"Anti icing applied. Type four fluid applied. Aircraft protected.","fluid":"Type IV: Thickened anti-icing fluid applied after Type I. Provides extended holdover protection until takeoff."},
+  {"id":"post","label":"Post Deice Only Communication","text":"Captain, registration number, deicing complete. Post deicing check complete, deicing personnel and equipment are safely away","fluid":""},
+  {"id":"progress","label":"In progress / hold","text":"Deicing in progress. Please hold position.","fluid":""},
+  {"id":"postFull","label":"Post Deicing/Anti-icing Communication (Generic)","text":"Captain, final fluid type applied (Type I or IV), manufacturer and brand name of the fluid. For Type IV specify percentage used: one hundred percent. Local time (HH:MM) when the final anti-icing step began. Post deicing/anti-icing complete, deicing personnel and equipment are safely away.","fluid":""},
+  {"id":"postEx1","label":"Post Deicing/Anti-icing Example – Deicing Only","text":"Captain, registration number, deicing complete. Post deicing check complete, deicing personnel and equipment are safely away.","fluid":""},
+  {"id":"postEx2","label":"Post Deicing/Anti-icing Example – Type I/Type IV","text":"Captain, registration number, you have been anti-iced with Type IV, Clariant Safewing MP IV Launch at one hundred percent, starting at 13:48. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away.","fluid":""},
+  {"id":"postEx3","label":"Post Deicing/Anti-icing Example – Type I/Type I","text":"Captain, registration number, you have been anti-iced with Type I Polar Plus LT, starting at 13:48. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away.","fluid":""},
+  {"id":"preTakeoffA","label":"Pre-Takeoff Contamination Check – Ready","text":"The Pre-Takeoff Contamination Check has been completed and the aircraft and engines are ready for departure.","fluid":""},
+  {"id":"preTakeoffB","label":"Pre-Takeoff Contamination Check – Require Deicing","text":"The Pre-Takeoff Contamination Check has been completed and the aircraft and engines require deicing.","fluid":""}
 ]
