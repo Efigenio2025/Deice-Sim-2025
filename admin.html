@@ -59,6 +59,7 @@
       <div class="brand">De‑Ice Admin</div>
       <a href="#dashboard" data-tab="dashboard" aria-current="page">Dashboard</a>
       <a href="#content" data-tab="content">Content</a>
+      <a href="#builder" data-tab="builder">Builder</a>
       <a href="#settings" data-tab="settings">Settings</a>
       <a href="#publish" data-tab="publish">Publish</a>
       <a href="diagnostics.html">Diagnostics ↗</a>
@@ -112,6 +113,43 @@
               </div>
               <textarea id="scenariosBox" placeholder='[ {"id":"scn1","label":"…","desc":"…","steps":[{"prompt":"…","phraseId":"pre"}] } ]'></textarea>
               <div id="scenariosStatus" class="status">Idle</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BUILDER -->
+      <section id="tab-builder" class="tab hidden">
+        <div class="card">
+          <h1>Scenario Builder</h1>
+          <div class="note">Use this guided form to create a scenario without touching JSON. When ready, click <strong>Append to scenarios</strong>.</div>
+          <div class="grid2">
+            <div class="card">
+              <h2>Scenario details</h2>
+              <label>Scenario ID
+                <input id="bId" type="text" placeholder="e.g., scn2" />
+              </label>
+              <label>Label
+                <input id="bLabel" type="text" placeholder="e.g., Type I then Type IV turn" />
+              </label>
+              <label>Description
+                <textarea id="bDesc" placeholder="Short description for this training scenario"></textarea>
+              </label>
+              <div class="row">
+                <button class="btn" id="bAppend">Append to scenarios</button>
+                <button class="btn ghost" id="bReset">Reset builder</button>
+              </div>
+              <div id="bStatus" class="status">Idle</div>
+            </div>
+
+            <div class="card">
+              <h2>Steps</h2>
+              <div id="bSteps"></div>
+              <div class="row" style="margin-top:8px">
+                <button class="btn" id="bAddStep">+ Add step</button>
+                <button class="btn ghost" id="bValidate">Validate references</button>
+              </div>
+              <div class="note">Each step must have a <em>prompt</em>. Choose either a <code>phraseId</code> from Phrases or enter custom <code>text</code>.</div>
             </div>
           </div>
         </div>
@@ -216,6 +254,10 @@
       const phrasesStatus=$('phrasesStatus'), scenariosStatus=$('scenariosStatus'), settingsStatus=$('settingsStatus');
       const statusBox=$('statusBox'), counts=$('counts');
 
+      // Builder elements
+      const bId=$('bId'), bLabel=$('bLabel'), bDesc=$('bDesc'), bSteps=$('bSteps');
+      const bStatus=$('bStatus');
+
       // Load buttons
       $('phrasesLoad').onclick = async()=>{ try{ setStatus(phrasesStatus,'Loading /phrases.json…'); const d=await getJSON('/phrases.json'); phrasesBox.value=JSON.stringify(d,null,2); setStatus(phrasesStatus,'Loaded ✓','ok'); updateCounts(); }catch(e){ setStatus(phrasesStatus,'Load failed: '+(e.message||e),'err'); }};
       $('scenariosLoad').onclick = async()=>{ try{ setStatus(scenariosStatus,'Loading /scenarios.json…'); const d=await getJSON('/scenarios.json'); scenariosBox.value=JSON.stringify(d,null,2); setStatus(scenariosStatus,'Loaded ✓','ok'); updateCounts(); }catch(e){ setStatus(scenariosStatus,'Load failed: '+(e.message||e),'err'); }};
@@ -238,6 +280,77 @@
       function readSettingsFromForm(){ return { passThreshold: num($('setThreshold').value,90), ttsVoiceName: ($('setVoice').value||'').trim()||null, ttsRate: num($('setRate').value,0.95), scenarioAutoTTS: $('setScenarioAutoTTS').checked, autoStartMic: $('setAutoStartMic').checked, adminPasscodeSha256: ($('setAdminHash').value||'').trim()||null, adminPasscodeHint: ($('setAdminHint').value||'').trim()||null }; }
       function num(v,d){ const n=parseFloat(v); return isNaN(n)?d:n; }
       $('genHash').onclick = async()=>{ const pw = prompt('Enter new passcode to hash (not stored):'); if(!pw) return; const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw)); const hex = Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''); $('setAdminHash').value = hex; $('hashStatus').textContent = 'Hash generated ✓'; };
+
+      // === Builder helpers ===
+      let builder = { id:'', label:'', desc:'', steps: [] };
+      function newStep(){ return { prompt:'', mode:'phrase', phraseId:'', text:'' }; }
+      function renderSteps(){
+        bSteps.innerHTML = '';
+        const phrases = safeParseArray(phrasesBox.value, []);
+        builder.steps.forEach((st, idx)=>{
+          const wrap = document.createElement('div');
+          wrap.className = 'card';
+          wrap.style.marginBottom = '8px';
+          wrap.innerHTML = `
+            <div class=\"row\" style=\"justify-content:space-between\">
+              <strong>Step ${idx+1}</strong>
+              <div class=\"row\">
+                <button class=\"btn ghost\" data-act=\"up\">↑</button>
+                <button class=\"btn ghost\" data-act=\"down\">↓</button>
+                <button class=\"btn danger\" data-act=\"del\">Delete</button>
+              </div>
+            </div>
+            <label>Prompt<input data-field=\"prompt\" type=\"text\" placeholder=\"What the app says for this step\" value=\"${st.prompt.replace(/\"/g,'&quot;')}\"></label>
+            <div class=\"row\">
+              <label class=\"kbd\"><input type=\"radio\" name=\"mode${idx}\" value=\"phrase\" ${st.mode==='phrase'?'checked':''}> phraseId</label>
+              <label class=\"kbd\"><input type=\"radio\" name=\"mode${idx}\" value=\"text\" ${st.mode==='text'?'checked':''}> custom text</label>
+            </div>
+            <div data-panel=\"phrase\" ${st.mode==='phrase'?'':'style=\"display:none\"'}>
+              <label>Phrase<select data-field=\"phraseId\">
+                <option value=\"\">— select a phrase —</option>
+                ${phrases.map(p=>`<option value=\"${p.id}\" ${st.phraseId===p.id?'selected':''}>${p.id} — ${p.label||''}</option>`).join('')}
+              </select></label>
+            </div>
+            <div data-panel=\"text\" ${st.mode==='text'?'':'style=\"display:none\"'}>
+              <label>Custom text<textarea data-field=\"text\" placeholder=\"Exact wording to expect from the agent\">${st.text||''}</textarea></label>
+            </div>
+          `;
+          wrap.querySelectorAll('input[name="mode'+idx+'"]').forEach(r=>{ r.addEventListener('change',(e)=>{ st.mode=e.target.value; renderSteps(); }); });
+          wrap.querySelector('[data-field="prompt"]').addEventListener('input',(e)=>{ st.prompt=e.target.value; });
+          const sel=wrap.querySelector('[data-field="phraseId"]'); if(sel) sel.addEventListener('change',(e)=>{ st.phraseId=e.target.value; });
+          const txt=wrap.querySelector('[data-field="text"]'); if(txt) txt.addEventListener('input',(e)=>{ st.text=e.target.value; });
+          wrap.querySelector('[data-act="up"]').onclick=()=>{ if(idx>0){ const t=builder.steps[idx-1]; builder.steps[idx-1]=builder.steps[idx]; builder.steps[idx]=t; renderSteps(); } };
+          wrap.querySelector('[data-act="down"]').onclick=()=>{ if(idx<builder.steps.length-1){ const t=builder.steps[idx+1]; builder.steps[idx+1]=builder.steps[idx]; builder.steps[idx]=t; renderSteps(); } };
+          wrap.querySelector('[data-act="del"]').onclick=()=>{ builder.steps.splice(idx,1); renderSteps(); };
+          bSteps.appendChild(wrap);
+        });
+      }
+      function resetBuilder(){ builder = { id:'', label:'', desc:'', steps: [] }; bId.value=''; bLabel.value=''; bDesc.value=''; renderSteps(); setStatus(bStatus,'Reset',''); }
+      function buildScenario(){
+        const sc = { id:(bId.value||'').trim(), label:(bLabel.value||'').trim(), desc:(bDesc.value||'').trim(), steps:[] };
+        if(!sc.id || !sc.label) throw new Error('Scenario ID and Label are required');
+        builder.steps.forEach(st=>{
+          if(!st.prompt) throw new Error('Every step needs a prompt');
+          const out = { prompt: st.prompt };
+          if(st.mode==='phrase'){
+            if(!st.phraseId) throw new Error('Select a phrase for a phraseId step');
+            out.phraseId = st.phraseId;
+          } else {
+            if(!st.text) throw new Error('Enter custom text for a text step');
+            out.text = st.text;
+          }
+          sc.steps.push(out);
+        });
+        return sc;
+      }
+      $('bAddStep').onclick = ()=>{ builder.steps.push(newStep()); renderSteps(); };
+      $('bReset').onclick = resetBuilder;
+      $('bValidate').onclick = ()=>{ const miss=validateRefs(); setStatus(bStatus, miss.length? ('Missing phraseId: '+miss.join(', ')) : 'All references valid ✓', miss.length? 'err':'ok'); };
+      $('bAppend').onclick = ()=>{
+        try{ const sc=buildScenario(); const arr=safeParseArray(scenariosBox.value,[]); if(arr.some(x=>x.id===sc.id)) throw new Error('A scenario with this ID already exists'); arr.push(sc); scenariosBox.value=JSON.stringify(arr,null,2); setStatus(bStatus,'Scenario appended ✓','ok'); updateCounts(); }
+        catch(e){ setStatus(bStatus, e.message||String(e), 'err'); }
+      };
+      renderSteps();
 
       // Dashboard helpers
       function safeParseArray(text, fallback, statusEl){ try{ const v=JSON.parse(text||'[]'); if(!Array.isArray(v)) throw new Error('Top-level must be an array'); return v; }catch(e){ if(statusEl) setStatus(statusEl,'Parse error: '+(e.message||e),'err'); return fallback; } }
