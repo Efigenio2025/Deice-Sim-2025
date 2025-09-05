@@ -102,8 +102,24 @@
               <option value="November Four Three Two Quebec Tango">N432QT — November Four Three Two Quebec Tango</option>
             </select>
           </label>
-          <label>FLUID_BRAND <input id="varBrand" placeholder="Cryotech Polar Guard X‑Tend"></label>
-          <label>LOCAL_TIME <input id="varTime" placeholder="13:48"></label>
+          <label>FLUID_BRAND
+  <select id="varBrand">
+    <optgroup label="Type I">
+      <option value="Polar Plus LT">Type I — Polar Plus LT</option>
+    </optgroup>
+    <optgroup label="Type IV">
+      <option value="Cryotech Polar Guard X-Tend">Type IV — Cryotech Polar Guard X-Tend</option>
+      <option value="Clariant Safewing MP IV Launch">Type IV — Clariant Safewing MP IV Launch</option>
+    </optgroup>
+  </select>
+</label>
+
+<label>LOCAL_TIME
+  <div class="row">
+    <input id="varTime" placeholder="13:48" style="flex:1 1 auto">
+    <button id="randTime" class="btn ghost" type="button" style="flex:0 0 auto">Random</button>
+  </div>
+</label>
           <div class="row">
             <button id="applyVars" class="btn" type="button">Apply to text steps</button>
             <button id="bulkPaste" class="btn ghost" type="button">Bulk paste</button>
