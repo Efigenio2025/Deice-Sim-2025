@@ -485,8 +485,15 @@
     els.th.addEventListener('input', ()=>{ els.thLabel.textContent = els.th.value + '%'; });
     els.thLabel.textContent = els.th.value + '%';
 
-    // Init
-    init();
+    // Init after DOM is fully parsed so embedded JSON tags exist
+    window.addEventListener('DOMContentLoaded', () => {
+      try { init(); } catch (e) { debugLog('Init error: ' + (e.message||e)); }
+    });
+
+    // Global error capture to surface any JS issues in Diagnostics UI
+    window.addEventListener('error', (e) => {
+      debugLog('Runtime error: ' + (e.message || 'unknown') + (e.filename ? (' @ ' + e.filename + ':' + e.lineno) : ''));
+    });
   </script>
 
   <!-- Embedded default phrases (fallback) -->
