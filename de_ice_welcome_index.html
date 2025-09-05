@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>De‑Ice Trainer — Welcome</title>
+  <style>
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:900px;margin:0 auto;padding:24px}
+    .hero{padding:22px 18px;background:linear-gradient(180deg,#0e1324,#0b0c10);border:1px solid var(--line);border-radius:16px}
+    h1{margin:0 0 6px;font-size:1.35rem}
+    .note{color:var(--muted)}
+    .grid{display:grid;gap:14px;margin-top:16px}
+    @media(min-width:760px){.grid{grid-template-columns:1fr 1fr}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;background:var(--accent);color:#fff;padding:12px 16px;border-radius:12px;font-weight:800}
+    .ghost{background:#273252}
+    .list{display:grid;gap:6px;margin:8px 0 0}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px dashed #2b3147;border-radius:10px}
+    .ok{color:#9df5b0}
+    .err{color:#ffb4ad}
+    code{background:#0f1220;border:1px solid #2b3147;border-radius:6px;padding:1px 6px}
+    footer{margin-top:18px;color:var(--muted);font-size:.9rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>De‑Ice Verbiage Trainer</h1>
+      <div class="note">Choose a mode. Training is locked‑down for agents. Admin manages content and defaults.</div>
+      <div class="grid">
+        <div class="card">
+          <div>
+            <strong>Training</strong>
+            <div class="note">Practice phrases and run scenarios with mic + TTS.</div>
+          </div>
+          <a class="btn" href="train.html">▶ Start training</a>
+        </div>
+        <div class="card">
+          <div>
+            <strong>Admin / Settings</strong>
+            <div class="note">Edit phrases, scenarios, and defaults. Export JSON.</div>
+          </div>
+          <a class="btn ghost" href="admin.html">⚙ Open admin</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <strong>Deployment quick‑check</strong>
+      <div class="note">These should resolve with HTTP 200 on your deployed site.</div>
+      <div class="list" id="checks">
+        <div class="row"><span>/phrases.json</span><span id="cP" class="note">checking…</span></div>
+        <div class="row"><span>/scenarios.json</span><span id="cS" class="note">checking…</span></div>
+        <div class="row"><span>/settings.json</span><span id="cT" class="note">optional</span></div>
+      </div>
+      <div class="note" style="margin-top:8px">Tip: keep all JSON files next to <code>index.html</code>.</div>
+    </section>
+
+    <footer>
+      v1 landing • Training uses Web Speech API; open in Safari iOS (not PWA) for mic.
+    </footer>
+  </div>
+
+  <script>
+    async function probe(path, el){
+      try{ const res = await fetch(path, {cache:'no-store'}); if(res.ok){ el.textContent='OK'; el.className='ok'; } else { el.textContent='HTTP '+res.status; el.className='err'; } }
+      catch(e){ el.textContent='unreachable'; el.className='err'; }
+    }
+    window.addEventListener('DOMContentLoaded',()=>{
+      probe('phrases.json', document.getElementById('cP'));
+      probe('scenarios.json', document.getElementById('cS'));
+      // settings is optional; only probe if present
+      fetch('settings.json', {cache:'no-store'}).then(r=>{ if(r.ok){ document.getElementById('cT').textContent='OK'; document.getElementById('cT').className='ok'; } else { document.getElementById('cT').textContent='not found (optional)'; }}).catch(()=>{});
+    });
+  </script>
+</body>
+</html>
