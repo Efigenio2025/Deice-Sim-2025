@@ -1,5 +1,5 @@
 [
-{
+  {
     "id": "Scenario 1",
     "label": "Full Body Type I + Wings/Tail Type IV",
     "desc": "Full Body Type I + Wings/Tail Type IV",
@@ -46,9 +46,4 @@
       }
     ]
   }
-    "id": "pre",
-    "label": "Before Deicing/Anti-icing",
-    "text": "Captain, please prepare the aircraft for deicing",
-    "fluid": ""
-  },
 ]
