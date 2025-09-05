@@ -41,7 +41,7 @@
       <div class="status">Enter passcode to continue.</div>
       <div class="row" style="margin-top:8px">
         <input id="code" type="password" placeholder="Passcode" autocomplete="off" autofocus>
-        <button id="go" class="btn">Unlock</button>
+        <button id="go" class="btn" type="button">Unlock</button>
       </div>
       <div id="msg" class="status">&nbsp;</div>
     </div>
@@ -68,19 +68,47 @@
           <label>Description <textarea id="scDesc" placeholder="Short description"></textarea></label>
           <div class="row">
             <label class="status">Existing: <select id="existing"><option value="">— select from loaded —</option></select></label>
-            <button id="loadExisting" class="btn ghost">Load</button>
+            <button id="loadExisting" class="btn ghost" type="button">Load</button>
           </div>
         </div>
         <div class="grid">
           <h2>Variables</h2>
-          <label>TAIL   <select id="varTail">     <option value="November One Two Three Alpha Bravo">N123AB — November One Two Three Alpha Bravo</option>     <option value="November Four Five Six Charlie Delta">N456CD — November Four Five Six Charlie Delta</option>     <option value="November Seven Eight Nine Echo Foxtrot">N789EF — November Seven Eight Nine Echo Foxtrot</option>     <option value="November Two Three Four Golf Hotel">N234GH — November Two Three Four Golf Hotel</option>     <option value="November Five Six Seven Juliet Kilo">N567JK — November Five Six Seven Juliet Kilo</option>     <option value="November Eight Nine Zero Lima Mike">N890LM — November Eight Nine Zero Lima Mike</option>     <option value="November Three Four Five November Papa">N345NP — November Three Four Five November Papa</option>     <option value="November Six Seven Eight Quebec Romeo">N678QR — November Six Seven Eight Quebec Romeo</option>     <option value="November Nine Zero One Sierra Tango">N901ST — November Nine Zero One Sierra Tango</option>     <option value="November One One Two Uniform Victor">N112UV — November One One Two Uniform Victor</option>     <option value="November Three Three Four Whiskey X-ray">N334WX — November Three Three Four Whiskey X-ray</option>     <option value="November Five Five Six Yankee Zulu">N556YZ — November Five Five Six Yankee Zulu</option>     <option value="November Seven Seven Eight Alpha Charlie">N778AC — November Seven Seven Eight Alpha Charlie</option>     <option value="November Nine Nine Zero Bravo Delta">N990BD — November Nine Nine Zero Bravo Delta</option>     <option value="November Two Two One Charlie Echo">N221CE — November Two Two One Charlie Echo</option>     <option value="November Four Four Three Delta Foxtrot">N443DF — November Four Four Three Delta Foxtrot</option>     <option value="November Six Six Five Echo Golf">N665EG — November Six Six Five Echo Golf</option>     <option value="November Eight Eight Seven Foxtrot Hotel">N887FH — November Eight Eight Seven Foxtrot Hotel</option>     <option value="November One Zero Nine Golf India">N109GI — November One Zero Nine Golf India</option>     <option value="November Three Two One Hotel Kilo">N321HK — November Three Two One Hotel Kilo</option>     <option value="November Five Four Three Juliet Lima">N543JL — November Five Four Three Juliet Lima</option>     <option value="November Seven Six Five Kilo Mike">N765KM — November Seven Six Five Kilo Mike</option>     <option value="November Nine Eight Seven Lima November">N987LN — November Nine Eight Seven Lima November</option>     <option value="November Two One Zero Oscar Papa">N210OP — November Two One Zero Oscar Papa</option>     <option value="November Four Three Two Quebec Tango">N432QT — November Four Three Two Quebec Tango</option>   </select> </label>
+          <label>TAIL
+            <select id="varTail">
+              <option value="November One Two Three Alpha Bravo">N123AB — November One Two Three Alpha Bravo</option>
+              <option value="November Four Five Six Charlie Delta">N456CD — November Four Five Six Charlie Delta</option>
+              <option value="November Seven Eight Nine Echo Foxtrot">N789EF — November Seven Eight Nine Echo Foxtrot</option>
+              <option value="November Two Three Four Golf Hotel">N234GH — November Two Three Four Golf Hotel</option>
+              <option value="November Five Six Seven Juliet Kilo">N567JK — November Five Six Seven Juliet Kilo</option>
+              <option value="November Eight Nine Zero Lima Mike">N890LM — November Eight Nine Zero Lima Mike</option>
+              <option value="November Three Four Five November Papa">N345NP — November Three Four Five November Papa</option>
+              <option value="November Six Seven Eight Quebec Romeo">N678QR — November Six Seven Eight Quebec Romeo</option>
+              <option value="November Nine Zero One Sierra Tango">N901ST — November Nine Zero One Sierra Tango</option>
+              <option value="November One One Two Uniform Victor">N112UV — November One One Two Uniform Victor</option>
+              <option value="November Three Three Four Whiskey X-ray">N334WX — November Three Three Four Whiskey X-ray</option>
+              <option value="November Five Five Six Yankee Zulu">N556YZ — November Five Five Six Yankee Zulu</option>
+              <option value="November Seven Seven Eight Alpha Charlie">N778AC — November Seven Seven Eight Alpha Charlie</option>
+              <option value="November Nine Nine Zero Bravo Delta">N990BD — November Nine Nine Zero Bravo Delta</option>
+              <option value="November Two Two One Charlie Echo">N221CE — November Two Two One Charlie Echo</option>
+              <option value="November Four Four Three Delta Foxtrot">N443DF — November Four Four Three Delta Foxtrot</option>
+              <option value="November Six Six Five Echo Golf">N665EG — November Six Six Five Echo Golf</option>
+              <option value="November Eight Eight Seven Foxtrot Hotel">N887FH — November Eight Eight Seven Foxtrot Hotel</option>
+              <option value="November One Zero Nine Golf India">N109GI — November One Zero Nine Golf India</option>
+              <option value="November Three Two One Hotel Kilo">N321HK — November Three Two One Hotel Kilo</option>
+              <option value="November Five Four Three Juliet Lima">N543JL — November Five Four Three Juliet Lima</option>
+              <option value="November Seven Six Five Kilo Mike">N765KM — November Seven Six Five Kilo Mike</option>
+              <option value="November Nine Eight Seven Lima November">N987LN — November Nine Eight Seven Lima November</option>
+              <option value="November Two One Zero Oscar Papa">N210OP — November Two One Zero Oscar Papa</option>
+              <option value="November Four Three Two Quebec Tango">N432QT — November Four Three Two Quebec Tango</option>
+            </select>
+          </label>
           <label>FLUID_BRAND <input id="varBrand" placeholder="Cryotech Polar Guard X‑Tend"></label>
           <label>LOCAL_TIME <input id="varTime" placeholder="13:48"></label>
           <div class="row">
-            <button id="applyVars" class="btn">Apply to text steps</button>
-            <button id="bulkPaste" class="btn ghost">Bulk paste</button>
+            <button id="applyVars" class="btn" type="button">Apply to text steps</button>
+            <button id="bulkPaste" class="btn ghost" type="button">Bulk paste</button>
           </div>
-          <div class="status">Tokens supported in text: <code>[TAIL]</code> <code>[FLUID_BRAND]</code> <code>[LOCAL_TIME]</code></div>
+          <div class="status">Tokens in text: <code>[TAIL]</code> <code>[REG]</code> <code>[FLUID_BRAND]</code> <code>[LOCAL_TIME]</code></div>
         </div>
       </div>
     </div>
@@ -89,8 +117,8 @@
       <h1>Steps</h1>
       <div id="steps"></div>
       <div class="row" style="margin-top:8px">
-        <button class="btn" id="addStep">+ Add step</button>
-        <button class="btn ghost" id="validate">Validate</button>
+        <button class="btn" id="addStep" type="button">+ Add step</button>
+        <button class="btn ghost" id="validate" type="button">Validate</button>
         <div id="stepStatus" class="status">Idle</div>
       </div>
     </div>
@@ -101,7 +129,7 @@
         <div class="grid">
           <h2>Phrases (<code>phrases.json</code>)</h2>
           <div class="row">
-            <button class="btn ghost" id="loadPhrases">Load /phrases.json</button>
+            <button class="btn ghost" id="loadPhrases" type="button">Load /phrases.json</button>
             <label class="status">or <input id="phrasesFile" type="file" accept="application/json"></label>
           </div>
           <textarea id="phrasesBox" placeholder='[{"id":"pre","label":"...","text":"...","fluid":""}]'></textarea>
@@ -109,13 +137,16 @@
         <div class="grid">
           <h2>Scenarios (<code>scenarios.json</code>)</h2>
           <div class="row">
-            <button class="btn ghost" id="loadScenarios">Load /scenarios.json</button>
+            <button class="btn ghost" id="loadScenarios" type="button">Load /scenarios.json</button>
             <label class="status">or <input id="scenariosFile" type="file" accept="application/json"></label>
           </div>
           <textarea id="scenariosBox" placeholder='[{"id":"scn1","label":"...","desc":"...","steps":[{"prompt":"...","role":"Iceman","text":"..."}]}]'></textarea>
         </div>
       </div>
       <div id="status" class="status">Ready.</div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="downloadScenarios" type="button">⬇ Download scenarios.json</button>
+      </div>
     </div>
   </div>
 
@@ -126,8 +157,8 @@
       <div class="status">Paste lines beginning with <strong>Captain:</strong> or <strong>Iceman:</strong>. One line per utterance.</div>
       <textarea id="bulkText" placeholder="Captain: ...&#10;Iceman: ...&#10;Captain: ..."></textarea>
       <div class="row" style="justify-content:flex-end">
-       <button class="btn ghost" id="bulkCancel" type="button">Cancel</button>
-       <button class="btn" id="bulkImport" type="button">Import to steps</button>
+        <button class="btn ghost" id="bulkCancel" type="button">Cancel</button>
+        <button class="btn" id="bulkImport" type="button">Import to steps</button>
       </div>
     </div>
   </div>
@@ -169,29 +200,28 @@ function init(){
   }
 
   function collectVars(){
-  const sel = document.getElementById('varTail');
-  const spoken = sel ? sel.value : '[TAIL]';
-  let reg = '';
-  if (sel && sel.selectedIndex >= 0) {
-    // Text is like: "N123AB — November One Two Three Alpha Bravo"
-    const txt = sel.options[sel.selectedIndex].text;
-    reg = (txt.split(' — ')[0] || '').trim();
+    const sel=document.getElementById('varTail');
+    const spoken=sel?sel.value:'[TAIL]';
+    let reg='';
+    if(sel && sel.selectedIndex>=0){
+      const txt=sel.options[sel.selectedIndex].text; // e.g., "N123AB — November One Two Three Alpha Bravo"
+      reg=(txt.split(' — ')[0]||'').trim();
+    }
+    return {
+      TAIL: spoken || '[TAIL]',
+      REG: reg || '[REG]',
+      FLUID_BRAND: (document.getElementById('varBrand')?.value || '[FLUID_BRAND]'),
+      LOCAL_TIME: (document.getElementById('varTime')?.value || '[LOCAL_TIME]')
+    };
   }
-  return {
-    TAIL: spoken || '[TAIL]',
-    REG: reg || '[REG]',
-    FLUID_BRAND: (document.getElementById('varBrand')?.value || '[FLUID_BRAND]'),
-    LOCAL_TIME: (document.getElementById('varTime')?.value || '[LOCAL_TIME]')
-  };
-}
   function applyVarsToText(t){
-  const v = collectVars();
-  return String(t||'')
-    .replaceAll('[TAIL]', v.TAIL)
-    .replaceAll('[REG]', v.REG)
-    .replaceAll('[FLUID_BRAND]', v.FLUID_BRAND)
-    .replaceAll('[LOCAL_TIME]', v.LOCAL_TIME);
-}
+    const v=collectVars();
+    return String(t||'')
+      .replaceAll('[TAIL]', v.TAIL)
+      .replaceAll('[REG]', v.REG)
+      .replaceAll('[FLUID_BRAND]', v.FLUID_BRAND)
+      .replaceAll('[LOCAL_TIME]', v.LOCAL_TIME);
+  }
 
   function render(){
     stepsBox.innerHTML='';
@@ -202,9 +232,9 @@ function init(){
         <div class="row" style="justify-content:space-between">
           <strong>Step ${idx+1}</strong>
           <div class="row">
-            <button class="btn ghost" data-up="${idx}">↑</button>
-            <button class="btn ghost" data-down="${idx}">↓</button>
-            <button class="btn danger" data-del="${idx}">Delete</button>
+            <button class="btn ghost" data-up="${idx}" type="button">↑</button>
+            <button class="btn ghost" data-down="${idx}" type="button">↓</button>
+            <button class="btn danger" data-del="${idx}" type="button">Delete</button>
           </div>
         </div>
         <div class="row">
@@ -223,7 +253,7 @@ function init(){
           <label class="muted"><input type="radio" name="mode${idx}" value="phrase" ${st.mode==='phrase'?'checked':''}> phraseId</label>
         </div>
         <div data-panel="text" ${st.mode==='phrase'?'style="display:none"':''}>
-          <textarea data-text="${idx}" placeholder="Exact wording (supports [TAIL], [LOCAL_TIME], [FLUID_BRAND])">${st.text||''}</textarea>
+          <textarea data-text="${idx}" placeholder="Exact wording (supports [TAIL], [REG], [LOCAL_TIME], [FLUID_BRAND])">${st.text||''}</textarea>
         </div>
         <div data-panel="phrase" ${st.mode==='phrase'?'':'style="display:none"'}>
           <label>Phrase
@@ -259,63 +289,22 @@ function init(){
   };
   $('applyVars').onclick=()=>{ steps.forEach(s=>{ if(s.mode!=='phrase' && s.text) s.text=applyVarsToText(s.text); }); render(); setStepStatus('Variables applied','ok'); };
 
-// Bulk paste (modal) — robust close on Cancel/Import/ESC/backdrop
-const bulkModal = document.getElementById('bulkModal');
-const bulkText  = document.getElementById('bulkText');
-
-function openBulk() {
-  bulkModal.classList.remove('hidden');
-  try { bulkText.focus(); } catch(_) {}
-}
-function closeBulk() {
-  bulkModal.classList.add('hidden');
-}
-
-document.getElementById('bulkPaste').onclick = openBulk;
-
-document.getElementById('bulkCancel').onclick = (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  closeBulk();
-};
-
-document.getElementById('bulkImport').onclick = (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-
-  const raw = (bulkText.value || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (!raw.length) { setStepStatus('Nothing to import', 'err'); return; }
-
-  const re = /^(Captain|Iceman)\s*:\s*(.+)$/i;
-  const out = [];
-  for (const line of raw) {
-    const m = line.match(re);
-    if (m) {
-      out.push({
-        role: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(),
-        prompt: m[1] + ' line',
-        mode: 'text',
-        text: applyVarsToText ? applyVarsToText(m[2]) : m[2],
-        phraseId: ''
-      });
-    }
-  }
-  if (!out.length) { setStepStatus('No lines matched Captain:/Iceman:', 'err'); return; }
-
-  steps = out;
-  render();
-  bulkText.value = '';
-  closeBulk();
-  setStepStatus(`Imported ${out.length} steps ✓`, 'ok');
-};
-
-// Close on ESC and backdrop click
-bulkModal.addEventListener('click', (e) => {
-  if (e.target === bulkModal) closeBulk();
-});
-window.addEventListener('keydown', (e) => {
-  if (!bulkModal.classList.contains('hidden') && e.key === 'Escape') closeBulk();
-});
+  // Bulk paste (modal)
+  const bulkModal=document.getElementById('bulkModal');
+  const bulkText=document.getElementById('bulkText');
+  document.getElementById('bulkPaste').onclick=()=>{ bulkModal.classList.remove('hidden'); try{ bulkText.focus(); }catch(_){} };
+  document.getElementById('bulkCancel').onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); bulkModal.classList.add('hidden'); };
+  document.getElementById('bulkImport').onclick=(e)=>{
+    e.preventDefault(); e.stopPropagation();
+    const raw=(bulkText.value||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    if(!raw.length){ setStepStatus('Nothing to import','err'); return; }
+    const re=/^(Captain|Iceman)\s*:\s*(.+)$/i; const out=[];
+    for(const line of raw){ const m=line.match(re); if(m){ out.push({role:m[1][0].toUpperCase()+m[1].slice(1).toLowerCase(), prompt: m[1]+' line', mode:'text', text: applyVarsToText(m[2]), phraseId:''}); } }
+    if(!out.length){ setStepStatus('No lines matched Captain:/Iceman:','err'); return; }
+    steps=out; render(); bulkText.value=''; bulkModal.classList.add('hidden'); setStepStatus(`Imported ${out.length} steps ✓`,'ok');
+  };
+  bulkModal.addEventListener('click',(e)=>{ if(e.target===bulkModal){ e.preventDefault(); bulkModal.classList.add('hidden'); } });
+  window.addEventListener('keydown',(e)=>{ if(!bulkModal.classList.contains('hidden') && e.key==='Escape') bulkModal.classList.add('hidden'); });
 
   $('loadPhrases').onclick=async()=>{ try{ const d=await getJSON('/phrases.json'); phrasesBox.value=JSON.stringify(d,null,2); setStatus('Loaded phrases ✓','ok'); render(); updateCounts(); }catch(e){ setStatus('Phrases load failed: '+(e.message||e),'err'); } };
   $('loadScenarios').onclick=async()=>{ try{ const d=await getJSON('/scenarios.json'); scenariosBox.value=JSON.stringify(d,null,2); setStatus('Loaded scenarios ✓','ok'); updateCounts(); }catch(e){ setStatus('Scenarios load failed: '+(e.message||e),'err'); } };
