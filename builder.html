@@ -313,7 +313,12 @@ if (randBtn) {
     const missing=[]; steps.forEach(st=>{ if(st.mode==='phrase' && (!st.phraseId || !ids.has(st.phraseId))) missing.push(st.phraseId||'(blank)'); });
     setStepStatus(missing.length?('Missing phraseId: '+Array.from(new Set(missing)).join(', ')):'All references valid ✓', missing.length?'err':'ok');
   };
-  $('applyVars').onclick=()=>{ steps.forEach(s=>{ if(s.mode!=='phrase' && s.text) s.text=applyVarsToText(s.text); }); render(); setStepStatus('Variables applied','ok'); };
+  $('applyVars').onclick=()=>{ 
+  steps.forEach(s=>{ 
+    if(s.mode!=='phrase' && s.text) s.text = applyVarsToText(s.text, s.role); 
+  });
+  render(); setStepStatus('Variables applied','ok'); 
+};
 
   // Bulk paste (modal)
   const bulkModal=document.getElementById('bulkModal');
