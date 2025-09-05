@@ -46,8 +46,8 @@
       <h1>Admin Access</h1>
       <div class="note" id="lockHint">Enter passcode.</div>
       <div class="row">
-        <input id="lockInput" type="password" placeholder="Passcode" autocomplete="current-password" />
-        <button id="lockBtn" class="btn">Unlock</button>
+        <input id="lockInput" type="password" placeholder="Passcode" autocomplete="current-password" autofocus />
+        <button id="lockBtn" class="btn" type="button">Unlock</button>
       </div>
       <div id="lockMsg" class="err" style="min-height:1.2em"></div>
     </div>
@@ -290,7 +290,9 @@
           else { msg.textContent='Incorrect passcode.'; }
         }catch(e){ msg.textContent='Crypto error: '+(e.message||e); }
       }
-      btn.onclick=tryUnlock; input.onkeydown=(e)=>{ if(e.key==='Enter') tryUnlock(); };
+      btn.addEventListener('click', ()=>{ msg.textContent='Checking…'; tryUnlock(); });
+      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ msg.textContent='Checking…'; tryUnlock(); } });
+      window.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && gate.style.display!=='none'){ msg.textContent='Checking…'; tryUnlock(); } });
       window.addEventListener('DOMContentLoaded',()=>{ const s=sessionStorage.getItem(KEY); if(s===PASSCODE_HASH){ unlock(); } });
     })();
 
