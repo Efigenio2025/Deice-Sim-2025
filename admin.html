@@ -351,6 +351,9 @@
         catch(e){ setStatus(bStatus, e.message||String(e), 'err'); }
       };
       renderSteps();
+      // Trim builder text inputs on blur
+      bId.addEventListener('blur', ()=>{ bId.value = (bId.value||'').trim(); });
+      bLabel.addEventListener('blur', ()=>{ bLabel.value = (bLabel.value||'').trim(); });
 
       // Dashboard helpers
       function safeParseArray(text, fallback, statusEl){ try{ const v=JSON.parse(text||'[]'); if(!Array.isArray(v)) throw new Error('Top-level must be an array'); return v; }catch(e){ if(statusEl) setStatus(statusEl,'Parse error: '+(e.message||e),'err'); return fallback; } }
@@ -390,29 +393,112 @@
 
       // Init counts from any existing text
       updateCounts();
+      // Ensure builder starts with one step for usability
+      if (typeof builder !== 'undefined' && builder.steps.length === 0) { builder.steps.push(newStep()); renderSteps(); }
     }
 
     // Minimal ZIP builder (store only)
     async function buildZip(entries){
       // entries: [ [name, contentString], ... ]
-      function crc32(buf){ let c=-1; for(let i=0;i<buf.length;i++){ c=(c>>>8)^table[(c^buf[i])&0xff]; } return (c^(-1))>>>0; }
-      const table=new Uint32Array(256).map((_,n)=>{ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xedb88320^(c>>>1) : c>>>1; return c>>>0; });
-      const enc=new TextEncoder();
-      const chunks=[]; const central=[]; let offset=0; let idx=0;
-      for(const [name, text] of entries){
-        const data=enc.encode(text); const crc=crc32(data); const size=data.length; const modTime=0, modDate=0;
-        const nameBytes=enc.encode(name);
-        const local=new Uint8Array(30+nameBytes.length+size);
-        let p=0; function w32(v){local[p++]=v&255;local[p++]=(v>>>8)&255;local[p++]=(v>>>16)&255;local[p++]=(v>>>24)&255;}
-        function w16(v){local[p++]=v&255;local[p++]=(v>>>8)&255;}
-        w32(0x04034b50); w16(20); w16(0); w16(0); w16(modTime); w16(modDate); w32(crc); w32(size); w32(size); w16(nameBytes.length); w16(0);
-        local.set(nameBytes,p); p+=nameBytes.length; local.set(data,p);
-        chunks.push(local);
-        const cen=new Uint8Array(46+nameBytes.length);
-        p=0; w32(0x02014b50); w16(20); w16(20); w16(0); w16(0); w16(modTime); w16(modDate); w32(crc); w32(size); w32(size); w16(nameBytes.length); w16(0); w16(0); w16(0); w16(0); w32(0); w32(offset);
-        cen.set(nameBytes,46); central.push(cen);
-        offset += local.length; idx++;
+      function makeCRCTable(){
+        const t = new Uint32Array(256);
+        for (let n=0;n<256;n++){
+          let c = n;
+          for (let k=0;k<8;k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+          t[n] = c >>> 0;
+        }
+        return t;
       }
+      const table = makeCRCTable();
+      function crc32(buf){
+        let c = -1;
+        for (let i=0;i<buf.length;i++) c = (c >>> 8) ^ table[(c ^ buf[i]) & 0xff];
+        return (c ^ (-1)) >>> 0;
+      }
+
+      const enc = new TextEncoder();
+      const chunks = [];
+      const central = [];
+      let offset = 0;
+
+      for (const [name, text] of entries){
+        const data = enc.encode(text);
+        const nameBytes = enc.encode(name);
+        const crc = crc32(data);
+        const size = data.length;
+        const modTime = 0, modDate = 0; // optional DOS time/date
+
+        // --- Local file header + data ---
+        const local = new Uint8Array(30 + nameBytes.length + size);
+        let p = 0;
+        const w16 = (buf,v)=>{ buf[p++] = v & 255; buf[p++] = (v>>>8) & 255; };
+        const w32 = (buf,v)=>{ w16(buf, v & 0xffff); w16(buf, (v>>>16) & 0xffff); };
+
+        w32(local, 0x04034b50);        // signature
+        w16(local, 20);                 // version needed
+        w16(local, 0);                  // flags
+        w16(local, 0);                  // method: store
+        w16(local, modTime);            // time
+        w16(local, modDate);            // date
+        w32(local, crc);                // CRC32
+        w32(local, size);               // comp size
+        w32(local, size);               // uncomp size
+        w16(local, nameBytes.length);   // name length
+        w16(local, 0);                  // extra length
+
+        local.set(nameBytes, p); p += nameBytes.length;
+        local.set(data, p);
+        chunks.push(local);
+
+        // --- Central directory header ---
+        const cen = new Uint8Array(46 + nameBytes.length);
+        p = 0;
+        const w16c = (buf,v)=>{ buf[p++] = v & 255; buf[p++] = (v>>>8) & 255; };
+        const w32c = (buf,v)=>{ w16c(buf, v & 0xffff); w16c(buf, (v>>>16) & 0xffff); };
+
+        w32c(cen, 0x02014b50);         // signature
+        w16c(cen, 20);                  // version made by
+        w16c(cen, 20);                  // version needed
+        w16c(cen, 0);                   // flags
+        w16c(cen, 0);                   // method: store
+        w16c(cen, modTime);             // time
+        w16c(cen, modDate);             // date
+        w32c(cen, crc);                 // CRC32
+        w32c(cen, size);                // comp size
+        w32c(cen, size);                // uncomp size
+        w16c(cen, nameBytes.length);    // name length
+        w16c(cen, 0);                   // extra length
+        w16c(cen, 0);                   // comment length
+        w16c(cen, 0);                   // disk number
+        w16c(cen, 0);                   // internal attrs
+        w32c(cen, 0);                   // external attrs
+        w32c(cen, offset);              // local header offset
+
+        cen.set(nameBytes, 46);
+        central.push(cen);
+
+        offset += local.length;
+      }
+
+      // --- End of central directory ---
+      const centralSize = central.reduce((a,b)=>a+b.length,0);
+      const centralOffset = chunks.reduce((a,b)=>a+b.length,0);
+      const end = new Uint8Array(22);
+      let q = 0;
+      const w16e = (v)=>{ end[q++] = v & 255; end[q++] = (v>>>8) & 255; };
+      const w32e = (v)=>{ w16e(v & 0xffff); w16e((v>>>16) & 0xffff); };
+
+      w32e(0x06054b50);                // signature
+      w16e(0);                         // disk number
+      w16e(0);                         // disk with central dir
+      w16e(entries.length);            // total entries on this disk
+      w16e(entries.length);            // total entries
+      w32e(centralSize);               // central dir size
+      w32e(centralOffset);             // central dir offset
+      w16e(0);                         // comment length
+
+      return new Blob([...chunks, ...central, end]).arrayBuffer();
+    }
       const end=new Uint8Array(22); let q=0; function w16e(v){end[q++]=v&255;end[q++]=(v>>>8)&255;} function w32e(v){end[q++]=v&255;end[q++]=(v>>>8)&255;end[q++]=(v>>>16)&255;end[q++]=(v>>>24)&255;}
       const centralSize=central.reduce((a,b)=>a+b.length,0); const centralOffset=chunks.reduce((a,b)=>a+b.length,0);
       w32e(0x06054b50); w16e(0); w16e(0); w16e(entries.length); w16e(entries.length); w32e(centralSize); w32e(centralOffset); w16e(0);
