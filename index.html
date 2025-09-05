@@ -122,6 +122,24 @@
           <button id="scnRetry" class="ghost" disabled>Try again</button>
         </div>
 
+        <!-- Scenario-specific mic + transcript -->
+        <div class="controls" style="margin-top:10px">
+          <button id="scnMicBtn">🎤 Start speaking (scenario)</button>
+          <button id="scnStopBtn" class="ghost" disabled>■ Stop</button>
+          <span id="scnStatus" class="status">Idle</span>
+        </div>
+        <div style="margin-top:10px">
+          <h2>Your speech (scenario)</h2>
+          <div id="scnYou" class="target mono" style="min-height:64px"></div>
+        </div>
+
+        <div class="infoBox note" id="scnNote" style="display:none; margin-top:10px"></div>
+
+        <div class="controls" style="margin-top:6px">
+          <span class="status">Each step must meet the threshold to continue.</span>
+        </div>
+      </section>
+
         <div class="infoBox note" id="scnNote" style="display:none; margin-top:10px"></div>
 
         <div class="controls" style="margin-top:6px">
@@ -177,6 +195,10 @@
       scnNext: document.getElementById('scnNext'),
       scnRetry: document.getElementById('scnRetry'),
       scnNote: document.getElementById('scnNote'),
+      scnMicBtn: document.getElementById('scnMicBtn'),
+      scnStopBtn: document.getElementById('scnStopBtn'),
+      scnStatus: document.getElementById('scnStatus'),
+      scnYou: document.getElementById('scnYou'),
     };
 
     // ===== Tabs =====
@@ -188,6 +210,8 @@
       els.scenariosSection.classList.toggle('hide', p);
       els.tabPractice.setAttribute('aria-selected', p);
       els.tabScenarios.setAttribute('aria-selected', !p);
+      // Reset statuses
+      if(p){ els.status.textContent='Idle'; } else { els.scnStatus.textContent='Idle'; }
       setTargetText();
     }
     els.tabPractice.addEventListener('click', () => setMode('practice'));
@@ -400,22 +424,55 @@
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
     let recognition = null;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
+
     function setMicEnabled(on){ els.micBtn.disabled = !on; els.stopBtn.disabled = on; }
+    function setScnMicEnabled(on){ els.scnMicBtn.disabled = !on; els.scnStopBtn.disabled = on; }
 
     if (SR && isStandalone) {
       debugLog('Standalone/PWA mode detected — mic likely blocked on iOS');
       els.status.textContent = 'Open in Safari (not installed to Home Screen) to use the mic.';
-      setMicEnabled(false);
+      els.scnStatus.textContent = 'Open in Safari (not installed to Home Screen) to use the mic.';
+      setMicEnabled(false); setScnMicEnabled(false);
     } else if (!SR){
       els.status.innerHTML = 'Speech recognition not supported. Try iOS Safari 14.5+ over HTTPS or Chrome desktop.';
-      setMicEnabled(false);
+      els.scnStatus.innerHTML = 'Speech recognition not supported. Try iOS Safari 14.5+ over HTTPS or Chrome desktop.';
+      setMicEnabled(false); setScnMicEnabled(false);
     } else {
       recognition = new SR();
       recognition.lang = 'en-US';
       recognition.interimResults = true;
       recognition.continuous = false;
       recognition.maxAlternatives = 1;
-      recognition.onstart = () => { els.status.textContent = 'Listening…'; setMicEnabled(false); };
+      recognition.onstart = () => {
+        if (MODE==='scenarios'){ els.scnStatus.textContent='Listening…'; setScnMicEnabled(false); }
+        else { els.status.textContent='Listening…'; setMicEnabled(false); }
+      };
+      recognition.onerror = (e) => {
+        const err = e.error || 'unknown';
+        if (MODE==='scenarios'){ els.scnStatus.textContent = 'Error: ' + err; setScnMicEnabled(true); }
+        else { els.status.textContent = 'Error: ' + err; setMicEnabled(true); }
+      };
+      recognition.onend = () => {
+        if (MODE==='scenarios'){ els.scnStatus.textContent='Idle'; setScnMicEnabled(true); }
+        else { els.status.textContent='Idle'; setMicEnabled(true); }
+      };
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        for (let i=event.resultIndex; i<event.results.length; i++){
+          finalTranscript += event.results[i][0].transcript;
+        }
+        finalTranscript = finalTranscript.trim();
+        if (MODE==='scenarios'){ els.scnYou.textContent = finalTranscript; }
+        else { els.you.textContent = finalTranscript; }
+        if (finalTranscript) updateScore(finalTranscript);
+      };
+      // Practice mic buttons
+      els.micBtn.addEventListener('click', () => { try{ recognition.start(); }catch(err){} });
+      els.stopBtn.addEventListener('click', () => recognition.stop());
+      // Scenario mic buttons
+      els.scnMicBtn.addEventListener('click', () => { try{ recognition.start(); }catch(err){} });
+      els.scnStopBtn.addEventListener('click', () => recognition.stop());
+    };
       recognition.onerror = (e) => { const err = e.error || 'unknown'; els.status.textContent = 'Error: ' + err; setMicEnabled(true); };
       recognition.onend = () => { els.status.textContent = 'Idle'; setMicEnabled(true); };
       recognition.onresult = (event) => { let finalTranscript = ''; for (let i=event.resultIndex; i<event.results.length; i++){ finalTranscript += event.results[i][0].transcript; } finalTranscript = finalTranscript.trim(); els.you.textContent = finalTranscript; if (finalTranscript) updateScore(finalTranscript); };
