@@ -184,7 +184,14 @@ function init(){
     LOCAL_TIME: (document.getElementById('varTime')?.value || '[LOCAL_TIME]')
   };
 }
-  function applyVarsToText(t){ const v=collectVars(); return String(t||'').replaceAll('[TAIL]',v.TAIL).replaceAll('[FLUID_BRAND]',v.FLUID_BRAND).replaceAll('[LOCAL_TIME]',v.LOCAL_TIME); }
+  function applyVarsToText(t){
+  const v = collectVars();
+  return String(t||'')
+    .replaceAll('[TAIL]', v.TAIL)
+    .replaceAll('[REG]', v.REG)
+    .replaceAll('[FLUID_BRAND]', v.FLUID_BRAND)
+    .replaceAll('[LOCAL_TIME]', v.LOCAL_TIME);
+}
 
   function render(){
     stepsBox.innerHTML='';
