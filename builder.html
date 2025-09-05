@@ -168,7 +168,22 @@ function init(){
     }catch{ counts.textContent='—'; }
   }
 
-  function collectVars(){ return {TAIL:($('varTail').value||'[TAIL]'), FLUID_BRAND:($('varBrand').value||'[FLUID_BRAND]'), LOCAL_TIME:($('varTime').value||'[LOCAL_TIME]')}; }
+  function collectVars(){
+  const sel = document.getElementById('varTail');
+  const spoken = sel ? sel.value : '[TAIL]';
+  let reg = '';
+  if (sel && sel.selectedIndex >= 0) {
+    // Text is like: "N123AB — November One Two Three Alpha Bravo"
+    const txt = sel.options[sel.selectedIndex].text;
+    reg = (txt.split(' — ')[0] || '').trim();
+  }
+  return {
+    TAIL: spoken || '[TAIL]',
+    REG: reg || '[REG]',
+    FLUID_BRAND: (document.getElementById('varBrand')?.value || '[FLUID_BRAND]'),
+    LOCAL_TIME: (document.getElementById('varTime')?.value || '[LOCAL_TIME]')
+  };
+}
   function applyVarsToText(t){ const v=collectVars(); return String(t||'').replaceAll('[TAIL]',v.TAIL).replaceAll('[FLUID_BRAND]',v.FLUID_BRAND).replaceAll('[LOCAL_TIME]',v.LOCAL_TIME); }
 
   function render(){
