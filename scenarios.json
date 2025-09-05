@@ -16,5 +16,14 @@
       { "prompt": "Request prep for deicing", "phraseId": "pre" },
       { "prompt": "Anti-icing details to flight deck", "phraseId": "postEx2" }
     ]
+  },
+  {
+    "id": "scn3",
+    "label": "Type I then Type I Anti-icing",
+    "desc": "Anti-icing with Type I after Type I.",
+    "steps": [
+      { "prompt": "Request prep for deicing", "phraseId": "pre" },
+      { "prompt": "Anti-icing details to flight deck", "phraseId": "postEx3" }
+    ]
   }
 ]
