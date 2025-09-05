@@ -28,7 +28,7 @@
     .step{background:#141822;border:1px solid #243259;border-radius:12px;padding:10px}
     .lock{position:fixed;inset:0;background:linear-gradient(180deg,#0f1220,#0b0c10);display:flex;align-items:center;justify-content:center;z-index:9999}
     .lockCard{background:#101218;border:1px solid #1e2230;border-radius:16px;padding:20px;max-width:360px;width:92%}
-    .hidden{display:none}
+    .hidden{display:none !important}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
     a, a:visited{color:#b7c7ff}
   </style>
@@ -126,8 +126,8 @@
       <div class="status">Paste lines beginning with <strong>Captain:</strong> or <strong>Iceman:</strong>. One line per utterance.</div>
       <textarea id="bulkText" placeholder="Captain: ...&#10;Iceman: ...&#10;Captain: ..."></textarea>
       <div class="row" style="justify-content:flex-end">
-        <button class="btn ghost" id="bulkCancel">Cancel</button>
-        <button class="btn" id="bulkImport">Import to steps</button>
+       <button class="btn ghost" id="bulkCancel" type="button">Cancel</button>
+       <button class="btn" id="bulkImport" type="button">Import to steps</button>
       </div>
     </div>
   </div>
@@ -237,21 +237,63 @@ function init(){
   };
   $('applyVars').onclick=()=>{ steps.forEach(s=>{ if(s.mode!=='phrase' && s.text) s.text=applyVarsToText(s.text); }); render(); setStepStatus('Variables applied','ok'); };
 
-  // Bulk paste (modal)
-  const bulkModal=document.getElementById('bulkModal');
-  const bulkText=document.getElementById('bulkText');
-  document.getElementById('bulkPaste').onclick=()=>{ bulkModal.classList.remove('hidden'); try{ bulkText.focus(); }catch(_){} };
-  document.getElementById('bulkCancel').onclick=()=>{ bulkModal.classList.add('hidden'); };
-  document.getElementById('bulkImport').onclick=()=>{
-    const raw=(bulkText.value||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-    if(!raw.length){ setStepStatus('Nothing to import','err'); return; }
-    const re=/^(Captain|Iceman)\s*:\s*(.+)$/i; const out=[];
-    for(const line of raw){ const m=line.match(re); if(m){ out.push({role:m[1][0].toUpperCase()+m[1].slice(1).toLowerCase(), prompt: m[1]+' line', mode:'text', text: applyVarsToText(m[2]), phraseId:''}); } }
-    if(!out.length){ setStepStatus('No lines matched Captain:/Iceman:','err'); return; }
-    steps=out; render(); bulkText.value=''; bulkModal.classList.add('hidden'); setStepStatus(`Imported ${out.length} steps ✓`,'ok');
-  };
-  bulkModal.addEventListener('click',(e)=>{ if(e.target===bulkModal) bulkModal.classList.add('hidden'); });
-  window.addEventListener('keydown',(e)=>{ if(!bulkModal.classList.contains('hidden') && e.key==='Escape') bulkModal.classList.add('hidden'); });
+// Bulk paste (modal) — robust close on Cancel/Import/ESC/backdrop
+const bulkModal = document.getElementById('bulkModal');
+const bulkText  = document.getElementById('bulkText');
+
+function openBulk() {
+  bulkModal.classList.remove('hidden');
+  try { bulkText.focus(); } catch(_) {}
+}
+function closeBulk() {
+  bulkModal.classList.add('hidden');
+}
+
+document.getElementById('bulkPaste').onclick = openBulk;
+
+document.getElementById('bulkCancel').onclick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  closeBulk();
+};
+
+document.getElementById('bulkImport').onclick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const raw = (bulkText.value || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!raw.length) { setStepStatus('Nothing to import', 'err'); return; }
+
+  const re = /^(Captain|Iceman)\s*:\s*(.+)$/i;
+  const out = [];
+  for (const line of raw) {
+    const m = line.match(re);
+    if (m) {
+      out.push({
+        role: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(),
+        prompt: m[1] + ' line',
+        mode: 'text',
+        text: applyVarsToText ? applyVarsToText(m[2]) : m[2],
+        phraseId: ''
+      });
+    }
+  }
+  if (!out.length) { setStepStatus('No lines matched Captain:/Iceman:', 'err'); return; }
+
+  steps = out;
+  render();
+  bulkText.value = '';
+  closeBulk();
+  setStepStatus(`Imported ${out.length} steps ✓`, 'ok');
+};
+
+// Close on ESC and backdrop click
+bulkModal.addEventListener('click', (e) => {
+  if (e.target === bulkModal) closeBulk();
+});
+window.addEventListener('keydown', (e) => {
+  if (!bulkModal.classList.contains('hidden') && e.key === 'Escape') closeBulk();
+});
 
   $('loadPhrases').onclick=async()=>{ try{ const d=await getJSON('/phrases.json'); phrasesBox.value=JSON.stringify(d,null,2); setStatus('Loaded phrases ✓','ok'); render(); updateCounts(); }catch(e){ setStatus('Phrases load failed: '+(e.message||e),'err'); } };
   $('loadScenarios').onclick=async()=>{ try{ const d=await getJSON('/scenarios.json'); scenariosBox.value=JSON.stringify(d,null,2); setStatus('Loaded scenarios ✓','ok'); updateCounts(); }catch(e){ setStatus('Scenarios load failed: '+(e.message||e),'err'); } };
