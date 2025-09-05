@@ -35,6 +35,7 @@
     .hidden{display:none}
     .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:2px 6px;border-radius:6px;background:#141a2a;border:1px solid #243259}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
+    .stepCard{background:#141822;border:1px solid #243259;border-radius:10px;padding:10px;margin:8px 0}
   </style>
 </head>
 <body>
@@ -57,362 +58,107 @@
       <div class="brand">De‑Ice Admin</div>
       <a href="#dashboard" data-tab="dashboard" aria-current="page">Dashboard</a>
       <a href="#content" data-tab="content">Content</a>
-      <a href="#builder" data-tab="builder">Builder</a>
+      <a href="builder.html">Builder ↗</a>
       <a href="#publish" data-tab="publish">Publish</a>
       <a href="diagnostics.html">Diagnostics ↗</a>
       <div class="foot">Logged in • <button id="logoutBtn" class="ghost" style="padding:4px 8px">Log out</button></div>
     </nav>
     <main class="main">
-      <!-- DASHBOARD -->
-      <section id="tab-dashboard" class="tab">
-        <div class="card">
-          <h1>Dashboard <span id="counts" class="pill">—</span></h1>
-          <div class="grid2">
-            <div class="card">
-              <h2>Status</h2>
-              <div id="statusBox" class="status">Ready.</div>
-            </div>
-            <div class="card">
-              <h2>Quick actions</h2>
-              <div class="row">
-                <button class="btn ghost" id="loadAll">Load all from site</button>
-                <button class="btn" id="validateAll">Validate</button>
-                <button class="btn ghost" id="prettyAll">Pretty‑format</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- CONTENT -->
-      <section id="tab-content" class="tab hidden">
-        <div class="card">
-          <h1>Content</h1>
-          <div class="grid2">
-            <div class="card">
-              <h2>Phrases (<code>phrases.json</code>)</h2>
-              <div class="row">
-                <button class="btn ghost" id="phrasesLoad">Load from /phrases.json</button>
-                <label class="kbd">or choose <input id="phrasesFile" type="file" accept="application/json" style="display:none"></label>
-                <button class="btn ghost" id="addPhrase">+ Add template</button>
-                <button class="btn" id="phrasesDownload">⬇ Download</button>
-              </div>
-              <textarea id="phrasesBox" placeholder='[ {"id":"pre","label":"…","text":"…","fluid":"…"} ]'></textarea>
-              <div id="phrasesStatus" class="status">Idle</div>
-            </div>
-            <div class="card">
-              <h2>Scenarios (<code>scenarios.json</code>)</h2>
-              <div class="row">
-                <button class="btn ghost" id="scenariosLoad">Load from /scenarios.json</button>
-                <label class="kbd">or choose <input id="scenariosFile" type="file" accept="application/json" style="display:none"></label>
-                <button class="btn ghost" id="addScenario">+ Add template</button>
-                <button class="btn" id="scenariosDownload">⬇ Download</button>
-              </div>
-              <textarea id="scenariosBox" placeholder='[ {"id":"scn1","label":"…","desc":"…","steps":[{"prompt":"…","role":"Iceman","text":"…"}] } ]'></textarea>
-              <div id="scenariosStatus" class="status">Idle</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- BUILDER -->
-      <section id="tab-builder" class="tab hidden">
+      <section id="tab-builder" class="tab">
         <div class="card">
           <h1>Scenario Builder</h1>
-          <div class="note">Create and edit multi‑role dialogues (Captain / Iceman). Use tokens: <code>[TAIL]</code>, <code>[LOCAL_TIME]</code>, <code>[FLUID_BRAND]</code>. Apply once, fills all steps.</div>
+          <div class="note">Quickly add Captain/Iceman lines. Use <code>Captain:</code> or <code>Iceman:</code> prefixes for bulk paste.</div>
 
-          <div class="card" style="margin:12px 0">
-            <div class="row">
-              <strong>Templates:</strong>
-              <button class="btn ghost" id="tplTypeI">Type I Only</button>
-              <button class="btn ghost" id="tplTypeITypeIV">Type I + Type IV (full body)</button>
-              <button class="btn ghost" id="tplTypeITypeIVPartial">Type I + Type IV (wings/tail)</button>
-              <button class="btn ghost" id="tplPTCC">PTCC</button>
-            </div>
-            <div class="row" style="margin-top:8px">
-              <strong>Variables:</strong>
-              <label class="kbd">TAIL <input id="varTail" type="text" placeholder="November One Two Three Alpha Bravo" style="min-width:260px"></label>
-              <label class="kbd">FLUID_BRAND <input id="varBrand" type="text" placeholder="Cryotech Polar Guard X‑Tend" style="min-width:260px"></label>
-              <label class="kbd">LOCAL_TIME <input id="varTime" type="text" placeholder="13:48" style="min-width:120px"></label>
-              <button class="btn" id="applyVars">Apply to steps</button>
-            </div>
+          <div class="row">
+            <button class="btn" id="bulkPaste">Bulk Paste Script</button>
+            <button class="btn ghost" id="addStep">+ Add Step</button>
           </div>
 
-          <div class="grid2">
-            <div class="card">
-              <h2>Scenario details</h2>
-              <label>Scenario ID
-                <input id="bId" type="text" placeholder="e.g., scn2" />
-              </label>
-              <label>Label
-                <input id="bLabel" type="text" placeholder="e.g., Type I then Type IV turn" />
-              </label>
-              <label>Description
-                <textarea id="bDesc" placeholder="Short description for this training scenario"></textarea>
-              </label>
-              <div class="row">
-                <label class="kbd">Load existing
-                  <select id="bLoadExisting"><option value="">— select from Scenarios —</option></select>
-                </label>
-                <button class="btn ghost" id="bLoadBtn">Load into builder</button>
-              </div>
-              <div class="row">
-                <button class="btn" id="bAppend">Append / Save</button>
-                <button class="btn ghost" id="bReset">Reset builder</button>
-              </div>
-              <div id="bStatus" class="status">Idle</div>
-            </div>
+          <div id="steps"></div>
 
-            <div class="card">
-              <h2>Steps</h2>
-              <div class="note">Set <strong>Role</strong>, write the <strong>Prompt</strong>, then either choose a <code>phraseId</code> or enter custom <code>text</code>.</div>
-              <div id="bSteps"></div>
-              <div class="row" style="margin-top:8px">
-                <button class="btn" id="bAddStep">+ Add step</button>
-                <button class="btn ghost" id="bValidate">Validate references</button>
-              </div>
-            </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" id="saveScenario">Save Scenario</button>
+            <button class="btn ghost" id="resetScenario">Reset</button>
           </div>
+
+          <div id="builderStatus" class="status">Idle</div>
         </div>
       </section>
-
-      <!-- PUBLISH -->
-      <section id="tab-publish" class="tab hidden">
-        <div class="card">
-          <h1>Publish</h1>
-          <p class="note">Option A (no backend): download files and commit to GitHub.</p>
-          <div class="grid2">
-            <div class="card">
-              <h2>Bundle</h2>
-              <div class="row">
-                <button class="btn" id="downloadBundle">⬇ Download bundle (zip)</button>
-                <button class="btn ghost" id="copyGit">Copy git commands</button>
-              </div>
-              <pre id="gitHelp" class="note" style="white-space:pre-wrap"></pre>
-            </div>
-            <div class="card">
-              <h2>Checks</h2>
-              <div class="status" id="pubStatus">Idle</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
     </main>
   </div>
 
   <script>
-    /* ===== PASSCODE (plain-text compare) ===== */
     (function(){
       const PASSCODE = '369565';
-      const lock = document.getElementById('lock');
-      const code = document.getElementById('code');
-      const go = document.getElementById('go');
-      const msg = document.getElementById('msg');
-      const shell = document.getElementById('console');
-      const KEY = 'adminOK';
-      function unlock(){ lock.style.display='none'; shell.classList.remove('hidden'); shell.style.display='grid'; try{ sessionStorage.setItem(KEY,'1'); }catch(_){} initAdmin(); }
-      function tryUnlock(){ const v=(code.value||'').trim(); if(!v){ msg.textContent='Passcode required.'; return; } msg.textContent='Checking…'; if(v===PASSCODE){ unlock(); } else { msg.textContent='Incorrect passcode.'; } }
-      go.addEventListener('click', tryUnlock);
-      code.addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryUnlock(); });
-      window.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && lock.style.display!=='none') tryUnlock(); });
-      window.addEventListener('DOMContentLoaded', ()=>{ try{ if(sessionStorage.getItem(KEY)==='1'){ unlock(); return; } }catch(_){} try{ code.focus(); }catch(_){} });
+      const lock=document.getElementById('lock');
+      const code=document.getElementById('code');
+      const go=document.getElementById('go');
+      const msg=document.getElementById('msg');
+      const shell=document.getElementById('console');
+      const KEY='adminOK';
+      function unlock(){ lock.style.display='none'; shell.classList.remove('hidden'); shell.style.display='grid'; try{sessionStorage.setItem(KEY,'1');}catch(_){} }
+      function tryUnlock(){ const v=(code.value||'').trim(); if(v===PASSCODE){ unlock(); } else { msg.textContent='Incorrect passcode'; } }
+      go.onclick=tryUnlock; code.onkeydown=(e)=>{ if(e.key==='Enter') tryUnlock(); };
+      if(sessionStorage.getItem(KEY)==='1'){ unlock(); }
     })();
 
-    /* ===== Helpers ===== */
-    function abs(url){ try{ return new URL(url, location.origin).href; }catch(_){ return url; } }
-    async function getJSON(path){ const res=await fetch(abs(path),{cache:'no-store'}); if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); }
-    function download(name, text){ const blob=new Blob([text],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1200); }
-    function setStatus(el,msg,cls){ el.textContent=msg; el.className='status '+(cls||''); }
+    // Simple Builder Logic
+    const stepsDiv=document.getElementById('steps');
+    const status=document.getElementById('builderStatus');
+    let steps=[];
 
-    /* ===== Admin App ===== */
-    function initAdmin(){
-      const $ = (id)=>document.getElementById(id);
-
-      // --- Nav ---
-      const navLinks = document.querySelectorAll('.nav a[data-tab]');
-      function showTab(name){ document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden')); document.getElementById('tab-'+name).classList.remove('hidden'); navLinks.forEach(a=>a.setAttribute('aria-current', a.dataset.tab===name ? 'page':'false')); location.hash = name; }
-      navLinks.forEach(a=>a.addEventListener('click',(e)=>{ e.preventDefault(); showTab(a.dataset.tab); }));
-      showTab(location.hash?.replace('#','')||'dashboard');
-      $('logoutBtn').onclick = ()=>{ try{ sessionStorage.removeItem('adminOK'); }catch(_){} location.reload(); };
-
-      // --- Elements ---
-      const phrasesBox=$('phrasesBox'), scenariosBox=$('scenariosBox');
-      const phrasesStatus=$('phrasesStatus'), scenariosStatus=$('scenariosStatus');
-      const statusBox=$('statusBox'), counts=$('counts');
-
-      // --- JSON load/save ---
-      $('phrasesLoad').onclick = async()=>{ try{ setStatus(phrasesStatus,'Loading /phrases.json…'); const d=await getJSON('/phrases.json'); phrasesBox.value=JSON.stringify(d,null,2); setStatus(phrasesStatus,'Loaded ✓','ok'); updateCounts(); }catch(e){ setStatus(phrasesStatus,'Load failed: '+(e.message||e),'err'); }};
-      $('scenariosLoad').onclick = async()=>{ try{ setStatus(scenariosStatus,'Loading /scenarios.json…'); const d=await getJSON('/scenarios.json'); scenariosBox.value=JSON.stringify(d,null,2); setStatus(scenariosStatus,'Loaded ✓','ok'); updateCounts(); }catch(e){ setStatus(scenariosStatus,'Load failed: '+(e.message||e),'err'); }};
-      $('phrasesFile').onchange = async(e)=>{ const f=e.target.files[0]; if(!f) return; phrasesBox.value=await f.text(); setStatus(phrasesStatus,'Loaded from file ✓','ok'); updateCounts(); };
-      $('scenariosFile').onchange = async(e)=>{ const f=e.target.files[0]; if(!f) return; scenariosBox.value=await f.text(); setStatus(scenariosStatus,'Loaded from file ✓','ok'); updateCounts(); };
-      $('addPhrase').onclick = ()=>{ const arr = safeParseArray(phrasesBox.value, []); arr.push({id:'newId',label:'New Phrase',text:'Your phrase text…',fluid:''}); phrasesBox.value=JSON.stringify(arr,null,2); updateCounts(); };
-      $('phrasesDownload').onclick = ()=>{ const arr=safeParseArray(phrasesBox.value,null,phrasesStatus); if(!arr) return; download('phrases.json', JSON.stringify(arr,null,2)); };
-      $('addScenario').onclick = ()=>{ const arr = safeParseArray(scenariosBox.value, []); arr.push({id:'newScenario',label:'New Scenario',desc:'Description…',steps:[{prompt:'Step prompt…',role:'Iceman',text:'…'}]}); scenariosBox.value=JSON.stringify(arr,null,2); updateCounts(); };
-      $('scenariosDownload').onclick = ()=>{ const arr=safeParseArray(scenariosBox.value,null,scenariosStatus); if(!arr) return; download('scenarios.json', JSON.stringify(arr,null,2)); };
-
-      // --- Parse & validate ---
-      function safeParseArray(text, fallback, statusEl){ try{ const v=JSON.parse(text||'[]'); if(!Array.isArray(v)) throw new Error('Top-level must be an array'); return v; }catch(e){ if(statusEl) setStatus(statusEl,'Parse error: '+(e.message||e),'err'); return fallback; } }
-      function validateRefs(){ const phrases=safeParseArray(phrasesBox.value,[]); const scenarios=safeParseArray(scenariosBox.value,[]); const ids=new Set(phrases.map(p=>p.id)); const missing=[]; (scenarios||[]).forEach(sc=> (sc.steps||[]).forEach(st=>{ if(st.phraseId && !ids.has(st.phraseId)) missing.push(st.phraseId); })); return Array.from(new Set(missing)); }
-      function updateCounts(){ try{ const p=JSON.parse(phrasesBox.value||'[]'); const s=JSON.parse(scenariosBox.value||'[]'); counts.textContent = `${Array.isArray(p)?p.length:0} phrases • ${Array.isArray(s)?s.length:0} scenarios`; }catch{ counts.textContent='—'; } }
-
-      // --- Builder state ---
-      let builder = { id:'', label:'', desc:'', steps: [] };
-      const bId=$('bId'), bLabel=$('bLabel'), bDesc=$('bDesc'), bSteps=$('bSteps');
-      const bStatus=$('bStatus');
-      function collectVars(){ return { TAIL:($('varTail')?.value||'[TAIL]'), LOCAL_TIME:($('varTime')?.value||'[LOCAL_TIME]'), FLUID_BRAND:($('varBrand')?.value||'[FLUID_BRAND]') }; }
-      function applyVarsToText(t, v){ return String(t||'').replaceAll('[TAIL]', v.TAIL).replaceAll('[LOCAL_TIME]', v.LOCAL_TIME).replaceAll('[FLUID_BRAND]', v.FLUID_BRAND); }
-      function newStep(){ return { role:'Iceman', prompt:'', mode:'text', phraseId:'', text:'' }; }
-
-      function renderSteps(){
-        bSteps.innerHTML = '';
-        const phrases = safeParseArray(phrasesBox.value, []);
-        builder.steps.forEach((st, idx)=>{
-          const wrap = document.createElement('div');
-          wrap.className = 'card';
-          wrap.style.marginBottom = '8px';
-          wrap.innerHTML = `
-            <div class="row" style="justify-content:space-between">
-              <strong>Step ${idx+1}</strong>
-              <div class="row">
-                <button class="btn ghost" data-act="dup">Duplicate</button>
-                <button class="btn ghost" data-act="up">↑</button>
-                <button class="btn ghost" data-act="down">↓</button>
-                <button class="btn danger" data-act="del">Delete</button>
-              </div>
-            </div>
-            <div class="grid" style="gap:8px">
-              <label>Role
-                <select data-field="role">
-                  <option value="Captain" ${st.role==='Captain'?'selected':''}>Captain</option>
-                  <option value="Iceman" ${st.role==='Iceman'?'selected':''}>Iceman</option>
-                </select>
-              </label>
-              <label>Prompt<input data-field="prompt" type="text" placeholder="Context for this step (e.g., Captain initiation)" value="${(st.prompt||'').replace(/"/g,'&quot;')}"></label>
-              <div class="row">
-                <label class="kbd"><input type="radio" name="mode${idx}" value="phrase" ${st.mode==='phrase'?'checked':''}> phraseId</label>
-                <label class="kbd"><input type="radio" name="mode${idx}" value="text" ${st.mode==='text'?'checked':''}> custom text</label>
-              </div>
-              <div data-panel="phrase" ${st.mode==='phrase'?'':'style="display:none"'}>
-                <label>Phrase<select data-field="phraseId">
-                  <option value="">— select a phrase —</option>
-                  ${phrases.map(p=>`<option value="${p.id}" ${st.phraseId===p.id?'selected':''}>${p.id} — ${p.label||''}</option>`).join('')}
-                </select></label>
-              </div>
-              <div data-panel="text" ${st.mode==='text'?'':'style="display:none"'}>
-                <label>Custom text<textarea data-field="text" placeholder="Exact wording (supports [TAIL], [LOCAL_TIME], [FLUID_BRAND])">${st.text||''}</textarea></label>
-              </div>
-            </div>`;
-          wrap.querySelector('[data-field="role"]').addEventListener('change',(e)=>{ st.role=e.target.value; });
-          wrap.querySelectorAll('input[name="mode'+idx+'"]').forEach(r=>{ r.addEventListener('change',(e)=>{ st.mode=e.target.value; renderSteps(); }); });
-          wrap.querySelector('[data-field="prompt"]').addEventListener('input',(e)=>{ st.prompt=e.target.value; });
-          const sel=wrap.querySelector('[data-field="phraseId"]'); if(sel) sel.addEventListener('change',(e)=>{ st.phraseId=e.target.value; });
-          const txt=wrap.querySelector('[data-field="text"]'); if(txt) txt.addEventListener('input',(e)=>{ st.text=e.target.value; });
-          wrap.querySelector('[data-act\="dup\"]').onclick=()=>{ builder.steps.splice(idx,0,JSON.parse(JSON.stringify(st))); renderSteps(); };
-          wrap.querySelector('[data-act\="up\"]').onclick=()=>{ if(idx>0){ const t=builder.steps[idx-1]; builder.steps[idx-1]=builder.steps[idx]; builder.steps[idx]=t; renderSteps(); } };
-          wrap.querySelector('[data-act\="down\"]').onclick=()=>{ if(idx<builder.steps.length-1){ const t=builder.steps[idx+1]; builder.steps[idx+1]=builder.steps[idx]; builder.steps[idx]=t; renderSteps(); } };
-          wrap.querySelector('[data-act\="del\"]').onclick=()=>{ builder.steps.splice(idx,1); renderSteps(); };
-          bSteps.appendChild(wrap);
-        });
-      }
-
-      function resetBuilder(){ builder={ id:'', label:'', desc:'', steps: [] }; bId.value=''; bLabel.value=''; bDesc.value=''; renderSteps(); setStatus(bStatus,'Reset',''); }
-
-      function buildScenario(){
-        const sc = { id:(bId.value||'').trim(), label:(bLabel.value||'').trim(), desc:(bDesc.value||'').trim(), steps:[] };
-        if(!sc.id || !sc.label) throw new Error('Scenario ID and Label are required');
-        const vars = collectVars();
-        builder.steps.forEach(st=>{
-          if(!st.prompt) throw new Error('Every step needs a prompt');
-          const out = { prompt: st.prompt, role: st.role };
-          if(st.mode==='phrase'){
-            if(!st.phraseId) throw new Error('Select a phrase for a phraseId step');
-            out.phraseId = st.phraseId;
-          } else {
-            const txt = (st.text||'').trim();
-            if(!txt) throw new Error('Enter custom text for a text step');
-            out.text = applyVarsToText(txt, vars);
-          }
-          sc.steps.push(out);
-        });
-        return sc;
-      }
-
-      function populateExisting(){
-        const sel = $('bLoadExisting');
-        const arr = safeParseArray(scenariosBox.value, []);
-        const cur = sel.value;
-        sel.innerHTML = '<option value="">— select from Scenarios —</option>' + arr.map(s=>`<option value="${s.id}">${s.id} — ${s.label||''}</option>`).join('');
-        if(arr.some(s=>s.id===cur)) sel.value = cur;
-      }
-
-      // Builder actions
-      $('bAddStep').onclick = ()=>{ builder.steps.push(newStep()); renderSteps(); };
-      $('bReset').onclick = resetBuilder;
-      $('bValidate').onclick = ()=>{ const miss=validateRefs(); setStatus(bStatus, miss.length? ('Missing phraseId: '+miss.join(', ')) : 'All references valid ✓', miss.length? 'err':'ok'); };
-      $('applyVars').onclick = ()=>{ const v=collectVars(); builder.steps.forEach(s=>{ if(s.mode==='text' && s.text){ s.text = applyVarsToText(s.text, v); } }); renderSteps(); setStatus(bStatus,'Variables applied','ok'); };
-      $('bLoadBtn').onclick = ()=>{
-        const id = $('bLoadExisting').value;
-        if(!id){ setStatus(bStatus,'Select a scenario to load','err'); return; }
-        const arr = safeParseArray(scenariosBox.value, []);
-        const sc = arr.find(x=>x.id===id);
-        if(!sc){ setStatus(bStatus,'Scenario not found','err'); return; }
-        bId.value = sc.id; bLabel.value = sc.label||''; bDesc.value = sc.desc||'';
-        builder.steps = (sc.steps||[]).map(s=>({ role:s.role||'Iceman', prompt:s.prompt||'', mode: s.phraseId? 'phrase':'text', phraseId:s.phraseId||'', text:s.text||'' }));
-        renderSteps(); setStatus(bStatus,`Loaded ${id}`,'ok');
-      };
-      $('bAppend').onclick = ()=>{
-        try{
-          const sc=buildScenario();
-          const arr=safeParseArray(scenariosBox.value,[]);
-          const idx = arr.findIndex(x=>x.id===sc.id);
-          if(idx>=0){ arr[idx]=sc; setStatus(bStatus,'Scenario updated ✓','ok'); }
-          else { arr.push(sc); setStatus(bStatus,'Scenario appended ✓','ok'); }
-          scenariosBox.value=JSON.stringify(arr,null,2);
-          updateCounts(); populateExisting();
-        } catch(e){ setStatus(bStatus, e.message||String(e), 'err'); }
-      };
-
-      // Dashboard
-      $('loadAll').onclick = async()=>{
-        try{ const [p,s] = await Promise.all([getJSON('/phrases.json').catch(()=>[]), getJSON('/scenarios.json').catch(()=>[])]);
-          if(p?.length) { phrasesBox.value=JSON.stringify(p,null,2); setStatus(phrasesStatus,'Loaded ✓','ok'); }
-          if(s?.length) { scenariosBox.value=JSON.stringify(s,null,2); setStatus(scenariosStatus,'Loaded ✓','ok'); }
-          updateCounts(); populateExisting(); statusBox.textContent='Loaded current site JSON.';
-        }catch(e){ statusBox.textContent='Load error: '+(e.message||e); }
-      };
-      $('validateAll').onclick = ()=>{ const miss=validateRefs(); statusBox.innerHTML = miss.length? `Missing phraseId references: <span class="err">${miss.join(', ')}</span>` : '<span class="ok">All references valid ✓</span>'; };
-      $('prettyAll').onclick = ()=>{ try{ const p=JSON.parse(phrasesBox.value||'[]'); phrasesBox.value=JSON.stringify(p,null,2);}catch{}; try{ const s=JSON.parse(scenariosBox.value||'[]'); scenariosBox.value=JSON.stringify(s,null,2);}catch{}; statusBox.textContent='Prettified.'; populateExisting(); };
-
-      // Init
-      populateExisting();
-      updateCounts();
+    function render(){
+      stepsDiv.innerHTML='';
+      steps.forEach((st,idx)=>{
+        const div=document.createElement('div');
+        div.className='stepCard';
+        div.innerHTML=`
+          <div class="row" style="justify-content:space-between">
+            <strong>Step ${idx+1}</strong>
+            <button data-del="${idx}" class="btn danger">Delete</button>
+          </div>
+          <div class="row">
+            <select data-role="${idx}">
+              <option ${st.role==='Captain'?'selected':''}>Captain</option>
+              <option ${st.role==='Iceman'?'selected':''}>Iceman</option>
+            </select>
+            <input type="text" data-prompt="${idx}" placeholder="Prompt/context" value="${st.prompt}" />
+          </div>
+          <textarea data-text="${idx}" placeholder="Line text">${st.text}</textarea>`;
+        stepsDiv.appendChild(div);
+      });
+      document.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=()=>{ steps.splice(btn.dataset.del,1); render(); });
+      document.querySelectorAll('[data-role]').forEach(sel=>sel.onchange=(e)=>{ steps[e.target.dataset.role].role=e.target.value; });
+      document.querySelectorAll('[data-prompt]').forEach(inp=>inp.oninput=(e)=>{ steps[e.target.dataset.prompt].prompt=e.target.value; });
+      document.querySelectorAll('[data-text]').forEach(txt=>txt.oninput=(e)=>{ steps[e.target.dataset.text].text=e.target.value; });
     }
 
-    // ZIP (store only)
-    async function buildZip(entries){
-      function makeCRCTable(){ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1); t[n]=c>>>0; } return t; }
-      const table=makeCRCTable();
-      function crc32(buf){ let c=-1; for(let i=0;i<buf.length;i++) c=(c>>>8)^table[(c^buf[i])&0xff]; return (c^(-1))>>>0; }
-      const enc=new TextEncoder(); const chunks=[]; const central=[]; let offset=0;
-      for(const [name,text] of entries){
-        const data=enc.encode(text); const nameBytes=enc.encode(name); const crc=crc32(data); const size=data.length; const modTime=0,modDate=0;
-        const local=new Uint8Array(30+nameBytes.length+size); let p=0;
-        const w16=(buf,v)=>{buf[p++]=v&255;buf[p++]=(v>>>8)&255;}; const w32=(buf,v)=>{w16(buf,v&0xffff);w16(buf,(v>>>16)&0xffff);};
-        w32(local,0x04034b50); w16(local,20); w16(local,0); w16(local,0); w16(local,modTime); w16(local,modDate);
-        w32(local,crc); w32(local,size); w32(local,size); w16(local,nameBytes.length); w16(local,0);
-        local.set(nameBytes,p); p+=nameBytes.length; local.set(data,p); chunks.push(local);
-        const cen=new Uint8Array(46+nameBytes.length); p=0;
-        const w16c=(buf,v)=>{buf[p++]=v&255;buf[p++]=(v>>>8)&255;}; const w32c=(buf,v)=>{w16c(buf,v&0xffff);w16c(buf,(v>>>16)&0xffff);};
-        w32c(cen,0x02014b50); w16c(cen,20); w16c(cen,20); w16c(cen,0); w16c(cen,0); w16c(cen,modTime); w16c(cen,modDate);
-        w32c(cen,crc); w32c(cen,size); w32c(cen,size); w16c(cen,nameBytes.length); w16c(cen,0); w16c(cen,0); w16c(cen,0); w16c(cen,0); w32c(cen,0); w32c(cen,offset);
-        cen.set(nameBytes,46); central.push(cen); offset+=local.length;
-      }
-      const centralSize=central.reduce((a,b)=>a+b.length,0); const centralOffset=chunks.reduce((a,b)=>a+b.length,0); const end=new Uint8Array(22); let q=0;
-      const w16e=(v)=>{end[q++]=v&255;end[q++]=(v>>>8)&255;}; const w32e=(v)=>{w16e(v&0xffff);w16e((v>>>16)&0xffff);};
-      w32e(0x06054b50); w16e(0); w16e(0); w16e(entries.length); w16e(entries.length); w32e(centralSize); w32e(centralOffset); w16e(0);
-      return new Blob([...chunks,...central,end]).arrayBuffer();
-    }
+    document.getElementById('addStep').onclick=()=>{ steps.push({role:'Iceman',prompt:'',text:''}); render(); };
+    document.getElementById('resetScenario').onclick=()=>{ steps=[]; render(); status.textContent='Reset'; };
+    document.getElementById('saveScenario').onclick=()=>{
+      if(!steps.length){ status.textContent='No steps'; return; }
+      const scenario={id:'newScenario',label:'New Scenario',steps};
+      const blob=new Blob([JSON.stringify([scenario],null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download='scenarios.json';a.click();
+      status.textContent='Downloaded scenarios.json';
+    };
+
+    document.getElementById('bulkPaste').onclick=()=>{
+      const text=prompt('Paste Captain/Iceman script lines:');
+      if(!text) return;
+      steps=[];
+      text.split(/\n/).forEach(line=>{
+        const m=line.match(/^(Captain|Iceman):\s*(.+)$/i);
+        if(m) steps.push({role:m[1],prompt:'',text:m[2]});
+      });
+      render();
+      status.textContent='Bulk script imported';
+    };
+
+    render();
   </script>
 </body>
 </html>
