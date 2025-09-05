@@ -41,6 +41,7 @@
         <button id="reloadScenarios" class="btn ghost" type="button">Reload</button>
       </div>
       <div id="desc" class="status" style="margin-top:6px">Select a scenario to begin.</div>
+      <div class="status" style="margin-top:6px">If loading fails, open <a href="/scenarios.json" target="_blank" rel="noopener">/scenarios.json</a> or <a href="./scenarios.json" target="_blank" rel="noopener">./scenarios.json</a>.</div>
     </div>
 
     <div class="card">
@@ -57,6 +58,9 @@
     <div class="foot">V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS</div>
   </div>
 
+  <!-- On‑screen error panel -->
+  <div id="errorBox" class="status" style="color:#ffb4b4;margin:12px 16px 24px"></div>
+
   <!-- Employee ID Modal -->
   <div id="empIdModal" class="dim">
     <div class="modal">
@@ -72,186 +76,176 @@
   </div>
 
 <script>
-// ===== Config =====
-// If you must send a token from client, put it here for local testing only and REMOVE before public deploy.
-const WRITE_TOKEN = wR1te_Train3r_XyZ_90210;
+(function(){
+  // ===== util =====
+  const $ = (id)=>document.getElementById(id);
+  const setText = (el, txt)=>{ if(el) el.textContent = txt; };
+  const showErr = (msg, e)=>{ console.error(msg, e||''); setText($('errorBox'), msg); };
 
-// ===== Employee ID =====
-const EMP_ID_KEY = 'trainer.employeeId';
-function getEmployeeId(){ return sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || ''; }
-function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch(_){} }
+  // ===== constants =====
+  // Option A: we use a client token. You provided this value.
+  const WRITE_TOKEN = 'wR1te_Train3r_XyZ_90210';
 
-(function employeeGate(){
-  const modal = document.getElementById('empIdModal');
-  const input = document.getElementById('empIdInput');
-  const save  = document.getElementById('empIdSave');
-  const cancel= document.getElementById('empIdCancel');
-  const msg   = document.getElementById('empIdMsg');
-  const badge = document.getElementById('empIdBadge');
+  // ===== state =====
+  const scenarios = [];
+  let current = null, startTs = 0, stepIndex = 0;
 
-  function open(){ modal.classList.remove('hidden'); setTimeout(()=>input.focus(), 40); }
-  function close(){ modal.classList.add('hidden'); }
+  // ===== employee id gate =====
+  const EMP_ID_KEY = 'trainer.employeeId';
+  const getEmployeeId = ()=> sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || '';
+  const setEmployeeId = (id)=>{ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch{} };
 
-  const existing = getEmployeeId();
-  if(!existing){ open(); } else { badge.textContent = 'ID: ' + existing; modal.classList.add('hidden'); }
+  function initEmployeeGate(){
+    const modal = $('empIdModal'), input = $('empIdInput'), save=$('empIdSave'), cancel=$('empIdCancel'), msg=$('empIdMsg'), badge=$('empIdBadge');
+    if(!modal || !input || !save || !cancel || !badge){ showErr('Employee ID modal elements missing.'); return; }
+    function open(){ modal.classList.remove('hidden'); setTimeout(()=>input.focus(), 40); }
+    function close(){ modal.classList.add('hidden'); }
 
-  save.onclick = ()=>{
-    const v=(input.value||'').trim();
-    if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ msg.textContent='Enter a valid ID (min 3 chars).'; return; }
-    setEmployeeId(v); badge.textContent='ID: '+v; msg.textContent=''; close();
-  };
-  cancel.onclick = ()=>{ msg.textContent='Employee ID is required to proceed.'; };
-})();
+    const existing = getEmployeeId();
+    if(!existing){ open(); } else { setText(badge, 'ID: '+existing); close(); }
 
-// ===== Load scenarios.json (robust) =====
-const scenarios = [];
+    save.onclick = ()=>{
+      const v=(input.value||'').trim();
+      if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ setText(msg, 'Enter a valid ID (min 3 chars).'); return; }
+      setEmployeeId(v); setText(badge, 'ID: '+v); setText(msg,''); close();
+    };
+    // keep Cancel blocked to enforce ID
+    cancel.onclick = ()=>{ setText(msg,'Employee ID is required to proceed.'); };
+  }
 
-async function loadScenarios(){
-  const sel  = document.getElementById('scenarioSelect');
-  const desc = document.getElementById('desc');
-  const statusEl = document.getElementById('status');
-  sel.innerHTML = '<option value="">— loading —</option>';
-  desc.textContent = 'Loading scenarios…';
+  // ===== scenarios loader (robust) =====
+  async function loadScenarios(){
+    const sel  = $('scenarioSelect');
+    const desc = $('desc');
+    const statusEl = $('status');
+    if(!sel || !desc){ showErr('Scenario selector elements missing.'); return; }
 
-  // Try common paths with cache-busting
-  const ts = Date.now();
-  const candidates = [
-    `/scenarios.json?v=${ts}`,
-    `./scenarios.json?v=${ts}`,
-    `/data/scenarios.json?v=${ts}`
-  ];
+    sel.innerHTML = '<option value="">— loading —</option>';
+    setText(desc,'Loading scenarios…');
 
-  let lastErr = null, data = null, used = '';
+    const ts = Date.now();
+    const candidates = [`/scenarios.json?v=${ts}`, `./scenarios.json?v=${ts}`, `/data/scenarios.json?v=${ts}`];
 
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-      const text = await res.text();
-
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error(`Invalid JSON at ${url}: ${e.message}`);
-      }
-
-      if (!Array.isArray(data)) {
-        throw new Error(`Expected an array at ${url}`);
-      }
-
-      used = url;
-      break; // success
-    } catch (e) {
-      lastErr = e;
-      // keep trying next candidate
+    let data=null, used='', lastErr=null;
+    for(const url of candidates){
+      try{
+        const res = await fetch(url, { cache:'no-store' });
+        if(!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+        const text = await res.text();
+        try{ data = JSON.parse(text); } catch(e){ throw new Error(`Invalid JSON at ${url}: ${e.message}`); }
+        if(!Array.isArray(data)) throw new Error(`Expected an array at ${url}`);
+        used = url; break;
+      }catch(e){ lastErr=e; }
     }
+
+    if(!data){
+      const msg = `Failed to load scenarios. ${lastErr ? lastErr.message : ''}`;
+      sel.innerHTML = '<option value="">(load failed)</option>';
+      setText(desc, msg); setText(statusEl, msg); showErr(msg, lastErr);
+      return;
+    }
+
+    scenarios.splice(0, scenarios.length, ...data);
+    sel.innerHTML = '<option value="">— select —</option>' + data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
+    desc.innerHTML = `Loaded ${data.length} scenario(s) from <code>${used.replace(/\\?v=.*/, '')}</code>`;
+    setText(statusEl, 'Scenarios loaded ✓');
   }
 
-  if (!data) {
-    const msg = `Failed to load scenarios. ${lastErr ? lastErr.message : ''}`;
-    sel.innerHTML = '<option value="">(load failed)</option>';
-    desc.textContent = msg;
-    statusEl.textContent = msg;
-    console.error('scenarios load error:', lastErr);
-    return;
+  // ===== render =====
+  function renderSteps(){
+    const box = $('stepsBox');
+    if(!box){ showErr('Steps box missing.'); return; }
+    if(!current){ box.textContent='—'; return; }
+    const items = (current.steps||[]).map((s,i)=>{
+      const active = i===stepIndex;
+      return `<div style="padding:8px;border:1px solid ${active?'#1f6feb':'#1e2230'};border-radius:10px;margin:6px 0;background:${active?'#0f1424':'#141822'}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>Step ${i+1} • ${s.role||''}</strong>
+          <span class="status">${s.prompt||''}</span>
+        </div>
+        <div style="margin-top:6px">${(s.text||s.phraseId||'').toString().replace(/</g,'&lt;')}</div>
+      </div>`;
+    }).join('');
+    box.innerHTML = items || '<div class="status">No steps</div>';
   }
 
-  // Populate dropdown
-  scenarios.splice(0, scenarios.length, ...data);
-  sel.innerHTML = '<option value="">— select —</option>' +
-    data.map(s => `<option value="${s.id}">${(s.label || s.id)}</option>`).join('');
+  // ===== cloud logging =====
+  async function logTrainingCloud({ empId, scenarioId, scenarioLabel, outcome='completed', score='', durationSec='' }){
+    try{
+      const headers = { 'Content-Type': 'application/json', 'x-write-token': WRITE_TOKEN };
+      const resp = await fetch('/api/logs-write', {
+        method: 'POST', headers,
+        body: JSON.stringify({ emp_id: empId, scenario_id: scenarioId, scenario_label: scenarioLabel, outcome, score, duration_sec: durationSec })
+      });
+      if(!resp.ok){
+        const t = await resp.text().catch(()=> '');
+        console.warn('cloud log failed', resp.status, t);
+        return false;
+      }
+      return true;
+    }catch(e){ console.error('cloud log error', e); return false; }
+  }
 
-  desc.innerHTML = `Loaded ${data.length} scenario(s) from <code>${used.replace(/\\?v=.*/,'')}</code>`;
-  statusEl.textContent = 'Scenarios loaded ✓';
-}
+  // ===== wire controls after DOM ready =====
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{
+      initEmployeeGate();
 
-// ===== UI state =====
-let current = null; let startTs = 0; let stepIndex = 0;
-function renderSteps(){
-  const box = document.getElementById('stepsBox');
-  if(!current){ box.textContent='—'; return; }
-  const steps = current.steps || [];
-  const items = steps.map((s,i)=>{
-    const isActive = i===stepIndex;
-    return `<div style="padding:8px;border:1px solid ${isActive?'#1f6feb':'#1e2230'};border-radius:10px;margin:6px 0;background:${isActive?'#0f1424':'#141822'}">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>Step ${i+1} • ${s.role||''}</strong>
-        <span class="status">${s.prompt||''}</span>
-      </div>
-      <div style="margin-top:6px">${(s.text||s.phraseId||'').toString().replace(/</g,'&lt;')}</div>
-    </div>`;
-  }).join('');
-  box.innerHTML = items || '<div class="status">No steps</div>';
-}
+      const sel = $('scenarioSelect');
+      const desc= $('desc');
+      const startBtn = $('startBtn');
+      const nextBtn  = $('nextBtn');
+      const finishBtn= $('finishBtn');
+      const statusEl = $('status');
 
-// ===== Controls =====
-const startBtn = document.getElementById('startBtn');
-const nextBtn  = document.getElementById('nextBtn');
-const finishBtn= document.getElementById('finishBtn');
-const statusEl = document.getElementById('status');
+      if(!sel||!startBtn||!nextBtn||!finishBtn){ showErr('One or more required buttons/selector are missing.'); return; }
 
-document.getElementById('reloadScenarios').onclick = loadScenarios;
-document.getElementById('scenarioSelect').onchange = (e)=>{
-  const id = e.target.value; current = scenarios.find(s=>s.id===id) || null;
-  const d = document.getElementById('desc');
-  if(current){ d.textContent = current.desc || ''; }
-  stepIndex = 0; renderSteps();
-  startBtn.disabled = !current; nextBtn.disabled = true; finishBtn.disabled = true; statusEl.textContent='Idle';
-};
+      $('reloadScenarios')?.addEventListener('click', loadScenarios);
 
-startBtn.onclick = ()=>{
-  if(!current){ statusEl.textContent='Select a scenario first'; return; }
-  startTs = Date.now(); stepIndex = 0; renderSteps();
-  nextBtn.disabled = false; finishBtn.disabled = false; statusEl.textContent='In progress…';
-};
+      sel.onchange = (e)=>{
+        const id = e.target.value;
+        current = scenarios.find(s=>s.id===id) || null;
+        setText(desc, current ? (current.desc||'') : 'Select a scenario to begin.');
+        stepIndex = 0; renderSteps();
+        startBtn.disabled = !current; nextBtn.disabled = true; finishBtn.disabled = true; setText(statusEl,'Idle');
+      };
 
-nextBtn.onclick = ()=>{
-  if(!current) return; const total=(current.steps||[]).length; if(total===0) return;
-  stepIndex = Math.min(stepIndex+1, total-1); renderSteps();
-};
+      startBtn.onclick = ()=>{
+        if(!current){ setText(statusEl,'Select a scenario first'); return; }
+        startTs = Date.now(); stepIndex = 0; renderSteps();
+        nextBtn.disabled = false; finishBtn.disabled = false; setText(statusEl,'In progress…');
+      };
 
-finishBtn.onclick = async ()=>{
-  if(!current) return;
-  const duration = Math.round((Date.now()-startTs)/1000) || '';
-  const ok = await logTrainingCloud({
-    empId: getEmployeeId(),
-    scenarioId: current.id || '',
-    scenarioLabel: current.label || '',
-    outcome: 'completed',
-    score: '',
-    durationSec: duration
+      nextBtn.onclick = ()=>{
+        if(!current) return;
+        const total=(current.steps||[]).length;
+        if(total===0) return;
+        stepIndex = Math.min(stepIndex+1, total-1); renderSteps();
+      };
+
+      finishBtn.onclick = async ()=>{
+        if(!current) return;
+        const duration = Math.round((Date.now()-startTs)/1000) || '';
+        const ok = await logTrainingCloud({
+          empId: getEmployeeId(),
+          scenarioId: current.id || '',
+          scenarioLabel: current.label || '',
+          outcome: 'completed',
+          score: '',
+          durationSec: duration
+        });
+        setText(statusEl, ok ? 'Logged to cloud ✓' : 'Completed (cloud log failed)');
+        nextBtn.disabled = true; finishBtn.disabled = true;
+      };
+
+      // kick off
+      loadScenarios().catch(e=>showErr('Unexpected load error', e));
+      renderSteps();
+    }catch(e){
+      showErr('Fatal script error: '+ (e?.message||e), e);
+    }
   });
-  statusEl.textContent = ok ? 'Logged to cloud ✓' : 'Completed (cloud log failed, see console)';
-  nextBtn.disabled = true; finishBtn.disabled = true;
-};
-
-// ===== Cloud logging =====
-async function logTrainingCloud({ empId, scenarioId, scenarioLabel, outcome='completed', score='', durationSec='' }){
-  try{
-    const resp = await fetch('/api/logs-write', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // If your server requires WRITE_TOKEN header, replace below before public deploy
-        ...(WRITE_TOKEN && WRITE_TOKEN!== wR1te_Train3r_XyZ_90210 ? { 'x-write-token': WRITE_TOKEN } : {})
-      },
-      body: JSON.stringify({
-        emp_id: empId,
-        scenario_id: scenarioId,
-        scenario_label: scenarioLabel,
-        outcome,
-        score,
-        duration_sec: durationSec
-      })
-    });
-    if(!resp.ok){ console.warn('cloud log failed', resp.status); return false; }
-    const data = await resp.json(); console.log('cloud log ok', data); return true;
-  }catch(e){ console.error('cloud log error', e); return false; }
-}
-
-// ===== Init =====
-loadScenarios();
-renderSteps();
+})();
 </script>
 </body>
 </html>
