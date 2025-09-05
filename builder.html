@@ -206,6 +206,16 @@ function init(){
   const stepsBox=$('steps'), phrasesBox=$('phrasesBox'), scenariosBox=$('scenariosBox');
   const scId=$('scId'), scLabel=$('scLabel'), scDesc=$('scDesc'), existing=$('existing');
   const counts=$('counts');
+  // Random LOCAL_TIME button (HH:MM 24-hour)
+const randBtn = $('randTime');
+if (randBtn) {
+  randBtn.onclick = () => {
+    const mins = Math.floor(Math.random() * 1440); // 0..1439
+    const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+    const mm = String(mins % 60).padStart(2, '0');
+    $('varTime').value = `${hh}:${mm}`;
+  };
+}
 
   function updateCounts(){
     try{
