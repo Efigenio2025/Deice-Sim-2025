@@ -3,424 +3,209 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>De‑Ice Verbiage Trainer</title>
+  <title>De‑Ice Trainer</title>
   <style>
-    :root { --bg:#0b0c10; --card:#101218; --muted:#a3a3a3; --ok:#2ea043; --warn:#e5534b; --ink:#eaeaea; }
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--danger:#e5534b}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-    .wrap{max-width:980px;margin:0 auto;padding:20px}
-    .card{background:var(--card);border:1px solid #1e2230;border-radius:16px;padding:16px}
-    h1{font-size:1.3rem;margin:0 0 8px}
-    h2{font-size:1.05rem;margin:16px 0 8px}
-    label{display:block;font-weight:600;margin:10px 0 6px}
-    select,input[type="text"],textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2b3147;background:#0f1220;color:#eee}
-    .row{display:grid;grid-template-columns:1fr;gap:12px}
-    @media (min-width:820px){.row{grid-template-columns:1fr 1fr}}
-    .target{padding:12px;border-radius:10px;background:#0c0f1d;border:1px dashed #2b3147;color:#cfe1ff}
-    .controls{display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
-    button{appearance:none;border:0;background:#1f6feb;color:#fff;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
-    button[disabled]{opacity:.5;cursor:not-allowed}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:700;border-radius:10px;padding:9px 12px;cursor:pointer}
     .ghost{background:#2b3147}
-    .status{font-size:.95rem;color:var(--muted)}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:700;font-size:.9rem}
-    .pass{background:color-mix(in oklab,var(--ok) 25%,#000 75%);color:#d9ffe2;border:1px solid color-mix(in oklab,var(--ok),#000 70%)}
-    .fail{background:color-mix(in oklab,var(--warn) 25%,#000 75%);color:#ffe2e0;border:1px solid color-mix(in oklab,var(--warn),#000 70%)}
-    .meter{height:10px;background:#131831;border-radius:999px;overflow:hidden;border:1px solid #2b3147}
-    .meter>span{display:block;height:100%;background:linear-gradient(90deg,#1f6feb,#2ea043);width:0}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
-    details{margin-top:8px}
-    .note{color:var(--muted);font-size:.95rem}
-    footer{margin-top:18px;color:#95a0b6;font-size:.85rem}
-    .infoBox{margin-top:12px;padding:10px;border-radius:8px;background:#0f1220;border:1px solid #2b3147;color:#cfe1ff;font-size:.9rem}
-    .tabs{display:flex;gap:6px;margin-bottom:12px}
-    .tab{background:#14192b;border:1px solid #222a46;border-radius:10px;padding:8px 12px;color:#baccff;cursor:pointer}
-    .tab[aria-selected="true"]{background:#1b2445;color:#fff;border-color:#2a3875}
-    .hide{display:none}
-    .step{padding:10px;border-radius:10px;background:#0f1220;border:1px solid #2b3147}
-    .progress{display:flex;align-items:center;gap:8px}
-    .muted{color:#9aa7be}
+    .danger{background:var(--danger)}
+    .status{font-size:.92rem;color:var(--muted)}
+    .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
+    textarea,input,select{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
+    textarea{min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+    .hidden{display:none !important}
+    .dim{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999}
+    .modal{background:#101218;border:1px solid #1e2230;border-radius:14px;padding:16px;max-width:380px;width:92%}
+    a, a:visited{color:#cfe1ff}
+    .foot{margin-top:10px;color:#96a3bf;font-size:.85rem}
   </style>
 </head>
 <body>
   <div class="wrap">
+    <div class="row" style="justify-content:space-between">
+      <a href="index.html" class="btn ghost">← Home</a>
+      <span class="pill" id="empIdBadge">ID: —</span>
+    </div>
+
     <div class="card">
-      <h1>De‑Ice Verbiage Trainer</h1>
-      <p class="note">Practice phrases or run scenarios. Mic works in Safari iOS over HTTPS (not as a PWA). Settings load from <code>settings.json</code> when present.</p>
-
-      <div class="tabs" role="tablist">
-        <button id="tabPractice" role="tab" class="tab" aria-selected="true">Practice</button>
-        <button id="tabScenarios" role="tab" class="tab" aria-selected="false">Scenarios</button>
+      <h1>Trainer</h1>
+      <div class="row">
+        <label style="flex:1 1 260px">Select scenario
+          <select id="scenarioSelect"><option value="">— loading —</option></select>
+        </label>
+        <button id="reloadScenarios" class="btn ghost" type="button">Reload</button>
       </div>
+      <div id="desc" class="status" style="margin-top:6px">Select a scenario to begin.</div>
+    </div>
 
-      <!-- PRACTICE MODE -->
-      <section id="practiceSection">
-        <label for="phrase">Target phrase</label>
-        <select id="phrase"></select>
-        <div id="target" class="target mono"></div>
-        <div id="fluidInfo" class="infoBox" style="display:none"></div>
-        <div id="alert" class="infoBox" style="display:none;border-color:#5c2b2f;background:#1d0f11;color:#ffd9dd">Could not load <code>phrases.json</code>. Using built‑in defaults. Ensure it sits next to <code>index.html</code> and that <code>/phrases.json</code> opens directly.</div>
+    <div class="card">
+      <h2>Steps</h2>
+      <div id="stepsBox" class="status">—</div>
+      <div class="row" style="margin-top:10px">
+        <button id="startBtn" class="btn" type="button">Start</button>
+        <button id="nextBtn" class="btn ghost" type="button" disabled>Next</button>
+        <button id="finishBtn" class="btn danger" type="button" disabled>Mark Complete</button>
+      </div>
+      <div id="status" class="status">Idle</div>
+    </div>
 
-        <div class="controls">
-          <button id="micBtn">🎤 Start speaking</button>
-          <button id="stopBtn" class="ghost" disabled>■ Stop</button>
-          <span id="status" class="status">Idle</span>
-        </div>
+    <div class="foot">V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS</div>
+  </div>
 
-        <div class="row" style="margin-top:14px">
-          <div>
-            <h2>Your speech (transcript)</h2>
-            <div id="you" class="target mono" style="min-height:64px"></div>
-          </div>
-          <div>
-            <h2>Score</h2>
-            <div class="meter" aria-label="match %"><span id="bar"></span></div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
-              <div id="scorePill" class="pill fail">0%</div>
-              <div id="verdict" class="status">Needs correction</div>
-            </div>
-            <details>
-              <summary>Settings</summary>
-              <label for="th">Pass threshold: <span id="thLabel">90%</span></label>
-              <input id="th" type="range" min="50" max="98" value="90" />
-              <p class="note">Numbers written as words (e.g., “Type one”, “Type four”) improve matching.</p>
-            </details>
-          </div>
-        </div>
-
-        <details>
-          <summary>Can’t use the mic? Type instead</summary>
-          <label for="typed">Type what you would say</label>
-          <textarea id="typed" rows="3" placeholder="Type here…"></textarea>
-          <div class="controls"><button id="checkBtn">Check typed text</button></div>
-        </details>
-      </section>
-
-      <!-- SCENARIOS MODE -->
-      <section id="scenariosSection" class="hide">
-        <label for="scenario">Scenario</label>
-        <select id="scenario"></select>
-        <div id="scenarioInfo" class="note" style="margin-top:6px"></div>
-
-        <div style="margin-top:12px">
-          <div class="progress">
-            <div class="meter" style="flex:1" aria-label="scenario progress"><span id="scnBar"></span></div>
-            <span id="scnStepLabel" class="muted">0/0</span>
-            <span id="scnScorePill" class="pill fail">0%</span>
-          </div>
-        </div>
-
-        <h2 style="margin-top:14px">Step</h2>
-        <div class="step">
-          <div class="note" id="stepPrompt">—</div>
-          <div id="scnTarget" class="target mono" style="margin-top:8px"></div>
-        </div>
-
-        <div class="controls" style="margin-top:10px">
-          <button id="scnStart">▶ Start scenario</button>
-          <button id="scnNext" class="ghost" disabled>Next step ➔</button>
-          <button id="scnRetry" class="ghost" disabled>Try again</button>
-        </div>
-
-        <!-- Scenario TTS controls -->
-        <div class="controls" style="margin-top:6px">
-          <label class="note" style="display:flex;align-items:center;gap:8px">
-            <input id="scnTtsToggle" type="checkbox" /> Read step aloud & auto‑listen
-          </label>
-          <button id="scnSpeakBtn" class="ghost">🔈 Play prompt</button>
-          <span id="scnTtsStatus" class="status">TTS idle</span>
-        </div>
-
-        <!-- Scenario-specific mic + transcript -->
-        <div class="controls" style="margin-top:10px">
-          <button id="scnMicBtn">🎤 Start speaking (scenario)</button>
-          <button id="scnStopBtn" class="ghost" disabled>■ Stop</button>
-          <span id="scnStatus" class="status">Idle</span>
-        </div>
-        <div style="margin-top:10px">
-          <h2>Your speech (scenario)</h2>
-          <div id="scnYou" class="target mono" style="min-height:64px"></div>
-        </div>
-
-        <div class="infoBox note" id="scnNote" style="display:none; margin-top:10px"></div>
-
-        <div class="controls" style="margin-top:6px">
-          <span class="status">Each step must meet the threshold to continue.</span>
-        </div>
-      </section>
-
-      
-
-      <footer>
-        <strong>Note:</strong> Training content only. Confirm exact airline/OAA/EGOM verbiage before production use. 
-        <span class="note"> • </span><a href="diagnostics.html" class="note" style="color:#b7c7ff;text-decoration:none">Diagnostics</a>
-      </footer>
+  <!-- Employee ID Modal -->
+  <div id="empIdModal" class="dim">
+    <div class="modal">
+      <h2 style="margin:0 0 8px">Enter Employee ID</h2>
+      <p style="margin:0 0 10px;color:#96a3bf;font-size:.95rem">Required to log completed trainings.</p>
+      <input id="empIdInput" placeholder="e.g., 123456" />
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button id="empIdCancel" class="btn ghost" type="button">Cancel</button>
+        <button id="empIdSave" class="btn" type="button">Continue</button>
+      </div>
+      <div id="empIdMsg" style="margin-top:6px;color:#ffb4b4;font-size:.9rem;min-height:1.1em"></div>
     </div>
   </div>
 
-  <script>
-    // ===== State =====
-    let PHRASES = [];
-    let SCENARIOS = [];
-    let SETTINGS = { passThreshold: 90, ttsVoiceName: null, ttsRate: 0.95, scenarioAutoTTS: false, autoStartMic: false };
+<script>
+// ===== Config =====
+// If you must send a token from client, put it here for local testing only and REMOVE before public deploy.
+const WRITE_TOKEN = 'REPLACE_WITH_WRITE_TOKEN_FOR_LOCAL_TESTS';
 
-    // ===== Elements =====
-    const els = {
-      // tabs
-      tabPractice: document.getElementById('tabPractice'),
-      tabScenarios: document.getElementById('tabScenarios'),
-      practiceSection: document.getElementById('practiceSection'),
-      scenariosSection: document.getElementById('scenariosSection'),
-      // practice
-      phrase: document.getElementById('phrase'),
-      target: document.getElementById('target'),
-      fluidInfo: document.getElementById('fluidInfo'),
-      alert: document.getElementById('alert'),
-      micBtn: document.getElementById('micBtn'),
-      stopBtn: document.getElementById('stopBtn'),
-      status: document.getElementById('status'),
-      you: document.getElementById('you'),
-      bar: document.getElementById('bar'),
-      pill: document.getElementById('scorePill'),
-      verdict: document.getElementById('verdict'),
-      th: document.getElementById('th'),
-      thLabel: document.getElementById('thLabel'),
-      typed: document.getElementById('typed'),
-      checkBtn: document.getElementById('checkBtn'),
-      // scenarios
-      scenario: document.getElementById('scenario'),
-      scenarioInfo: document.getElementById('scenarioInfo'),
-      scnBar: document.getElementById('scnBar'),
-      scnStepLabel: document.getElementById('scnStepLabel'),
-      scnScorePill: document.getElementById('scnScorePill'),
-      scnTarget: document.getElementById('scnTarget'),
-      stepPrompt: document.getElementById('stepPrompt'),
-      scnStart: document.getElementById('scnStart'),
-      scnNext: document.getElementById('scnNext'),
-      scnRetry: document.getElementById('scnRetry'),
-      scnNote: document.getElementById('scnNote'),
-      scnMicBtn: document.getElementById('scnMicBtn'),
-      scnStopBtn: document.getElementById('scnStopBtn'),
-      scnStatus: document.getElementById('scnStatus'),
-      scnYou: document.getElementById('scnYou'),
-      scnTtsToggle: document.getElementById('scnTtsToggle'),
-      scnSpeakBtn: document.getElementById('scnSpeakBtn'),
-      scnTtsStatus: document.getElementById('scnTtsStatus'),
-    };
+// ===== Employee ID =====
+const EMP_ID_KEY = 'trainer.employeeId';
+function getEmployeeId(){ return sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || ''; }
+function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch(_){} }
 
-    // ===== Logging (console only) =====
-    function log(msg){ try{ console.log('[trainer]', msg); } catch(e){} }
-    function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+(function employeeGate(){
+  const modal = document.getElementById('empIdModal');
+  const input = document.getElementById('empIdInput');
+  const save  = document.getElementById('empIdSave');
+  const cancel= document.getElementById('empIdCancel');
+  const msg   = document.getElementById('empIdMsg');
+  const badge = document.getElementById('empIdBadge');
 
-    // ===== Tabs =====
-    let MODE = 'practice';
-    function setMode(mode){
-      MODE = mode;
-      const p = mode==='practice';
-      els.practiceSection.classList.toggle('hide', !p);
-      els.scenariosSection.classList.toggle('hide', p);
-      els.tabPractice.setAttribute('aria-selected', p);
-      els.tabScenarios.setAttribute('aria-selected', !p);
-      if(p){ els.status.textContent='Idle'; } else { els.scnStatus.textContent='Idle'; }
-      setTargetText();
-    }
-    els.tabPractice.addEventListener('click', () => setMode('practice'));
-    els.tabScenarios.addEventListener('click', () => setMode('scenarios'));
+  function open(){ modal.classList.remove('hidden'); setTimeout(()=>input.focus(), 40); }
+  function close(){ modal.classList.add('hidden'); }
 
-    // ===== Practice helpers =====
-    function populatePhraseDropdown(){
-      els.phrase.innerHTML = '';
-      PHRASES.forEach(p => { const o=document.createElement('option'); o.value=p.id; o.textContent=p.label; els.phrase.appendChild(o); });
-    }
-    function getPracticeTarget(){ return PHRASES.find(x=>x.id===els.phrase.value) || PHRASES[0]; }
-    function setPracticeTarget(){ const p=getPracticeTarget()||{}; els.target.textContent=p.text||''; if(p.fluid){ els.fluidInfo.style.display='block'; els.fluidInfo.textContent=p.fluid; } else { els.fluidInfo.style.display='none'; } }
+  const existing = getEmployeeId();
+  if(!existing){ open(); } else { badge.textContent = 'ID: ' + existing; modal.classList.add('hidden'); }
 
-    // ===== Scenarios helpers =====
-    let scn=null, scnIdx=0, scnScores=[];
-    function populateScenarioDropdown(){
-      els.scenario.innerHTML='';
-      SCENARIOS.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.label; els.scenario.appendChild(o); });
-      updateScenarioMeta();
-    }
-    function getScenario(){ return SCENARIOS.find(s=>s.id===els.scenario.value) || SCENARIOS[0]; }
-    function resolveStepTarget(step){ if(!step) return ''; if(step.text) return step.text; if(step.phraseId){ const p=PHRASES.find(x=>x.id===step.phraseId); return p?p.text:''; } return ''; }
-    function updateScenarioMeta(){ const s=getScenario()||{}; els.scenarioInfo.textContent=s.desc||''; els.scnStepLabel.textContent='0/'+((s.steps||[]).length||0); els.scnBar.style.width='0%'; els.scnScorePill.textContent='0%'; els.scnScorePill.className='pill fail'; els.stepPrompt.textContent='—'; els.scnTarget.textContent=''; els.scnNext.disabled=true; els.scnRetry.disabled=true; }
-    function startScenario(){ scn=getScenario(); scnIdx=0; scnScores=[]; advanceScenarioStep(); }
-    function advanceScenarioStep(){
-      if(!scn||!Array.isArray(scn.steps)) return;
-      if(scnIdx>=scn.steps.length){ const avg=Math.round((scnScores.reduce((a,b)=>a+b,0)/(scnScores.length||1))||0); els.stepPrompt.textContent='Scenario complete.'; els.scnTarget.textContent='Average score: '+avg+'%'; els.scnNext.disabled=true; els.scnRetry.disabled=true; updateScenarioProgress(); return; }
-      const step=scn.steps[scnIdx];
-      els.stepPrompt.textContent=step.prompt||('Step '+(scnIdx+1));
-      els.scnTarget.textContent=resolveStepTarget(step);
-      els.scnNext.disabled=true; els.scnRetry.disabled=true; els.scnNote.style.display='none';
-      setTargetText(); updateScenarioProgress();
-      if (els.scnTtsToggle.checked) { speakStepPrompt(); }
-    }
-    function updateScenarioProgress(){ const total=scn?.steps?.length||0; const done=Math.min(scnIdx,total); const pct=total?Math.round((done/total)*100):0; els.scnBar.style.width=pct+'%'; els.scnStepLabel.textContent=done+'/'+total; }
-    function onScenarioScored(pct){ const pass=pct>=Number(els.th.value); els.scnScorePill.textContent=pct+'%'; els.scnScorePill.className='pill '+(pass?'pass':'fail'); els.scnNext.disabled=!pass; els.scnRetry.disabled=pass; if(!pass){ els.scnNote.style.display=''; els.scnNote.textContent='Below threshold. Adjust and try again.'; } else { els.scnNote.style.display='none'; scnScores[scnIdx]=pct; } }
-    els.scenario.addEventListener('change', updateScenarioMeta);
-    els.scnStart.addEventListener('click', startScenario);
-    els.scnNext.addEventListener('click', ()=>{ scnIdx++; advanceScenarioStep(); });
-    els.scnRetry.addEventListener('click', ()=>{ advanceScenarioStep(); });
+  save.onclick = ()=>{
+    const v=(input.value||'').trim();
+    if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ msg.textContent='Enter a valid ID (min 3 chars).'; return; }
+    setEmployeeId(v); badge.textContent='ID: '+v; msg.textContent=''; close();
+  };
+  cancel.onclick = ()=>{ msg.textContent='Employee ID is required to proceed.'; };
+})();
 
-    // ===== Shared scoring =====
-    function normalize(s){ return (s||'').toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim(); }
-    function levenshteinWords(a,b){ const A=normalize(a).split(' ').filter(Boolean); const B=normalize(b).split(' ').filter(Boolean); const m=A.length,n=B.length; const dp=Array.from({length:m+1},()=>Array(n+1).fill(0)); for(let i=0;i<=m;i++) dp[i][0]=i; for(let j=0;j<=n;j++) dp[0][j]=j; for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){ const cost=(A[i-1]===B[j-1])?0:1; dp[i][j]=Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);} const dist=dp[m][n]; const maxLen=Math.max(m,n)||1; return { score:Math.max(0,1-dist/maxLen) }; }
-    function currentTarget(){ if(MODE==='scenarios'){ const step=scn?.steps?.[scnIdx]; return resolveStepTarget(step); } const p=getPracticeTarget(); return p?.text||''; }
-    function setTargetText(){ if(MODE==='scenarios'){ const step=scn?.steps?.[scnIdx]; els.target.textContent=resolveStepTarget(step); els.fluidInfo.style.display='none'; } else { setPracticeTarget(); } }
-    function updateScore(transcript){ const target=currentTarget(); const {score}=levenshteinWords(transcript,target); const pct=Math.round(score*100); const pass=pct>=Number(els.th.value); els.bar.style.width=pct+'%'; els.pill.textContent=pct+'%'; els.pill.className='pill '+(pass?'pass':'fail'); els.verdict.textContent=pass?'Match':'Needs correction'; if(MODE==='scenarios'){ onScenarioScored(pct); } }
+// ===== Load scenarios.json =====
+const scenarios = [];
+async function loadScenarios(){
+  const sel = document.getElementById('scenarioSelect');
+  const desc= document.getElementById('desc');
+  sel.innerHTML = '<option value="">— loading —</option>';
+  try{
+    const res = await fetch('/scenarios.json', { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    scenarios.splice(0,scenarios.length, ...data);
+    sel.innerHTML = '<option value="">— select —</option>' + data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
+    desc.textContent='Select a scenario to begin.';
+  }catch(e){ sel.innerHTML='<option value="">(failed to load)</option>'; desc.textContent='Could not load scenarios.json'; }
+}
 
-    // ===== Text‑to‑Speech (TTS) for scenarios =====
-    const hasTTS = 'speechSynthesis' in window;
-    let ttsUtter = null;
-    function speak(text){
-      if(!hasTTS || !text) { els.scnTtsStatus.textContent = hasTTS? 'Nothing to read' : 'TTS not supported'; return; }
-      try{ window.speechSynthesis.cancel(); }catch(e){}
-      ttsUtter = new SpeechSynthesisUtterance(text);
-      ttsUtter.rate = clamp(Number(SETTINGS.ttsRate)||0.95,0.5,1.5);
-      // try to use requested voice
-      const allVoices = (typeof speechSynthesis !== 'undefined') ? speechSynthesis.getVoices() : [];
-      if (SETTINGS.ttsVoiceName && allVoices?.length){
-        const v = allVoices.find(v=>v.name.toLowerCase()===String(SETTINGS.ttsVoiceName).toLowerCase());
-        if (v) ttsUtter.voice = v;
-      }
-      ttsUtter.onstart = ()=>{ els.scnTtsStatus.textContent = 'Reading…'; };
-      ttsUtter.onerror = ()=>{ els.scnTtsStatus.textContent = 'TTS error'; };
-      ttsUtter.onend = ()=>{
-        els.scnTtsStatus.textContent = 'TTS done';
-        if (SR && MODE==='scenarios') { try{ recognition.start(); }catch(e){} }
-      };
-      window.speechSynthesis.speak(ttsUtter);
-    }
-    function speakStepPrompt(){ const step = scn?.steps?.[scnIdx]; const prompt = step?.prompt || ''; speak(prompt); }
+// ===== UI state =====
+let current = null; let startTs = 0; let stepIndex = 0;
+function renderSteps(){
+  const box = document.getElementById('stepsBox');
+  if(!current){ box.textContent='—'; return; }
+  const steps = current.steps || [];
+  const items = steps.map((s,i)=>{
+    const isActive = i===stepIndex;
+    return `<div style="padding:8px;border:1px solid ${isActive?'#1f6feb':'#1e2230'};border-radius:10px;margin:6px 0;background:${isActive?'#0f1424':'#141822'}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Step ${i+1} • ${s.role||''}</strong>
+        <span class="status">${s.prompt||''}</span>
+      </div>
+      <div style="margin-top:6px">${(s.text||s.phraseId||'').toString().replace(/</g,'&lt;')}</div>
+    </div>`;
+  }).join('');
+  box.innerHTML = items || '<div class="status">No steps</div>';
+}
 
-    // ===== JSON fetchers (absolute, resilient) =====
-    // Force same‑origin absolute URL so page path never breaks JSON loads
-    function abs(url){ try { return new URL(url, location.origin).href; } catch(_) { return url; } }
-    async function fetchArrayJSON(paths, embedId){
-      for(const p of paths){
-        const url = abs(p);
-        try{ log('Fetching: '+url); const res=await fetch(url,{cache:'no-store'}); log('HTTP: '+res.status+' '+res.statusText);
-          if(!res.ok) throw new Error('HTTP '+res.status);
-          const data=await res.json();
-          if(Array.isArray(data) && data.length>0) return data;
-          throw new Error('Empty/invalid array at '+url);
-        }catch(e){ log('Error: '+(e.message||e)); }
-      }
-      try{ const raw=document.getElementById(embedId)?.textContent||'[]'; const data=JSON.parse(raw); if(Array.isArray(data)&&data.length>0){ log('Loaded embedded '+embedId+' ('+data.length+')'); return data; } }catch(e){ log('Embedded parse error for '+embedId+': '+(e.message||e)); }
-      return [];
-    }
-    async function fetchObjectJSON(paths){
-      for(const p of paths){
-        const url = abs(p);
-        try{ log('Fetching: '+url); const res=await fetch(url,{cache:'no-store'}); log('HTTP: '+res.status+' '+res.statusText);
-          if(!res.ok) throw new Error('HTTP '+res.status);
-          const data=await res.json(); if(data && typeof data==='object') return data;
-        }catch(e){ log('Settings fetch error: '+(e.message||e)); }
-      }
-      return null;
-    }
+// ===== Controls =====
+const startBtn = document.getElementById('startBtn');
+const nextBtn  = document.getElementById('nextBtn');
+const finishBtn= document.getElementById('finishBtn');
+const statusEl = document.getElementById('status');
 
-    async function init(){
-      els.status.textContent='Loading…';
-      // Settings first (optional)
-      const cfg = await fetchObjectJSON(['/settings.json','settings.json']);
-      if (cfg) {
-        SETTINGS.passThreshold = clamp(Number(cfg.passThreshold)||90,50,98);
-        SETTINGS.ttsVoiceName = (cfg.ttsVoiceName||null);
-        SETTINGS.ttsRate = clamp(Number(cfg.ttsRate)||0.95,0.5,1.5);
-        SETTINGS.scenarioAutoTTS = !!cfg.scenarioAutoTTS;
-        SETTINGS.autoStartMic = !!cfg.autoStartMic;
-        log('Applied settings.json');
-      } else {
-        log('No settings.json found, using defaults');
-      }
-      // Apply UI defaults
-      els.th.value = SETTINGS.passThreshold; els.thLabel.textContent = SETTINGS.passThreshold + '%';
-      els.scnTtsToggle.checked = !!SETTINGS.scenarioAutoTTS;
+document.getElementById('reloadScenarios').onclick = loadScenarios;
+document.getElementById('scenarioSelect').onchange = (e)=>{
+  const id = e.target.value; current = scenarios.find(s=>s.id===id) || null;
+  const d = document.getElementById('desc');
+  if(current){ d.textContent = current.desc || ''; }
+  stepIndex = 0; renderSteps();
+  startBtn.disabled = !current; nextBtn.disabled = true; finishBtn.disabled = true; statusEl.textContent='Idle';
+};
 
-      // Load phrases & scenarios
-      PHRASES = await fetchArrayJSON(['/phrases.json','phrases.json'],'phrasesData');
-      if(PHRASES.length===0){ if(els.alert) els.alert.style.display='block'; PHRASES=[{id:'pre',label:'Before Deicing/Anti-icing',text:'Captain, please prepare the aircraft for deicing',fluid:''}]; }
-      populatePhraseDropdown(); setPracticeTarget();
-      SCENARIOS = await fetchArrayJSON(['/scenarios.json','scenarios.json'],'scenariosData');
-      populateScenarioDropdown();
+startBtn.onclick = ()=>{
+  if(!current){ statusEl.textContent='Select a scenario first'; return; }
+  startTs = Date.now(); stepIndex = 0; renderSteps();
+  nextBtn.disabled = false; finishBtn.disabled = false; statusEl.textContent='In progress…';
+};
 
-      // Voices may arrive later; log once
-      if (typeof speechSynthesis !== 'undefined') { speechSynthesis.onvoiceschanged = () => { log('voiceschanged'); }; }
+nextBtn.onclick = ()=>{
+  if(!current) return; const total=(current.steps||[]).length; if(total===0) return;
+  stepIndex = Math.min(stepIndex+1, total-1); renderSteps();
+};
 
-      els.status.textContent='Idle';
+finishBtn.onclick = async ()=>{
+  if(!current) return;
+  const duration = Math.round((Date.now()-startTs)/1000) || '';
+  const ok = await logTrainingCloud({
+    empId: getEmployeeId(),
+    scenarioId: current.id || '',
+    scenarioLabel: current.label || '',
+    outcome: 'completed',
+    score: '',
+    durationSec: duration
+  });
+  statusEl.textContent = ok ? 'Logged to cloud ✓' : 'Completed (cloud log failed, see console)';
+  nextBtn.disabled = true; finishBtn.disabled = true;
+};
 
-      // Auto-start mic (best-effort; may be blocked without user gesture)
-      if (SETTINGS.autoStartMic && SR && !isStandalone) {
-        try { recognition.start(); } catch(e) { log('AutoStart mic blocked: ' + (e.message||e)); }
-      }
-    }
+// ===== Cloud logging =====
+async function logTrainingCloud({ empId, scenarioId, scenarioLabel, outcome='completed', score='', durationSec='' }){
+  try{
+    const resp = await fetch('/api/logs-write', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // If your server requires WRITE_TOKEN header, replace below before public deploy
+        ...(WRITE_TOKEN && WRITE_TOKEN!=='REPLACE_WITH_WRITE_TOKEN_FOR_LOCAL_TESTS' ? { 'x-write-token': WRITE_TOKEN } : {})
+      },
+      body: JSON.stringify({
+        emp_id: empId,
+        scenario_id: scenarioId,
+        scenario_label: scenarioLabel,
+        outcome,
+        score,
+        duration_sec: durationSec
+      })
+    });
+    if(!resp.ok){ console.warn('cloud log failed', resp.status); return false; }
+    const data = await resp.json(); console.log('cloud log ok', data); return true;
+  }catch(e){ console.error('cloud log error', e); return false; }
+}
 
-    // ===== Manual typing fallback =====
-    els.checkBtn?.addEventListener('click',()=>{ const t=els.typed.value||''; els.you.textContent=t; updateScore(t); });
-
-    // ===== Speech recognition =====
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-    let recognition=null;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone===true);
-    function setMicEnabled(on){ els.micBtn.disabled=!on; els.stopBtn.disabled=on; }
-    function setScnMicEnabled(on){ els.scnMicBtn.disabled=!on; els.scnStopBtn.disabled=on; }
-
-    if(SR && isStandalone){
-      log('Standalone/PWA detected — mic blocked on iOS');
-      els.status.textContent='Open in Safari (not installed to Home Screen) to use the mic.';
-      els.scnStatus.textContent='Open in Safari (not installed to Home Screen) to use the mic.';
-      setMicEnabled(false); setScnMicEnabled(false);
-    } else if(!SR){
-      els.status.innerHTML='Speech recognition not supported. Try iOS Safari 14.5+ over HTTPS or Chrome desktop.';
-      els.scnStatus.innerHTML='Speech recognition not supported. Try iOS Safari 14.5+ over HTTPS or Chrome desktop.';
-      setMicEnabled(false); setScnMicEnabled(false);
-    } else {
-      recognition=new SR();
-      recognition.lang='en-US'; recognition.interimResults=true; recognition.continuous=false; recognition.maxAlternatives=1;
-      recognition.onstart=()=>{ if(MODE==='scenarios'){ els.scnStatus.textContent='Listening…'; setScnMicEnabled(false);} else { els.status.textContent='Listening…'; setMicEnabled(false);} };
-      recognition.onerror=(e)=>{ const err=e.error||'unknown'; if(MODE==='scenarios'){ els.scnStatus.textContent='Error: '+err; setScnMicEnabled(true);} else { els.status.textContent='Error: '+err; setMicEnabled(true);} };
-      recognition.onend=()=>{ if(MODE==='scenarios'){ els.scnStatus.textContent='Idle'; setScnMicEnabled(true);} else { els.status.textContent='Idle'; setMicEnabled(true);} };
-      recognition.onresult=(event)=>{ let finalTranscript=''; for(let i=event.resultIndex;i<event.results.length;i++){ finalTranscript+=event.results[i][0].transcript; } finalTranscript=finalTranscript.trim(); if(MODE==='scenarios'){ els.scnYou.textContent=finalTranscript; } else { els.you.textContent=finalTranscript; } if(finalTranscript) updateScore(finalTranscript); };
-      // buttons
-      els.micBtn.addEventListener('click',()=>{ try{ recognition.start(); }catch(e){} });
-      els.stopBtn.addEventListener('click',()=>recognition.stop());
-      els.scnMicBtn.addEventListener('click',()=>{ try{ recognition.start(); }catch(e){} });
-      els.scnStopBtn.addEventListener('click',()=>recognition.stop());
-    }
-
-    // Events
-    els.phrase.addEventListener('change', setPracticeTarget);
-    els.th.addEventListener('input',()=>{ els.thLabel.textContent=els.th.value+'%'; });
-    els.thLabel.textContent = els.th.value + '%';
-    els.scenario.addEventListener('change', updateScenarioMeta);
-    els.scnSpeakBtn.addEventListener('click', speakStepPrompt);
-
-    // Boot
-    window.addEventListener('DOMContentLoaded',()=>{ try{ init(); } catch(e){ log('Init error: '+(e.message||e)); } });
-    window.addEventListener('error',(e)=>{ log('Runtime error: '+(e.message||'unknown')+(e.filename?(' @ '+e.filename+':'+e.lineno):'')); });
-  </script>
-
-  <!-- Embedded default phrases (fallback) -->
-  <script id="phrasesData" type="application/json">[
-    {"id":"pre","label":"Before Deicing/Anti-icing","text":"Captain, please prepare the aircraft for deicing","fluid":""},
-    {"id":"complete","label":"Deicing complete (Type I)","text":"Deicing complete. Type one fluid applied. Aircraft surfaces are clean.","fluid":"Type I: Heated glycol-based fluid, used primarily for removing frost, ice, or snow. Provides limited anti-icing holdover time."},
-    {"id":"anti","label":"Anti-icing applied (Type IV)","text":"Anti icing applied. Type four fluid applied. Aircraft protected.","fluid":"Type IV: Thickened anti-icing fluid applied after Type I. Provides extended holdover protection until takeoff."},
-    {"id":"post","label":"Post Deice Only Communication","text":"Captain, registration number, deicing complete. Post deicing check complete, deicing personnel and equipment are safely away","fluid":""},
-    {"id":"progress","label":"In progress / hold","text":"Deicing in progress. Please hold position.","fluid":""},
-    {"id":"postFull","label":"Post Deicing/Anti-icing Communication (Generic)","text":"Captain, final fluid type applied (Type I or IV), manufacturer and brand name of the fluid. For Type IV specify percentage used: one hundred percent. Local time (HH:MM) when the final anti-icing step began. Post deicing/anti-icing complete, deicing personnel and equipment are safely away.","fluid":""},
-    {"id":"postEx1","label":"Post Deicing/Anti-icing Example – Deicing Only","text":"Captain, registration number, deicing complete. Post deicing check complete, deicing personnel and equipment are safely away.","fluid":""},
-    {"id":"postEx2","label":"Post Deicing/Anti-icing Example – Type I/Type IV","text":"Captain, registration number, you have been anti-iced with Type IV, Clariant Safewing MP IV Launch at one hundred percent, starting at 13:48. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away.","fluid":""},
-    {"id":"postEx3","label":"Post Deicing/Anti-icing Example – Type I/Type I","text":"Captain, registration number, you have been anti-iced with Type I Polar Plus LT, starting at 13:48. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away.","fluid":""},
-    {"id":"preTakeoffA","label":"Pre-Takeoff Contamination Check – Ready","text":"The Pre-Takeoff Contamination Check has been completed and the aircraft and engines are ready for departure.","fluid":""},
-    {"id":"preTakeoffB","label":"Pre-Takeoff Contamination Check – Require Deicing","text":"The Pre-Takeoff Contamination Check has been completed and the aircraft and engines require deicing.","fluid":""}
-  ]</script>
-
-  <!-- Embedded default scenarios (fallback) -->
-  <script id="scenariosData" type="application/json">[
-    {"id":"scn1","label":"Deicing Only Turn","desc":"Pre-communication and post deice call.","steps":[{"prompt":"Request prep for deicing","phraseId":"pre"},{"prompt":"Post deice call to flight deck","phraseId":"post"}]},
-    {"id":"scn2","label":"Type I then Type IV Anti-icing","desc":"Anti-icing with Type IV after Type I.","steps":[{"prompt":"Request prep for deicing","phraseId":"pre"},{"prompt":"Anti-icing details to flight deck","phraseId":"postEx2"}]},
-    {"id":"scn3","label":"Type I then Type I Anti-icing","desc":"Anti-icing with Type I after Type I.","steps":[{"prompt":"Request prep for deicing","phraseId":"pre"},{"prompt":"Anti-icing details to flight deck","phraseId":"postEx3"}]}
-  ]</script>
+// ===== Init =====
+loadScenarios();
+renderSteps();
+</script>
 </body>
 </html>
