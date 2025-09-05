@@ -103,20 +103,66 @@ function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localSto
   cancel.onclick = ()=>{ msg.textContent='Employee ID is required to proceed.'; };
 })();
 
-// ===== Load scenarios.json =====
+// ===== Load scenarios.json (robust) =====
 const scenarios = [];
+
 async function loadScenarios(){
-  const sel = document.getElementById('scenarioSelect');
-  const desc= document.getElementById('desc');
+  const sel  = document.getElementById('scenarioSelect');
+  const desc = document.getElementById('desc');
+  const statusEl = document.getElementById('status');
   sel.innerHTML = '<option value="">— loading —</option>';
-  try{
-    const res = await fetch('/scenarios.json', { cache:'no-store' });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    scenarios.splice(0,scenarios.length, ...data);
-    sel.innerHTML = '<option value="">— select —</option>' + data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
-    desc.textContent='Select a scenario to begin.';
-  }catch(e){ sel.innerHTML='<option value="">(failed to load)</option>'; desc.textContent='Could not load scenarios.json'; }
+  desc.textContent = 'Loading scenarios…';
+
+  // Try common paths with cache-busting
+  const ts = Date.now();
+  const candidates = [
+    `/scenarios.json?v=${ts}`,
+    `./scenarios.json?v=${ts}`,
+    `/data/scenarios.json?v=${ts}`
+  ];
+
+  let lastErr = null, data = null, used = '';
+
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      const text = await res.text();
+
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Invalid JSON at ${url}: ${e.message}`);
+      }
+
+      if (!Array.isArray(data)) {
+        throw new Error(`Expected an array at ${url}`);
+      }
+
+      used = url;
+      break; // success
+    } catch (e) {
+      lastErr = e;
+      // keep trying next candidate
+    }
+  }
+
+  if (!data) {
+    const msg = `Failed to load scenarios. ${lastErr ? lastErr.message : ''}`;
+    sel.innerHTML = '<option value="">(load failed)</option>';
+    desc.textContent = msg;
+    statusEl.textContent = msg;
+    console.error('scenarios load error:', lastErr);
+    return;
+  }
+
+  // Populate dropdown
+  scenarios.splice(0, scenarios.length, ...data);
+  sel.innerHTML = '<option value="">— select —</option>' +
+    data.map(s => `<option value="${s.id}">${(s.label || s.id)}</option>`).join('');
+
+  desc.innerHTML = `Loaded ${data.length} scenario(s) from <code>${used.replace(/\\?v=.*/,'')}</code>`;
+  statusEl.textContent = 'Scenarios loaded ✓';
 }
 
 // ===== UI state =====
