@@ -187,7 +187,7 @@ async function logTrainingCloud({ empId, scenarioId, scenarioLabel, outcome='com
       headers: {
         'Content-Type': 'application/json',
         // If your server requires WRITE_TOKEN header, replace below before public deploy
-        ...(WRITE_TOKEN && WRITE_TOKEN!=='REPLACE_WITH_WRITE_TOKEN_FOR_LOCAL_TESTS' ? { 'x-write-token': WRITE_TOKEN } : {})
+        ...(WRITE_TOKEN && WRITE_TOKEN!== wR1te_Train3r_XyZ_90210 ? { 'x-write-token': WRITE_TOKEN } : {})
       },
       body: JSON.stringify({
         emp_id: empId,
