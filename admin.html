@@ -279,11 +279,31 @@
         return toHex(out.buffer);
       }
 
-      function unlock(){ gate.style.display='none'; shell.classList.remove('hidden'); initAdmin(); }
+      function unlock(){
+        try { gate.style.display='none'; } catch(_){}
+        try { shell.classList.remove('hidden'); } catch(_){}
+        try { shell.style.display='grid'; } catch(_){}
+        try { initAdmin && initAdmin(); } catch(e){ console.error('[admin] initAdmin error', e); }
+      }
       async function tryUnlock(){
-        msg.textContent='';
-        const v=(input.value||'').trim();
-        if(!v){ msg.textContent='Passcode required.'; return; }
+        try {
+          msg.textContent = 'Checking…';
+          const v = (input.value||'').trim();
+          if(!v){ msg.textContent='Passcode required.'; return; }
+
+          const h = (await sha256Hex(v)).toLowerCase();
+          console.log('[admin] entered hash:', h);
+          if(h === PASSCODE_HASH){
+            try { sessionStorage.setItem(KEY, h); } catch(e) { console.warn('[admin] sessionStorage set failed', e); }
+            unlock(); // proceed even if storage fails
+            return;
+          }
+          msg.textContent = 'Incorrect passcode.';
+        } catch(e){
+          console.error('[admin] unlock error', e);
+          msg.textContent = 'Error: '+(e.message||e);
+        }
+      }
         try{
           const h=(await sha256Hex(v)).toLowerCase();
           if(h===PASSCODE_HASH){ sessionStorage.setItem(KEY,h); unlock(); }
@@ -293,7 +313,7 @@
       btn.addEventListener('click', ()=>{ msg.textContent='Checking…'; tryUnlock(); });
       input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ msg.textContent='Checking…'; tryUnlock(); } });
       window.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && gate.style.display!=='none'){ msg.textContent='Checking…'; tryUnlock(); } });
-      window.addEventListener('DOMContentLoaded',()=>{ const s=sessionStorage.getItem(KEY); if(s===PASSCODE_HASH){ unlock(); } });
+      window.addEventListener('DOMContentLoaded',()=>{ try { const s=sessionStorage.getItem(KEY); if(s===PASSCODE_HASH){ unlock(); return; } } catch(e){ console.warn('[admin] sessionStorage get failed', e); } try { input.focus(); } catch(_) {} }); if(s===PASSCODE_HASH){ unlock(); } });
     })();
 
     // ========== ADMIN APP ============
