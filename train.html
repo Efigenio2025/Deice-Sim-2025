@@ -208,7 +208,7 @@
     };
 
     // ===== Logging (console only) =====
-    function log(msg){ try{ console.log('[trainer]', msg); } catch(e){} }}
+    function log(msg){ try{ console.log('[trainer]', msg); } catch(e){} }
     function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
     // ===== Tabs =====
@@ -293,17 +293,29 @@
     }
     function speakStepPrompt(){ const step = scn?.steps?.[scnIdx]; const prompt = step?.prompt || ''; speak(prompt); }
 
-    // ===== JSON fetchers =====
+    // ===== JSON fetchers (absolute, resilient) =====
+    // Force same‑origin absolute URL so page path never breaks JSON loads
+    function abs(url){ try { return new URL(url, location.origin).href; } catch(_) { return url; } }
     async function fetchArrayJSON(paths, embedId){
-      for(const url of paths){
-        try{ log('Fetching: '+url); const res=await fetch(url,{cache:'no-store'}); log('HTTP: '+res.status+' '+res.statusText); if(!res.ok) throw new Error('HTTP '+res.status); const data=await res.json(); if(Array.isArray(data)&&data.length>0) return data; throw new Error('Empty/invalid array at '+url); }catch(e){ log('Error: '+(e.message||e)); }
+      for(const p of paths){
+        const url = abs(p);
+        try{ log('Fetching: '+url); const res=await fetch(url,{cache:'no-store'}); log('HTTP: '+res.status+' '+res.statusText);
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          const data=await res.json();
+          if(Array.isArray(data) && data.length>0) return data;
+          throw new Error('Empty/invalid array at '+url);
+        }catch(e){ log('Error: '+(e.message||e)); }
       }
       try{ const raw=document.getElementById(embedId)?.textContent||'[]'; const data=JSON.parse(raw); if(Array.isArray(data)&&data.length>0){ log('Loaded embedded '+embedId+' ('+data.length+')'); return data; } }catch(e){ log('Embedded parse error for '+embedId+': '+(e.message||e)); }
       return [];
     }
     async function fetchObjectJSON(paths){
-      for(const url of paths){
-        try{ log('Fetching: '+url); const res=await fetch(url,{cache:'no-store'}); log('HTTP: '+res.status+' '+res.statusText); if(!res.ok) throw new Error('HTTP '+res.status); const data=await res.json(); if(data && typeof data==='object') return data; }catch(e){ log('Settings fetch error: '+(e.message||e)); }
+      for(const p of paths){
+        const url = abs(p);
+        try{ log('Fetching: '+url); const res=await fetch(url,{cache:'no-store'}); log('HTTP: '+res.status+' '+res.statusText);
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          const data=await res.json(); if(data && typeof data==='object') return data;
+        }catch(e){ log('Settings fetch error: '+(e.message||e)); }
       }
       return null;
     }
@@ -311,7 +323,7 @@
     async function init(){
       els.status.textContent='Loading…';
       // Settings first (optional)
-      const cfg = await fetchObjectJSON(['settings.json','/settings.json']);
+      const cfg = await fetchObjectJSON(['/settings.json','settings.json']);
       if (cfg) {
         SETTINGS.passThreshold = clamp(Number(cfg.passThreshold)||90,50,98);
         SETTINGS.ttsVoiceName = (cfg.ttsVoiceName||null);
@@ -327,10 +339,10 @@
       els.scnTtsToggle.checked = !!SETTINGS.scenarioAutoTTS;
 
       // Load phrases & scenarios
-      PHRASES = await fetchArrayJSON(['phrases.json','/phrases.json'],'phrasesData');
+      PHRASES = await fetchArrayJSON(['/phrases.json','phrases.json'],'phrasesData');
       if(PHRASES.length===0){ if(els.alert) els.alert.style.display='block'; PHRASES=[{id:'pre',label:'Before Deicing/Anti-icing',text:'Captain, please prepare the aircraft for deicing',fluid:''}]; }
       populatePhraseDropdown(); setPracticeTarget();
-      SCENARIOS = await fetchArrayJSON(['scenarios.json','/scenarios.json'],'scenariosData');
+      SCENARIOS = await fetchArrayJSON(['/scenarios.json','scenarios.json'],'scenariosData');
       populateScenarioDropdown();
 
       // Voices may arrive later; log once
