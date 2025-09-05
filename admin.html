@@ -32,24 +32,22 @@
     .err{color:#ffb4b4}
     .lock{position:fixed;inset:0;background:linear-gradient(180deg,#0f1220,#0b0c10);display:flex;align-items:center;justify-content:center;z-index:9999}
     .lockCard{background:#101218;border:1px solid #1e2230;border-radius:16px;padding:20px;max-width:360px;width:92%}
-    .lock h1{font-size:1.1rem;margin:0 0 6px}
-    .lock .row{display:flex;gap:8px;margin-top:12px}
     .hidden{display:none}
     .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:2px 6px;border-radius:6px;background:#141a2a;border:1px solid #243259}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
   </style>
 </head>
 <body>
-  <!-- Passcode Gate -->
+  <!-- Passcode Gate (plain-text compare for reliability) -->
   <div id="lock" class="lock">
     <div class="lockCard">
       <h1>Admin Access</h1>
-      <div class="note" id="lockHint">Enter passcode.</div>
+      <div class="note">Enter passcode.</div>
       <div class="row">
-        <input id="lockInput" type="password" placeholder="Passcode" autocomplete="current-password" autofocus />
-        <button id="lockBtn" class="btn" type="button">Unlock</button>
+        <input id="code" type="password" placeholder="Passcode" autocomplete="off" autofocus />
+        <button id="go" class="btn" type="button">Unlock</button>
       </div>
-      <div id="lockMsg" class="err" style="min-height:1.2em"></div>
+      <div id="msg" class="status" style="min-height:1.2em">&nbsp;</div>
     </div>
   </div>
 
@@ -60,7 +58,6 @@
       <a href="#dashboard" data-tab="dashboard" aria-current="page">Dashboard</a>
       <a href="#content" data-tab="content">Content</a>
       <a href="#builder" data-tab="builder">Builder</a>
-      <a href="#settings" data-tab="settings">Settings</a>
       <a href="#publish" data-tab="publish">Publish</a>
       <a href="diagnostics.html">Diagnostics ↗</a>
       <div class="foot">Logged in • <button id="logoutBtn" class="ghost" style="padding:4px 8px">Log out</button></div>
@@ -73,7 +70,7 @@
           <div class="grid2">
             <div class="card">
               <h2>Status</h2>
-              <div id="statusBox" class="status">Loading…</div>
+              <div id="statusBox" class="status">Ready.</div>
             </div>
             <div class="card">
               <h2>Quick actions</h2>
@@ -155,42 +152,6 @@
         </div>
       </section>
 
-      <!-- SETTINGS -->
-      <section id="tab-settings" class="tab hidden">
-        <div class="card">
-          <h1>Settings (<code>settings.json</code>)</h1>
-          <div class="grid">
-            <div class="row">
-              <button class="btn ghost" id="settingsLoad">Load from /settings.json</button>
-              <label class="kbd">or choose <input id="settingsFile" type="file" accept="application/json" style="display:none"></label>
-              <button class="btn" id="settingsDownload">⬇ Download</button>
-            </div>
-            <div class="grid2">
-              <div class="card">
-                <h2>Scoring & TTS defaults</h2>
-                <label>Pass threshold (%)<input id="setThreshold" type="number" min="50" max="98" step="1" placeholder="90"></label>
-                <label>TTS voice name<input id="setVoice" type="text" placeholder="Samantha"></label>
-                <label>TTS rate (0.5–1.5)<input id="setRate" type="number" min="0.5" max="1.5" step="0.05" placeholder="0.95"></label>
-                <label><input id="setScenarioAutoTTS" type="checkbox"> Scenario: Read step aloud & auto‑listen</label>
-                <label><input id="setAutoStartMic" type="checkbox"> Practice: Auto‑start mic (where supported)</label>
-              </div>
-              <div class="card">
-                <h2>Admin gate</h2>
-                <div class="note">Passcode is enforced client‑side. To change it, update the **hash** here and redeploy.</div>
-                <label>adminPasscodeSha256<input id="setAdminHash" type="text" placeholder="64‑char hex"></label>
-                <label>adminPasscodeHint<input id="setAdminHint" type="text" placeholder="Station managers only"></label>
-                <div class="row">
-                  <button class="btn ghost" id="genHash">Generate SHA‑256 from passcode</button>
-                </div>
-                <div class="status" id="hashStatus">Idle</div>
-              </div>
-            </div>
-            <textarea id="settingsBox" placeholder='{"passThreshold":90}'></textarea>
-            <div id="settingsStatus" class="status">Idle</div>
-          </div>
-        </div>
-      </section>
-
       <!-- PUBLISH -->
       <section id="tab-publish" class="tab hidden">
         <div class="card">
@@ -217,107 +178,41 @@
   </div>
 
   <script>
-    // ========== PASSCODE ============
+    // ===== PASSCODE (plain text compare for reliability) =====
     (function(){
-      const PASSCODE_HASH = "c86e31cf86d6322e20004e94b7aed1ccd58c97b32c5cb0ae1be01084b54720a2"; // sha256 of 369565
-      const gate = document.getElementById('lock');
-      const input = document.getElementById('lockInput');
-      const btn = document.getElementById('lockBtn');
-      const msg = document.getElementById('lockMsg');
+      const PASSCODE = '369565';
+      const lock = document.getElementById('lock');
+      const code = document.getElementById('code');
+      const go = document.getElementById('go');
+      const msg = document.getElementById('msg');
       const shell = document.getElementById('console');
-      const KEY='adminSessionHash';
-
-      // --- SHA-256 helper with fallback (works without crypto.subtle) ---
-      function toHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
-      async function sha256Hex(s){
-        if (window.crypto && crypto.subtle && typeof TextEncoder!=='undefined'){
-          const data = new TextEncoder().encode(s);
-          const digest = await crypto.subtle.digest('SHA-256', data);
-          return toHex(digest);
-        }
-        // Fallback pure JS SHA-256 (small impl)
-        function rrot(n,x){ return (x>>>n)|(x<<(32-n)); }
-        function ch(x,y,z){ return (x&y)^(~x&z); }
-        function maj(x,y,z){ return (x&y)^(x&z)^(y&z); }
-        function S0(x){ return rrot(2,x)^rrot(13,x)^rrot(22,x); }
-        function S1(x){ return rrot(6,x)^rrot(11,x)^rrot(25,x); }
-        function s0(x){ return rrot(7,x)^rrot(18,x)^(x>>>3); }
-        function s1(x){ return rrot(17,x)^rrot(19,x)^(x>>>10); }
-        const K=[
-          0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-          0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-          0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-          0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-          0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-          0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-          0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-          0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
-        ];
-        // UTF-8 encode
-        const utf8 = unescape(encodeURIComponent(String(s)));
-        const data = new Uint8Array(utf8.length); for(let i=0;i<data.length;i++) data[i]=utf8.charCodeAt(i);
-        const l = data.length*8;
-        const withOne = new Uint8Array(((data.length+9+63)>>6)<<6);
-        withOne.set(data); withOne[data.length]=0x80;
-        const dv = new DataView(withOne.buffer);
-        dv.setUint32(withOne.length-4, l>>>0); dv.setUint32(withOne.length-8, Math.floor(l/2**32));
-        let H0=0x6a09e667,H1=0xbb67ae85,H2=0x3c6ef372,H3=0xa54ff53a,H4=0x510e527f,H5=0x9b05688c,H6=0x1f83d9ab,H7=0x5be0cd19;
-        const W=new Uint32Array(64);
-        for(let i=0;i<withOne.length;i+=64){
-          for(let t=0;t<16;t++) W[t]=dv.getUint32(i+t*4);
-          for(let t=16;t<64;t++) W[t]=(s1(W[t-2])+W[t-7]+s0(W[t-15])+W[t-16])>>>0;
-          let a=H0,b=H1,c=H2,d=H3,e=H4,f=H5,g=H6,h=H7;
-          for(let t=0;t<64;t++){
-            const T1=(h+S1(e)+ch(e,f,g)+K[t]+W[t])>>>0;
-            const T2=(S0(a)+maj(a,b,c))>>>0;
-            h=g; g=f; f=e; e=(d+T1)>>>0; d=c; c=b; b=a; a=(T1+T2)>>>0;
-          }
-          H0=(H0+a)>>>0; H1=(H1+b)>>>0; H2=(H2+c)>>>0; H3=(H3+d)>>>0; H4=(H4+e)>>>0; H5=(H5+f)>>>0; H6=(H6+g)>>>0; H7=(H7+h)>>>0;
-        }
-        const out=new Uint8Array(32); const outdv=new DataView(out.buffer);
-        [H0,H1,H2,H3,H4,H5,H6,H7].forEach((v,i)=>outdv.setUint32(i*4,v));
-        return toHex(out.buffer);
-      }
+      const KEY = 'adminOK';
 
       function unlock(){
-        try { gate.style.display='none'; } catch(_){}
-        try { shell.classList.remove('hidden'); } catch(_){}
-        try { shell.style.display='grid'; } catch(_){}
-        try { initAdmin && initAdmin(); } catch(e){ console.error('[admin] initAdmin error', e); }
+        lock.style.display = 'none';
+        shell.classList.remove('hidden');
+        shell.style.display = 'grid';
+        try { sessionStorage.setItem(KEY,'1'); } catch(_) {}
+        initAdmin();
       }
-      async function tryUnlock(){
-        try {
-          msg.textContent = 'Checking…';
-          const v = (input.value||'').trim();
-          if(!v){ msg.textContent='Passcode required.'; return; }
+      function tryUnlock(){
+        const v = (code.value||'').trim();
+        if(!v){ msg.textContent = 'Passcode required.'; return; }
+        msg.textContent = 'Checking…';
+        if(v === PASSCODE){ unlock(); }
+        else { msg.textContent = 'Incorrect passcode.'; }
+      }
 
-          const h = (await sha256Hex(v)).toLowerCase();
-          console.log('[admin] entered hash:', h);
-          if(h === PASSCODE_HASH){
-            try { sessionStorage.setItem(KEY, h); } catch(e) { console.warn('[admin] sessionStorage set failed', e); }
-            unlock(); // proceed even if storage fails
-            return;
-          }
-          msg.textContent = 'Incorrect passcode.';
-        } catch(e){
-          console.error('[admin] unlock error', e);
-          msg.textContent = 'Error: '+(e.message||e);
-        }
-      }
-        try{
-          const h=(await sha256Hex(v)).toLowerCase();
-          if(h===PASSCODE_HASH){ sessionStorage.setItem(KEY,h); unlock(); }
-          else { msg.textContent='Incorrect passcode.'; }
-        }catch(e){ msg.textContent='Crypto error: '+(e.message||e); }
-      }
-      btn.addEventListener('click', ()=>{ msg.textContent='Checking…'; tryUnlock(); });
-      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ msg.textContent='Checking…'; tryUnlock(); } });
-      window.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && gate.style.display!=='none'){ msg.textContent='Checking…'; tryUnlock(); } });
-      window.addEventListener('DOMContentLoaded',()=>{ try { const s=sessionStorage.getItem(KEY); if(s===PASSCODE_HASH){ unlock(); return; } } catch(e){ console.warn('[admin] sessionStorage get failed', e); } try { input.focus(); } catch(_) {} }); if(s===PASSCODE_HASH){ unlock(); } });
+      go.addEventListener('click', tryUnlock);
+      code.addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryUnlock(); });
+      window.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && lock.style.display!=='none') tryUnlock(); });
+      window.addEventListener('DOMContentLoaded', ()=>{
+        try { if(sessionStorage.getItem(KEY)==='1') { unlock(); return; } } catch(_) {}
+        try { code.focus(); } catch(_) {}
+      });
     })();
 
-    // ========== ADMIN APP ============
-
+    // ===== ADMIN APP =====
     function abs(url){ try{ return new URL(url, location.origin).href; }catch(_){ return url; } }
     async function getJSON(path){ const res=await fetch(abs(path),{cache:'no-store'}); if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); }
     function download(name, text){ const blob=new Blob([text],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1200); }
@@ -330,74 +225,60 @@
       function showTab(name){ document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden')); document.getElementById('tab-'+name).classList.remove('hidden'); navLinks.forEach(a=>a.setAttribute('aria-current', a.dataset.tab===name ? 'page':'false')); location.hash = name; }
       navLinks.forEach(a=>a.addEventListener('click',(e)=>{ e.preventDefault(); showTab(a.dataset.tab); }));
       showTab(location.hash?.replace('#','')||'dashboard');
-      $('logoutBtn').onclick = ()=>{ sessionStorage.removeItem('adminSessionHash'); location.reload(); };
+      $('logoutBtn').onclick = ()=>{ try{ sessionStorage.removeItem('adminOK'); }catch(_){} location.reload(); };
 
       // Elements
-      const phrasesBox=$('phrasesBox'), scenariosBox=$('scenariosBox'), settingsBox=$('settingsBox');
-      const phrasesStatus=$('phrasesStatus'), scenariosStatus=$('scenariosStatus'), settingsStatus=$('settingsStatus');
+      const phrasesBox=$('phrasesBox'), scenariosBox=$('scenariosBox');
+      const phrasesStatus=$('phrasesStatus'), scenariosStatus=$('scenariosStatus');
       const statusBox=$('statusBox'), counts=$('counts');
-
-      // Builder elements
-      const bId=$('bId'), bLabel=$('bLabel'), bDesc=$('bDesc'), bSteps=$('bSteps');
-      const bStatus=$('bStatus');
 
       // Load buttons
       $('phrasesLoad').onclick = async()=>{ try{ setStatus(phrasesStatus,'Loading /phrases.json…'); const d=await getJSON('/phrases.json'); phrasesBox.value=JSON.stringify(d,null,2); setStatus(phrasesStatus,'Loaded ✓','ok'); updateCounts(); }catch(e){ setStatus(phrasesStatus,'Load failed: '+(e.message||e),'err'); }};
       $('scenariosLoad').onclick = async()=>{ try{ setStatus(scenariosStatus,'Loading /scenarios.json…'); const d=await getJSON('/scenarios.json'); scenariosBox.value=JSON.stringify(d,null,2); setStatus(scenariosStatus,'Loaded ✓','ok'); updateCounts(); }catch(e){ setStatus(scenariosStatus,'Load failed: '+(e.message||e),'err'); }};
-      $('settingsLoad').onclick = async()=>{ try{ setStatus(settingsStatus,'Loading /settings.json…'); const d=await getJSON('/settings.json'); settingsBox.value=JSON.stringify(d,null,2); applySettingsToForm(d); setStatus(settingsStatus,'Loaded ✓','ok'); }catch(e){ setStatus(settingsStatus,'Load failed: '+(e.message||e),'err'); }};
 
       // File pickers
       $('phrasesFile').onchange = async(e)=>{ const f=e.target.files[0]; if(!f) return; phrasesBox.value=await f.text(); setStatus(phrasesStatus,'Loaded from file ✓','ok'); updateCounts(); };
       $('scenariosFile').onchange = async(e)=>{ const f=e.target.files[0]; if(!f) return; scenariosBox.value=await f.text(); setStatus(scenariosStatus,'Loaded from file ✓','ok'); updateCounts(); };
-      $('settingsFile').onchange = async(e)=>{ const f=e.target.files[0]; if(!f) return; const txt=await f.text(); settingsBox.value=txt; try{ applySettingsToForm(JSON.parse(txt)); }catch{} setStatus(settingsStatus,'Loaded from file ✓','ok'); };
 
       // Templates & downloads
       $('addPhrase').onclick = ()=>{ const arr = safeParseArray(phrasesBox.value, []); arr.push({id:'newId',label:'New Phrase',text:'Your phrase text…',fluid:''}); phrasesBox.value=JSON.stringify(arr,null,2); updateCounts(); };
       $('phrasesDownload').onclick = ()=>{ const arr=safeParseArray(phrasesBox.value,null,phrasesStatus); if(!arr) return; download('phrases.json', JSON.stringify(arr,null,2)); };
       $('addScenario').onclick = ()=>{ const arr = safeParseArray(scenariosBox.value, []); arr.push({id:'newScenario',label:'New Scenario',desc:'Description…',steps:[{prompt:'Step prompt…',phraseId:'pre'}]}); scenariosBox.value=JSON.stringify(arr,null,2); updateCounts(); };
       $('scenariosDownload').onclick = ()=>{ const arr=safeParseArray(scenariosBox.value,null,scenariosStatus); if(!arr) return; download('scenarios.json', JSON.stringify(arr,null,2)); };
-      $('settingsDownload').onclick = ()=>{ const obj=safeParseObject(settingsBox.value,null,settingsStatus); if(!obj) return; download('settings.json', JSON.stringify(obj,null,2)); };
-
-      // Settings form helpers
-      function applySettingsToForm(cfg){ $('setThreshold').value = num(cfg.passThreshold,90); $('setVoice').value = cfg.ttsVoiceName||''; $('setRate').value = num(cfg.ttsRate,0.95); $('setScenarioAutoTTS').checked=!!cfg.scenarioAutoTTS; $('setAutoStartMic').checked=!!cfg.autoStartMic; $('setAdminHash').value = cfg.adminPasscodeSha256 || ''; $('setAdminHint').value = cfg.adminPasscodeHint || ''; }
-      function readSettingsFromForm(){ return { passThreshold: num($('setThreshold').value,90), ttsVoiceName: ($('setVoice').value||'').trim()||null, ttsRate: num($('setRate').value,0.95), scenarioAutoTTS: $('setScenarioAutoTTS').checked, autoStartMic: $('setAutoStartMic').checked, adminPasscodeSha256: ($('setAdminHash').value||'').trim()||null, adminPasscodeHint: ($('setAdminHint').value||'').trim()||null }; }
-      function num(v,d){ const n=parseFloat(v); return isNaN(n)?d:n; }
-      $('genHash').onclick = async()=>{ const pw = prompt('Enter new passcode to hash (not stored):'); if(!pw) return; const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw)); const hex = Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''); $('setAdminHash').value = hex; $('hashStatus').textContent = 'Hash generated ✓'; };
 
       // === Builder helpers ===
       let builder = { id:'', label:'', desc:'', steps: [] };
+      const bId=$('bId'), bLabel=$('bLabel'), bDesc=$('bDesc'), bSteps=$('bSteps');
+      const bStatus=$('bStatus');
       function newStep(){ return { prompt:'', mode:'phrase', phraseId:'', text:'' }; }
       function renderSteps(){
-        bSteps.innerHTML = '';
+        bSteps.innerHTML='';
         const phrases = safeParseArray(phrasesBox.value, []);
         builder.steps.forEach((st, idx)=>{
-          const wrap = document.createElement('div');
-          wrap.className = 'card';
-          wrap.style.marginBottom = '8px';
-          wrap.innerHTML = `
-            <div class=\"row\" style=\"justify-content:space-between\">
+          const wrap=document.createElement('div'); wrap.className='card'; wrap.style.marginBottom='8px';
+          wrap.innerHTML=`
+            <div class="row" style="justify-content:space-between">
               <strong>Step ${idx+1}</strong>
-              <div class=\"row\">
-                <button class=\"btn ghost\" data-act=\"up\">↑</button>
-                <button class=\"btn ghost\" data-act=\"down\">↓</button>
-                <button class=\"btn danger\" data-act=\"del\">Delete</button>
+              <div class="row">
+                <button class="btn ghost" data-act="up">↑</button>
+                <button class="btn ghost" data-act="down">↓</button>
+                <button class="btn danger" data-act="del">Delete</button>
               </div>
             </div>
-            <label>Prompt<input data-field=\"prompt\" type=\"text\" placeholder=\"What the app says for this step\" value=\"${st.prompt.replace(/\"/g,'&quot;')}\"></label>
-            <div class=\"row\">
-              <label class=\"kbd\"><input type=\"radio\" name=\"mode${idx}\" value=\"phrase\" ${st.mode==='phrase'?'checked':''}> phraseId</label>
-              <label class=\"kbd\"><input type=\"radio\" name=\"mode${idx}\" value=\"text\" ${st.mode==='text'?'checked':''}> custom text</label>
+            <label>Prompt<input data-field="prompt" type="text" placeholder="What the app says for this step" value="${st.prompt.replace(/"/g,'&quot;')}"></label>
+            <div class="row">
+              <label class="kbd"><input type="radio" name="mode${idx}" value="phrase" ${st.mode==='phrase'?'checked':''}> phraseId</label>
+              <label class="kbd"><input type="radio" name="mode${idx}" value="text" ${st.mode==='text'?'checked':''}> custom text</label>
             </div>
-            <div data-panel=\"phrase\" ${st.mode==='phrase'?'':'style=\"display:none\"'}>
-              <label>Phrase<select data-field=\"phraseId\">
-                <option value=\"\">— select a phrase —</option>
-                ${phrases.map(p=>`<option value=\"${p.id}\" ${st.phraseId===p.id?'selected':''}>${p.id} — ${p.label||''}</option>`).join('')}
+            <div data-panel="phrase" ${st.mode==='phrase'?'':'style="display:none"'}>
+              <label>Phrase<select data-field="phraseId">
+                <option value="">— select a phrase —</option>
+                ${phrases.map(p=>`<option value="${p.id}" ${st.phraseId===p.id?'selected':''}>${p.id} — ${p.label||''}</option>`).join('')}
               </select></label>
             </div>
-            <div data-panel=\"text\" ${st.mode==='text'?'':'style=\"display:none\"'}>
-              <label>Custom text<textarea data-field=\"text\" placeholder=\"Exact wording to expect from the agent\">${st.text||''}</textarea></label>
-            </div>
-          `;
+            <div data-panel="text" ${st.mode==='text'?'':'style="display:none"'}>
+              <label>Custom text<textarea data-field="text" placeholder="Exact wording to expect from the agent">${st.text||''}</textarea></label>
+            </div>`;
           wrap.querySelectorAll('input[name="mode'+idx+'"]').forEach(r=>{ r.addEventListener('change',(e)=>{ st.mode=e.target.value; renderSteps(); }); });
           wrap.querySelector('[data-field="prompt"]').addEventListener('input',(e)=>{ st.prompt=e.target.value; });
           const sel=wrap.querySelector('[data-field="phraseId"]'); if(sel) sel.addEventListener('change',(e)=>{ st.phraseId=e.target.value; });
@@ -408,13 +289,13 @@
           bSteps.appendChild(wrap);
         });
       }
-      function resetBuilder(){ builder = { id:'', label:'', desc:'', steps: [] }; bId.value=''; bLabel.value=''; bDesc.value=''; renderSteps(); setStatus(bStatus,'Reset',''); }
+      function resetBuilder(){ builder={ id:'', label:'', desc:'', steps: [] }; bId.value=''; bLabel.value=''; bDesc.value=''; renderSteps(); setStatus(bStatus,'Reset',''); }
       function buildScenario(){
-        const sc = { id:(bId.value||'').trim(), label:(bLabel.value||'').trim(), desc:(bDesc.value||'').trim(), steps:[] };
+        const sc={ id:(bId.value||'').trim(), label:(bLabel.value||'').trim(), desc:(bDesc.value||'').trim(), steps:[] };
         if(!sc.id || !sc.label) throw new Error('Scenario ID and Label are required');
         builder.steps.forEach(st=>{
           if(!st.prompt) throw new Error('Every step needs a prompt');
-          const out = { prompt: st.prompt };
+          const out={ prompt: st.prompt };
           if(st.mode==='phrase'){
             if(!st.phraseId) throw new Error('Select a phrase for a phraseId step');
             out.phraseId = st.phraseId;
@@ -433,159 +314,52 @@
         try{ const sc=buildScenario(); const arr=safeParseArray(scenariosBox.value,[]); if(arr.some(x=>x.id===sc.id)) throw new Error('A scenario with this ID already exists'); arr.push(sc); scenariosBox.value=JSON.stringify(arr,null,2); setStatus(bStatus,'Scenario appended ✓','ok'); updateCounts(); }
         catch(e){ setStatus(bStatus, e.message||String(e), 'err'); }
       };
-      renderSteps();
-      // Trim builder text inputs on blur
-      bId.addEventListener('blur', ()=>{ bId.value = (bId.value||'').trim(); });
-      bLabel.addEventListener('blur', ()=>{ bLabel.value = (bLabel.value||'').trim(); });
+      // start with one empty step
+      if(builder.steps.length===0){ builder.steps.push(newStep()); renderSteps(); }
 
-      // Dashboard helpers
+      // Helpers
       function safeParseArray(text, fallback, statusEl){ try{ const v=JSON.parse(text||'[]'); if(!Array.isArray(v)) throw new Error('Top-level must be an array'); return v; }catch(e){ if(statusEl) setStatus(statusEl,'Parse error: '+(e.message||e),'err'); return fallback; } }
-      function safeParseObject(text, fallback, statusEl){ try{ const v=JSON.parse(text||'{}'); if(typeof v!== 'object' || v===null || Array.isArray(v)) throw new Error('Top-level must be an object'); return v; }catch(e){ if(statusEl) setStatus(statusEl,'Parse error: '+(e.message||e),'err'); return fallback; } }
-      function validateRefs(){ const phrases = safeParseArray(phrasesBox.value, []); const scenarios = safeParseArray(scenariosBox.value, []); const ids = new Set(phrases.map(p=>p.id)); const missing = []; scenarios.forEach(sc=> (sc.steps||[]).forEach(st=>{ if(st.phraseId && !ids.has(st.phraseId)) missing.push(st.phraseId); })); return Array.from(new Set(missing)); }
-      function updateCounts(){ try{ const p=safeParseArray(phrasesBox.value,[]); const s=safeParseArray(scenariosBox.value,[]); counts.textContent = `${p.length} phrases • ${s.length} scenarios`; }catch{ counts.textContent='—'; } }
+      function validateRefs(){ const phrases=safeParseArray(phrasesBox.value,[]); const scenarios=safeParseArray(scenariosBox.value,[]); const ids=new Set(phrases.map(p=>p.id)); const missing=[]; (scenarios||[]).forEach(sc=> (sc.steps||[]).forEach(st=>{ if(st.phraseId && !ids.has(st.phraseId)) missing.push(st.phraseId); })); return Array.from(new Set(missing)); }
+      function updateCounts(){ try{ const p=JSON.parse(phrasesBox.value||'[]'); const s=JSON.parse(scenariosBox.value||'[]'); counts.textContent = `${Array.isArray(p)?p.length:0} phrases • ${Array.isArray(s)?s.length:0} scenarios`; }catch{ counts.textContent='—'; } }
 
-      // Dashboard buttons
+      // Dashboard
       $('loadAll').onclick = async()=>{
-        try{ const [p,s,t] = await Promise.all([getJSON('/phrases.json').catch(()=>[]), getJSON('/scenarios.json').catch(()=>[]), getJSON('/settings.json').catch(()=>null)]);
+        try{ const [p,s] = await Promise.all([getJSON('/phrases.json').catch(()=>[]), getJSON('/scenarios.json').catch(()=>[])]);
           if(p?.length) { phrasesBox.value=JSON.stringify(p,null,2); setStatus(phrasesStatus,'Loaded ✓','ok'); }
           if(s?.length) { scenariosBox.value=JSON.stringify(s,null,2); setStatus(scenariosStatus,'Loaded ✓','ok'); }
-          if(t) { settingsBox.value=JSON.stringify(t,null,2); applySettingsToForm(t); setStatus(settingsStatus,'Loaded ✓','ok'); }
           updateCounts(); statusBox.textContent='Loaded current site JSON.';
         }catch(e){ statusBox.textContent='Load error: '+(e.message||e); }
       };
       $('validateAll').onclick = ()=>{ const miss=validateRefs(); statusBox.innerHTML = miss.length? `Missing phraseId references: <span class="err">${miss.join(', ')}</span>` : '<span class="ok">All references valid ✓</span>'; };
-      $('prettyAll').onclick = ()=>{ try{ const p=safeParseArray(phrasesBox.value,[]); phrasesBox.value=JSON.stringify(p,null,2);}catch{}; try{ const s=safeParseArray(scenariosBox.value,[]); scenariosBox.value=JSON.stringify(s,null,2);}catch{}; try{ const t=safeParseObject(settingsBox.value,{}); settingsBox.value=JSON.stringify(t,null,2);}catch{}; statusBox.textContent='Prettified.'; };
+      $('prettyAll').onclick = ()=>{ try{ const p=JSON.parse(phrasesBox.value||'[]'); phrasesBox.value=JSON.stringify(p,null,2);}catch{}; try{ const s=JSON.parse(scenariosBox.value||'[]'); scenariosBox.value=JSON.stringify(s,null,2);}catch{}; statusBox.textContent='Prettified.'; };
 
-      // Publish helpers
+      // Publish
       $('downloadBundle').onclick = async()=>{
-        const zipFiles = {
-          'phrases.json': JSON.stringify(safeParseArray(phrasesBox.value,[]), null, 2),
-          'scenarios.json': JSON.stringify(safeParseArray(scenariosBox.value,[]), null, 2),
-          'settings.json': JSON.stringify(safeParseObject(settingsBox.value,{}), null, 2)
+        const files = {
+          'phrases.json': JSON.stringify(JSON.parse(phrasesBox.value||'[]'), null, 2),
+          'scenarios.json': JSON.stringify(JSON.parse(scenariosBox.value||'[]'), null, 2)
         };
-        // Tiny zip (no deps): use the "store" method
-        const files = Object.entries(zipFiles);
-        const writer = new Blob([await buildZip(files)], {type:'application/zip'});
-        const url = URL.createObjectURL(writer); const a=document.createElement('a'); a.href=url; a.download='deice-config.zip'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1200);
+        const blob = new Blob([await buildZip(Object.entries(files))], {type:'application/zip'});
+        const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='deice-config.zip'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1200);
         $('pubStatus').textContent='Bundle downloaded.';
       };
       $('copyGit').onclick = ()=>{
-        const cmd = `git pull\ncp phrases.json /your/repo/root/\ncp scenarios.json /your/repo/root/\ncp settings.json /your/repo/root/\ngit add phrases.json scenarios.json settings.json\ngit commit -m "Update training content"\ngit push`;
+        const cmd = `git pull\ncp phrases.json /your/repo/root/\ncp scenarios.json /your/repo/root/\ngit add phrases.json scenarios.json\ngit commit -m "Update training content"\ngit push`;
         navigator.clipboard.writeText(cmd).then(()=>{ $('gitHelp').textContent='Commands copied. Paste into your terminal in the repo.'; });
       };
 
       // Init counts from any existing text
       updateCounts();
-      // Ensure builder starts with one step for usability
-      if (typeof builder !== 'undefined' && builder.steps.length === 0) { builder.steps.push(newStep()); renderSteps(); }
     }
 
     // Minimal ZIP builder (store only)
     async function buildZip(entries){
-      // entries: [ [name, contentString], ... ]
-      function makeCRCTable(){
-        const t = new Uint32Array(256);
-        for (let n=0;n<256;n++){
-          let c = n;
-          for (let k=0;k<8;k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-          t[n] = c >>> 0;
-        }
-        return t;
-      }
-      const table = makeCRCTable();
-      function crc32(buf){
-        let c = -1;
-        for (let i=0;i<buf.length;i++) c = (c >>> 8) ^ table[(c ^ buf[i]) & 0xff];
-        return (c ^ (-1)) >>> 0;
-      }
-
-      const enc = new TextEncoder();
-      const chunks = [];
-      const central = [];
-      let offset = 0;
-
-      for (const [name, text] of entries){
-        const data = enc.encode(text);
-        const nameBytes = enc.encode(name);
-        const crc = crc32(data);
-        const size = data.length;
-        const modTime = 0, modDate = 0; // optional DOS time/date
-
-        // --- Local file header + data ---
-        const local = new Uint8Array(30 + nameBytes.length + size);
-        let p = 0;
-        const w16 = (buf,v)=>{ buf[p++] = v & 255; buf[p++] = (v>>>8) & 255; };
-        const w32 = (buf,v)=>{ w16(buf, v & 0xffff); w16(buf, (v>>>16) & 0xffff); };
-
-        w32(local, 0x04034b50);        // signature
-        w16(local, 20);                 // version needed
-        w16(local, 0);                  // flags
-        w16(local, 0);                  // method: store
-        w16(local, modTime);            // time
-        w16(local, modDate);            // date
-        w32(local, crc);                // CRC32
-        w32(local, size);               // comp size
-        w32(local, size);               // uncomp size
-        w16(local, nameBytes.length);   // name length
-        w16(local, 0);                  // extra length
-
-        local.set(nameBytes, p); p += nameBytes.length;
-        local.set(data, p);
-        chunks.push(local);
-
-        // --- Central directory header ---
-        const cen = new Uint8Array(46 + nameBytes.length);
-        p = 0;
-        const w16c = (buf,v)=>{ buf[p++] = v & 255; buf[p++] = (v>>>8) & 255; };
-        const w32c = (buf,v)=>{ w16c(buf, v & 0xffff); w16c(buf, (v>>>16) & 0xffff); };
-
-        w32c(cen, 0x02014b50);         // signature
-        w16c(cen, 20);                  // version made by
-        w16c(cen, 20);                  // version needed
-        w16c(cen, 0);                   // flags
-        w16c(cen, 0);                   // method: store
-        w16c(cen, modTime);             // time
-        w16c(cen, modDate);             // date
-        w32c(cen, crc);                 // CRC32
-        w32c(cen, size);                // comp size
-        w32c(cen, size);                // uncomp size
-        w16c(cen, nameBytes.length);    // name length
-        w16c(cen, 0);                   // extra length
-        w16c(cen, 0);                   // comment length
-        w16c(cen, 0);                   // disk number
-        w16c(cen, 0);                   // internal attrs
-        w32c(cen, 0);                   // external attrs
-        w32c(cen, offset);              // local header offset
-
-        cen.set(nameBytes, 46);
-        central.push(cen);
-
-        offset += local.length;
-      }
-
-      // --- End of central directory ---
-      const centralSize = central.reduce((a,b)=>a+b.length,0);
-      const centralOffset = chunks.reduce((a,b)=>a+b.length,0);
-      const end = new Uint8Array(22);
-      let q = 0;
-      const w16e = (v)=>{ end[q++] = v & 255; end[q++] = (v>>>8) & 255; };
-      const w32e = (v)=>{ w16e(v & 0xffff); w16e((v>>>16) & 0xffff); };
-
-      w32e(0x06054b50);                // signature
-      w16e(0);                         // disk number
-      w16e(0);                         // disk with central dir
-      w16e(entries.length);            // total entries on this disk
-      w16e(entries.length);            // total entries
-      w32e(centralSize);               // central dir size
-      w32e(centralOffset);             // central dir offset
-      w16e(0);                         // comment length
-
-      return new Blob([...chunks, ...central, end]).arrayBuffer();
-    }
-      const end=new Uint8Array(22); let q=0; function w16e(v){end[q++]=v&255;end[q++]=(v>>>8)&255;} function w32e(v){end[q++]=v&255;end[q++]=(v>>>8)&255;end[q++]=(v>>>16)&255;end[q++]=(v>>>24)&255;}
-      const centralSize=central.reduce((a,b)=>a+b.length,0); const centralOffset=chunks.reduce((a,b)=>a+b.length,0);
-      w32e(0x06054b50); w16e(0); w16e(0); w16e(entries.length); w16e(entries.length); w32e(centralSize); w32e(centralOffset); w16e(0);
-      return new Blob([...chunks, ...central, end]).arrayBuffer();
+      function makeCRCTable(){ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1); t[n]=c>>>0; } return t; }
+      const table=makeCRCTable();
+      function crc32(buf){ let c=-1; for(let i=0;i<buf.length;i++) c=(c>>>8)^table[(c^buf[i])&0xff]; return (c^(-1))>>>0; }
+      const enc=new TextEncoder(); const chunks=[]; const central=[]; let offset=0;
+      for(const [name,text] of entries){ const data=enc.encode(text); const nameBytes=enc.encode(name); const crc=crc32(data); const size=data.length; const modTime=0,modDate=0; const local=new Uint8Array(30+nameBytes.length+size); let p=0; const w16=(buf,v)=>{buf[p++]=v&255;buf[p++]=(v>>>8)&255;}; const w32=(buf,v)=>{w16(buf,v&0xffff);w16(buf,(v>>>16)&0xffff);}; w32(local,0x04034b50); w16(local,20); w16(local,0); w16(local,0); w16(local,modTime); w16(local,modDate); w32(local,crc); w32(local,size); w32(local,size); w16(local,nameBytes.length); w16(local,0); local.set(nameBytes,p); p+=nameBytes.length; local.set(data,p); chunks.push(local); const cen=new Uint8Array(46+nameBytes.length); p=0; const w16c=(buf,v)=>{buf[p++]=v&255;buf[p++]=(v>>>8)&255;}; const w32c=(buf,v)=>{w16c(buf,v&0xffff);w16c(buf,(v>>>16)&0xffff);}; w32c(cen,0x02014b50); w16c(cen,20); w16c(cen,20); w16c(cen,0); w16c(cen,0); w16c(cen,modTime); w16c(cen,modDate); w32c(cen,crc); w32c(cen,size); w32c(cen,size); w16c(cen,nameBytes.length); w16c(cen,0); w16c(cen,0); w16c(cen,0); w16c(cen,0); w32c(cen,0); w32c(cen,offset); cen.set(nameBytes,46); central.push(cen); offset+=local.length; }
+      const centralSize=central.reduce((a,b)=>a+b.length,0); const centralOffset=chunks.reduce((a,b)=>a+b.length,0); const end=new Uint8Array(22); let q=0; const w16e=(v)=>{end[q++]=v&255;end[q++]=(v>>>8)&255;}; const w32e=(v)=>{w16e(v&0xffff);w16e((v>>>16)&0xffff);}; w32e(0x06054b50); w16e(0); w16e(0); w16e(entries.length); w16e(entries.length); w32e(centralSize); w32e(centralOffset); w16e(0); return new Blob([...chunks,...central,end]).arrayBuffer();
     }
   </script>
 </body>
