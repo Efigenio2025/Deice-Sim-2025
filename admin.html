@@ -40,7 +40,20 @@
     <section class="card">
       <h1>De‑Ice Admin — JSON Editor</h1>
       <div class="note">Load current JSON → edit → <strong>Download</strong> the files → commit to GitHub. This page does not save to the server.</div>
-      <!-- Admin tool UI would go here -->
+    </section>
+
+    <!-- all your phrase/scenario/settings sections -->
+    <section class="card">
+      <h2>Phrases (<code>phrases.json</code>)</h2>
+      <textarea id="phrasesBox" placeholder='[ {"id":"pre","label":"…","text":"…","fluid":"…"} ]' style="width:100%;min-height:200px"></textarea>
+    </section>
+    <section class="card">
+      <h2>Scenarios (<code>scenarios.json</code>)</h2>
+      <textarea id="scenariosBox" placeholder='[ {"id":"scn1","label":"…","desc":"…","steps":[{"prompt":"…","phraseId":"pre"}] } ]' style="width:100%;min-height:200px"></textarea>
+    </section>
+    <section class="card">
+      <h2>Settings (<code>settings.json</code>)</h2>
+      <textarea id="settingsBox" placeholder='{"passThreshold":90}' style="width:100%;min-height:120px"></textarea>
     </section>
   </div>
 
@@ -73,7 +86,6 @@
       btn.onclick=tryUnlock;
       input.onkeydown=(e)=>{ if(e.key==='Enter') tryUnlock(); };
 
-      // Auto-check session
       window.addEventListener('DOMContentLoaded',()=>{
         if(sessionStorage.getItem(KEY)===PASSCODE_HASH){ unlock(); }
       });
