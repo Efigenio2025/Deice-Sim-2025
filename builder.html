@@ -330,7 +330,19 @@ if (randBtn) {
     const raw=(bulkText.value||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     if(!raw.length){ setStepStatus('Nothing to import','err'); return; }
     const re=/^(Captain|Iceman)\s*:\s*(.+)$/i; const out=[];
-    for(const line of raw){ const m=line.match(re); if(m){ out.push({role:m[1][0].toUpperCase()+m[1].slice(1).toLowerCase(), prompt: m[1]+' line', mode:'text', text: applyVarsToText(m[2]), phraseId:''}); } }
+    for(const line of raw){ 
+  const m=line.match(re); 
+  if(m){ 
+    const role = m[1][0].toUpperCase()+m[1].slice(1).toLowerCase();
+    out.push({
+      role,
+      prompt: role + ' line',
+      mode:'text',
+      text: applyVarsToText(m[2], role), // role-aware replacement
+      phraseId:''
+    }); 
+  } 
+}
     if(!out.length){ setStepStatus('No lines matched Captain:/Iceman:','err'); return; }
     steps=out; render(); bulkText.value=''; bulkModal.classList.add('hidden'); setStepStatus(`Imported ${out.length} steps ✓`,'ok');
   };
