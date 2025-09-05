@@ -3,210 +3,81 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>De‑Ice Admin – JSON Editor</title>
+  <title>De‑Ice Admin — JSON Editor</title>
   <style>
-    :root { --bg:#0b0c10; --card:#101218; --ink:#eaeaea; --muted:#9aa7be; --accent:#1f6feb; --danger:#e5534b; }
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-    .wrap{max-width:1100px;margin:0 auto;padding:20px}
-    h1{font-size:1.3rem;margin:0 0 10px}
-    h2{font-size:1.05rem;margin:18px 0 10px}
-    .grid{display:grid;gap:16px}
-    @media(min-width:900px){.grid{grid-template-columns:1fr 1fr}}
-    .card{background:var(--card);border:1px solid #1e2230;border-radius:14px;padding:14px}
-    label{font-weight:700;display:block;margin:8px 0 6px}
-    textarea, input, select{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
-    textarea{min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
-    .row{display:flex;flex-wrap:wrap;gap:8px}
-    button{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:700;border-radius:10px;padding:10px 14px;cursor:pointer}
-    .ghost{background:#2b3147}
-    .danger{background:var(--danger)}
-    .note{color:var(--muted);font-size:.9rem}
-    .status{font-size:.95rem;color:var(--muted)}
-    .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
-    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:2px 6px;border-radius:6px;background:#141a2a;border:1px solid #243259}
-    .ok{color:#98f5b0}
-    .warn{color:#ffd6a6}
-    .err{color:#ffb4ad}
-    .sticky{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#0e1324,#0b0c10);border-bottom:1px solid #1e2230;padding:10px 0;margin:-10px 0 12px}
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    h1{margin:0 0 6px;font-size:1.35rem}
+    .note{color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+    .lock{position:fixed;inset:0;background:linear-gradient(180deg,#0f1220,#0b0c10);display:flex;align-items:center;justify-content:center;z-index:9999}
+    .lockCard{background:#101218;border:1px solid #1e2230;border-radius:16px;padding:20px;max-width:360px;width:92%}
+    .lock h1{font-size:1.1rem;margin:0 0 6px}
+    .lock .note{color:#9aa7be}
+    .lock .row{display:flex;gap:8px;margin-top:12px}
+    .lock input{flex:1;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
+    .lock button{appearance:none;border:0;background:#1f6feb;color:#fff;font-weight:700;border-radius:10px;padding:10px 14px;cursor:pointer}
+    .lock .err{color:#ffb4b4;margin-top:8px;min-height:1.2em}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="sticky">
-      <h1>De‑Ice Admin – JSON Editor <span class="pill">Option A (no backend)</span></h1>
-      <div class="note">Load current JSON → edit → <strong>Download</strong> the files → commit to GitHub. This page does not save to the server.</div>
-    </div>
-
-    <div class="grid">
-      <section class="card">
-        <h2>Phrases (<code>phrases.json</code>)</h2>
-        <div class="row">
-          <button id="loadPhrases" class="ghost">Load from /phrases.json</button>
-          <label class="kbd" for="phrasesFile">or choose a file… <input id="phrasesFile" type="file" accept="application/json" style="display:none"></label>
-          <button id="addPhraseTemplate" class="ghost">+ Add phrase template</button>
-          <button id="downloadPhrases">⬇ Download phrases.json</button>
-        </div>
-        <label for="phrasesBox" class="note">Edit JSON below. Must be an <em>array</em> of phrase objects.</label>
-        <textarea id="phrasesBox" placeholder='[ {"id":"pre","label":"…","text":"…","fluid":"…"} ]'></textarea>
-        <div id="phrasesStatus" class="status">Idle</div>
-      </section>
-
-      <section class="card">
-        <h2>Scenarios (<code>scenarios.json</code>)</h2>
-        <div class="row">
-          <button id="loadScenarios" class="ghost">Load from /scenarios.json</button>
-          <label class="kbd" for="scenariosFile">or choose a file… <input id="scenariosFile" type="file" accept="application/json" style="display:none"></label>
-          <button id="addScenarioTemplate" class="ghost">+ Add scenario template</button>
-          <button id="downloadScenarios">⬇ Download scenarios.json</button>
-        </div>
-        <label for="scenariosBox" class="note">Edit JSON below. Must be an <em>array</em> of scenarios. Steps can reference phrases via <code>"phraseId"</code> or include direct <code>"text"</code>.</label>
-        <textarea id="scenariosBox" placeholder='[ {"id":"scn1","label":"…","desc":"…","steps":[{"prompt":"…","phraseId":"pre"}] } ]'></textarea>
-        <div id="scenariosStatus" class="status">Idle</div>
-      </section>
-    </div>
-
-    <section class="card" style="margin-top:16px">
-      <h2>Validation & Utilities</h2>
-      <div class="row" style="margin-bottom:8px">
-        <button id="pretty">Pretty‑format both</button>
-        <button id="validate">Validate references</button>
-        <button id="exampleData" class="ghost">Fill with examples</button>
-        <button id="clearBoth" class="danger">Clear editors</button>
+  <!-- Admin Passcode Gate -->
+  <div id="lock" class="lock">
+    <div class="lockCard">
+      <h1>Admin Access</h1>
+      <div class="note" id="lockHint">Enter passcode.</div>
+      <div class="row">
+        <input id="lockInput" type="password" placeholder="Passcode" autocomplete="current-password" />
+        <button id="lockBtn">Unlock</button>
       </div>
-      <div id="valStatus" class="status">Idle</div>
-      <div class="note" style="margin-top:8px">Tip: Keep IDs stable. Training app reads these files from the repo root. After downloading, replace the files in your repo and commit.</div>
+      <div id="lockMsg" class="err"></div>
+    </div>
+  </div>
+
+  <div class="wrap" id="adminContent" style="display:none">
+    <section class="card">
+      <h1>De‑Ice Admin — JSON Editor</h1>
+      <div class="note">Load current JSON → edit → <strong>Download</strong> the files → commit to GitHub. This page does not save to the server.</div>
+      <!-- Admin tool UI would go here -->
     </section>
   </div>
 
   <script>
-    const els = {
-      // phrases
-      loadPhrases: document.getElementById('loadPhrases'),
-      phrasesFile: document.getElementById('phrasesFile'),
-      addPhraseTemplate: document.getElementById('addPhraseTemplate'),
-      downloadPhrases: document.getElementById('downloadPhrases'),
-      phrasesBox: document.getElementById('phrasesBox'),
-      phrasesStatus: document.getElementById('phrasesStatus'),
-      // scenarios
-      loadScenarios: document.getElementById('loadScenarios'),
-      scenariosFile: document.getElementById('scenariosFile'),
-      addScenarioTemplate: document.getElementById('addScenarioTemplate'),
-      downloadScenarios: document.getElementById('downloadScenarios'),
-      scenariosBox: document.getElementById('scenariosBox'),
-      scenariosStatus: document.getElementById('scenariosStatus'),
-      // utils
-      pretty: document.getElementById('pretty'),
-      validateBtn: document.getElementById('validate'),
-      exampleData: document.getElementById('exampleData'),
-      clearBoth: document.getElementById('clearBoth'),
-      valStatus: document.getElementById('valStatus'),
-    };
+    (function(){
+      const PASSCODE_HASH = "a97f85b89a6c2d64db09f8e3eaa1fcb4768e8449fcf94a323c2cb61d59f62bc0"; // sha256 of 369565
+      const gate = document.getElementById('lock');
+      const input = document.getElementById('lockInput');
+      const btn = document.getElementById('lockBtn');
+      const msg = document.getElementById('lockMsg');
+      const content = document.getElementById('adminContent');
+      const KEY = 'adminSessionHash';
 
-    function setStatus(el, msg, cls){ el.textContent = msg; el.className = 'status ' + (cls||''); }
+      function hex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+      async function sha256Hex(s){ const data=new TextEncoder().encode(s); const digest=await crypto.subtle.digest('SHA-256', data); return hex(digest); }
 
-    async function fetchJSON(path){
-      const res = await fetch(path, { cache: 'no-store' });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      return res.json();
-    }
+      function unlock(){ gate.style.display='none'; content.style.display='block'; }
 
-    function download(filename, text){
-      const blob = new Blob([text], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
-      setTimeout(()=>URL.revokeObjectURL(url), 1500);
-    }
+      async function tryUnlock(){
+        msg.textContent='';
+        const val=(input.value||'').trim();
+        if(!val){ msg.textContent='Passcode required.'; return; }
+        try{
+          const h=await sha256Hex(val);
+          if(h===PASSCODE_HASH){ sessionStorage.setItem(KEY,h); unlock(); }
+          else{ msg.textContent='Incorrect passcode.'; }
+        }catch(e){ msg.textContent='Error: '+(e.message||e); }
+      }
 
-    // --- Loaders ---
-    els.loadPhrases.addEventListener('click', async()=>{
-      try{ setStatus(els.phrasesStatus,'Loading /phrases.json…'); const data = await fetchJSON('/phrases.json'); els.phrasesBox.value = JSON.stringify(data, null, 2); setStatus(els.phrasesStatus,'Loaded ✓','ok'); }
-      catch(e){ setStatus(els.phrasesStatus, 'Load failed: '+(e.message||e), 'err'); }
-    });
-    els.loadScenarios.addEventListener('click', async()=>{
-      try{ setStatus(els.scenariosStatus,'Loading /scenarios.json…'); const data = await fetchJSON('/scenarios.json'); els.scenariosBox.value = JSON.stringify(data, null, 2); setStatus(els.scenariosStatus,'Loaded ✓','ok'); }
-      catch(e){ setStatus(els.scenariosStatus, 'Load failed: '+(e.message||e), 'err'); }
-    });
+      btn.onclick=tryUnlock;
+      input.onkeydown=(e)=>{ if(e.key==='Enter') tryUnlock(); };
 
-    // File pickers
-    els.phrasesFile.addEventListener('change', async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      const text = await file.text(); els.phrasesBox.value = text; setStatus(els.phrasesStatus,'Loaded from file ✓','ok');
-    });
-    els.scenariosFile.addEventListener('change', async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      const text = await file.text(); els.scenariosBox.value = text; setStatus(els.scenariosStatus,'Loaded from file ✓','ok');
-    });
-
-    // Templates
-    els.addPhraseTemplate.addEventListener('click',()=>{
-      let arr = parseBox(els.phrasesBox.value, []);
-      arr.push({ id: 'newId', label: 'New Phrase', text: 'Your phrase text…', fluid: '' });
-      els.phrasesBox.value = JSON.stringify(arr, null, 2);
-    });
-    els.addScenarioTemplate.addEventListener('click',()=>{
-      let arr = parseBox(els.scenariosBox.value, []);
-      arr.push({ id: 'newScenario', label: 'New Scenario', desc:'Description…', steps:[ { prompt:'Step prompt…', phraseId:'pre' } ] });
-      els.scenariosBox.value = JSON.stringify(arr, null, 2);
-    });
-
-    // Downloads
-    els.downloadPhrases.addEventListener('click',()=>{
-      const arr = parseBox(els.phrasesBox.value, null, els.phrasesStatus); if(!arr) return;
-      download('phrases.json', JSON.stringify(arr, null, 2));
-    });
-    els.downloadScenarios.addEventListener('click',()=>{
-      const arr = parseBox(els.scenariosBox.value, null, els.scenariosStatus); if(!arr) return;
-      download('scenarios.json', JSON.stringify(arr, null, 2));
-    });
-
-    // Utils
-    els.pretty.addEventListener('click',()=>{
-      const p = parseBox(els.phrasesBox.value, []); els.phrasesBox.value = JSON.stringify(p, null, 2);
-      const s = parseBox(els.scenariosBox.value, []); els.scenariosBox.value = JSON.stringify(s, null, 2);
-      setStatus(els.valStatus,'Prettified ✓','ok');
-    });
-    els.clearBoth.addEventListener('click',()=>{ els.phrasesBox.value=''; els.scenariosBox.value=''; setStatus(els.valStatus,'Cleared'); });
-
-    els.exampleData.addEventListener('click',()=>{
-      const phrases = [
-        {"id":"pre","label":"Before Deicing/Anti-icing","text":"Captain, please prepare the aircraft for deicing","fluid":""},
-        {"id":"post","label":"Post Deice Only Communication","text":"Captain, registration number, deicing complete. Post deicing check complete, deicing personnel and equipment are safely away.","fluid":""},
-        {"id":"postEx2","label":"Post Deicing/Anti-icing – Type I/Type IV","text":"Captain, registration number, you have been anti-iced with Type IV, Clariant Safewing MP IV Launch at one hundred percent, starting at 13:48. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away.","fluid":""}
-      ];
-      const scenarios = [
-        {"id":"scn1","label":"Deicing Only Turn","desc":"Pre-communication and post deice call.","steps":[{"prompt":"Request prep for deicing","phraseId":"pre"},{"prompt":"Post deice call to flight deck","phraseId":"post"}]}
-      ];
-      els.phrasesBox.value = JSON.stringify(phrases, null, 2);
-      els.scenariosBox.value = JSON.stringify(scenarios, null, 2);
-      setStatus(els.valStatus,'Example data inserted');
-    });
-
-    // Validation
-    els.validateBtn.addEventListener('click',()=>{
-      const phrases = parseBox(els.phrasesBox.value, null, els.phrasesStatus);
-      const scenarios = parseBox(els.scenariosBox.value, null, els.scenariosStatus);
-      if(!phrases || !scenarios) return;
-      const ids = new Set(phrases.map(p=>p.id));
-      const missing = [];
-      (scenarios||[]).forEach(sc=>{
-        (sc.steps||[]).forEach(st=>{
-          if(st.phraseId && !ids.has(st.phraseId)) missing.push(st.phraseId);
-        });
+      // Auto-check session
+      window.addEventListener('DOMContentLoaded',()=>{
+        if(sessionStorage.getItem(KEY)===PASSCODE_HASH){ unlock(); }
       });
-      if(missing.length){ setStatus(els.valStatus, 'Missing phraseId references: '+Array.from(new Set(missing)).join(', '), 'err'); }
-      else { setStatus(els.valStatus,'All references valid ✓','ok'); }
-    });
-
-    // Helpers
-    function parseBox(text, fallback, statusEl){
-      try{
-        const val = JSON.parse(text || '[]');
-        if(!Array.isArray(val)) throw new Error('Top-level JSON must be an array');
-        return val;
-      }catch(e){ if(statusEl) setStatus(statusEl, 'Parse error: '+(e.message||e), 'err'); return fallback; }
-    }
+    })();
   </script>
 </body>
 </html>
