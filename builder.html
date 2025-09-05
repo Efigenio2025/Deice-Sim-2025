@@ -236,16 +236,22 @@ function init(){
     setStepStatus(missing.length?('Missing phraseId: '+Array.from(new Set(missing)).join(', ')):'All references valid ✓', missing.length?'err':'ok');
   };
   $('applyVars').onclick=()=>{ steps.forEach(s=>{ if(s.mode!=='phrase' && s.text) s.text=applyVarsToText(s.text); }); render(); setStepStatus('Variables applied','ok'); };
-  $('bulkPaste').onclick=()=>{ document.getElementById('bulkModal').classList.remove('hidden'); };
-  $('bulkCancel').onclick=()=>{ document.getElementById('bulkModal').classList.add('hidden'); };
-  $('bulkImport').onclick=()=>{
-    const raw=(document.getElementById('bulkText').value||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+
+  // Bulk paste (modal)
+  const bulkModal=document.getElementById('bulkModal');
+  const bulkText=document.getElementById('bulkText');
+  document.getElementById('bulkPaste').onclick=()=>{ bulkModal.classList.remove('hidden'); try{ bulkText.focus(); }catch(_){} };
+  document.getElementById('bulkCancel').onclick=()=>{ bulkModal.classList.add('hidden'); };
+  document.getElementById('bulkImport').onclick=()=>{
+    const raw=(bulkText.value||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     if(!raw.length){ setStepStatus('Nothing to import','err'); return; }
     const re=/^(Captain|Iceman)\s*:\s*(.+)$/i; const out=[];
     for(const line of raw){ const m=line.match(re); if(m){ out.push({role:m[1][0].toUpperCase()+m[1].slice(1).toLowerCase(), prompt: m[1]+' line', mode:'text', text: applyVarsToText(m[2]), phraseId:''}); } }
     if(!out.length){ setStepStatus('No lines matched Captain:/Iceman:','err'); return; }
-    steps=out; render(); document.getElementById('bulkModal').classList.add('hidden'); setStepStatus(`Imported ${out.length} steps ✓`,'ok');
+    steps=out; render(); bulkText.value=''; bulkModal.classList.add('hidden'); setStepStatus(`Imported ${out.length} steps ✓`,'ok');
   };
+  bulkModal.addEventListener('click',(e)=>{ if(e.target===bulkModal) bulkModal.classList.add('hidden'); });
+  window.addEventListener('keydown',(e)=>{ if(!bulkModal.classList.contains('hidden') && e.key==='Escape') bulkModal.classList.add('hidden'); });
 
   $('loadPhrases').onclick=async()=>{ try{ const d=await getJSON('/phrases.json'); phrasesBox.value=JSON.stringify(d,null,2); setStatus('Loaded phrases ✓','ok'); render(); updateCounts(); }catch(e){ setStatus('Phrases load failed: '+(e.message||e),'err'); } };
   $('loadScenarios').onclick=async()=>{ try{ const d=await getJSON('/scenarios.json'); scenariosBox.value=JSON.stringify(d,null,2); setStatus('Loaded scenarios ✓','ok'); updateCounts(); }catch(e){ setStatus('Scenarios load failed: '+(e.message||e),'err'); } };
