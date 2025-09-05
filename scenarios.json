@@ -1,0 +1,20 @@
+[
+  {
+    "id": "scn1",
+    "label": "Deicing Only Turn",
+    "desc": "Pre-communication and post deice call.",
+    "steps": [
+      { "prompt": "Request prep for deicing", "phraseId": "pre" },
+      { "prompt": "Post deice call to flight deck", "phraseId": "post" }
+    ]
+  },
+  {
+    "id": "scn2",
+    "label": "Type I then Type IV Anti-icing",
+    "desc": "Anti-icing with Type IV after Type I.",
+    "steps": [
+      { "prompt": "Request prep for deicing", "phraseId": "pre" },
+      { "prompt": "Anti-icing details to flight deck", "phraseId": "postEx2" }
+    ]
+  }
+]
