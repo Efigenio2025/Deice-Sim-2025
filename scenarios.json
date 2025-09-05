@@ -1,8 +1,13 @@
 [
-  {
-    "id": "pre",
-    "label": "Before Deicing/Anti-icing",
-    "text": "Captain, please prepare the aircraft for deicing",
-    "fluid": ""
-  },
+{
+    "id": "Scenario 1",
+    "label": "Full Body Type I + Wings/Tail Type IV",
+    "desc": "Full Body Type I + Wings/Tail Type IV",
+    "steps": [
+      {
+        "prompt": "Captain line",
+        "role": "Captain",
+        "text": "Iceman, this is November One Two Three Alpha Bravo."
+      },
+     
 ]
