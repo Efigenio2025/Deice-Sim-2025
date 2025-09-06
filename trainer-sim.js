@@ -70,8 +70,15 @@
   function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch{} }
   function ensureEmpGate(){
     const modal=$('empIdModal'), input=$('empIdInput'), save=$('empIdSave'), cancel=$('empIdCancel'), msg=$('empIdMsg'), badge=$('empIdBadge');
-    function open(){ modal.classList.remove('hidden'); setTimeout(()=>input.focus(),40); }
-    function close(){ modal.classList.add('hidden'); }
+    function open(){
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';      // ensure it shows
+  setTimeout(()=>input.focus(),40);
+}
+function close(){
+  modal.classList.add('hidden');
+  modal.style.display = 'none';      // ensure it hides
+}
     const existing=getEmployeeId();
     if(!existing){ open(); } else { setText(badge,'ID: '+existing); close(); }
     save.onclick=()=>{ const v=(input.value||'').trim();
