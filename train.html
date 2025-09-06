@@ -22,6 +22,13 @@
     .progress{height:12px;background:#1a2136;border:1px solid #223259;border-radius:999px;overflow:hidden}
     .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
     .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+    /* diff/highlights */
+    .diff{margin-top:8px;font-size:.95rem}
+    .diff h3{margin:6px 0 4px;font-size:.9rem;color:#96a3bf}
+    .tok{display:inline-block;padding:0 3px;border-radius:6px;margin:0 1px 3px 0}
+    .ok{background:#12291c;border:1px solid #1f5d38}
+    .miss{background:#2a1616;border:1px solid #8a2c2c;text-decoration:underline}
+    .extra{background:#1a1d2a;border:1px solid #2f375c;opacity:.8}
   </style>
 </head>
 <body>
@@ -52,13 +59,22 @@
         <button id="nextBtn" class="btn ghost" type="button" disabled>Next</button>
         <button id="finishBtn" class="btn danger" type="button" disabled>Mark Complete</button>
       </div>
-      <div class="status" style="margin-top:6px">Auto‑advance ≥ 85% • 20s per Iceman step or scenario restarts</div>
+      <div class="status" style="margin-top:6px">Simulator: ~20s listen per Iceman step • Final score computed at the end</div>
       <div class="scoreline">
         <div class="status">Score: <span id="scorePct">0%</span></div>
         <div style="flex:1"></div>
         <div class="progress" style="width:300px"><div id="scoreBar" class="bar"></div></div>
       </div>
       <div id="status" class="status">Idle</div>
+
+      <!-- transcript / diff box -->
+      <div id="transcriptBox" class="diff hidden">
+        <h3>Expected (for grading)</h3>
+        <div id="expLine"></div>
+        <h3 style="margin-top:8px">Heard</h3>
+        <div id="heardLine"></div>
+        <div id="wordStats" class="status" style="margin-top:6px"></div>
+      </div>
     </div>
 
     <div class="foot">V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS</div>
@@ -88,8 +104,7 @@
   const EMP_ID_KEY = 'trainer.employeeId';
 
   // Simulator config
-  const PASS_THRESHOLD = 85;          // % to pass an Iceman step
-  const STEP_TIMEOUT_MS = 20000;      // 20 seconds per Iceman step
+  const STEP_TIMEOUT_MS = 20000;      // ~20 seconds per Iceman step
   const CAPTAIN_POST_DELAY_MS = 600;  // pause after Captain audio
 
   // ===== helpers =====
@@ -106,11 +121,59 @@
   }
   function setScore(pct){ pct=Math.max(0,Math.min(100, pct|0)); setText($('scorePct'), pct+'%'); $('scoreBar').style.width=pct+'%'; }
 
-  // Role-aware token resolution
-  function resolveText(txt, role){
-    if(!txt) return '';
-    if(role==='Iceman') return txt.replaceAll('[TAIL]','[REG]');
-    return txt;
+  // Role-aware token resolution (display only)
+  function resolveText(txt){ return txt || ''; }
+
+  // --- NATO phonetics for grading Iceman tails only ---
+  const NATO = {
+    A:'Alpha', B:'Bravo', C:'Charlie', D:'Delta', E:'Echo', F:'Foxtrot',
+    G:'Golf', H:'Hotel', I:'India',  J:'Juliet', K:'Kilo',  L:'Lima',
+    M:'Mike', N:'November', O:'Oscar', P:'Papa',  Q:'Quebec', R:'Romeo',
+    S:'Sierra', T:'Tango',  U:'Uniform', V:'Victor', W:'Whiskey', X:'X-ray',
+    Y:'Yankee', Z:'Zulu', '0':'Zero','1':'One','2':'Two','3':'Three','4':'Four',
+    '5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine'
+  };
+  function tailToPhonetic(tail) {
+    const m = String(tail||'').toUpperCase().match(/\bN[0-9A-Z]{3,}\b/);
+    if (!m) return null;
+    return m[0].split('').map(ch => NATO[ch] || ch).join(' ');
+  }
+  // Expected text for GRADING (Iceman only → tails become phonetics)
+  function expectedForGrading(step) {
+    let exp = String(step?.text || step?.phraseId || '');
+    if (step?.role === 'Iceman') {
+      exp = exp.replace(/\bN[0-9A-Z]{3,}\b/gi, t => tailToPhonetic(t) || t);
+    }
+    return exp;
+  }
+
+  // ===== transcript utilities =====
+  function tokens(s){ return norm(s).split(' ').filter(Boolean); }
+  function buildHighlights(expected, heard){
+    const eT = tokens(expected); const hT = tokens(heard);
+    const eSet = new Set(eT); const hSet = new Set(hT);
+    const expHTML = eT.map(w => `<span class="tok ${hSet.has(w)?'ok':'miss'}">${w}</span>`).join(' ');
+    const heardHTML = hT.map(w => `<span class="tok ${eSet.has(w)?'ok':'extra'}">${w}</span>`).join(' ');
+    return { expHTML, heardHTML };
+  }
+  function gradeDetails(expected, heard){
+    const eSet = new Set(tokens(expected)); const hSet = new Set(tokens(heard));
+    const matched = [...eSet].filter(w => hSet.has(w));
+    return { matchedCount: matched.length, total: eSet.size };
+  }
+  function renderTranscript(expected, heard, pct){
+    const box = $('transcriptBox'), expLine = $('expLine'), heardLine = $('heardLine'), stats = $('wordStats');
+    if(!box||!expLine||!heardLine||!stats) return;
+    const { expHTML, heardHTML } = buildHighlights(expected, heard);
+    const { matchedCount, total } = gradeDetails(expected, heard);
+    expLine.innerHTML = expHTML; heardLine.innerHTML = heardHTML;
+    stats.textContent = `Matched ${matchedCount}/${total} • Score ${pct}%`;
+    box.classList.remove('hidden');
+  }
+  function clearTranscript(){
+    const box = $('transcriptBox'); if(!box) return;
+    $('expLine').innerHTML=''; $('heardLine').innerHTML=''; $('wordStats').textContent='';
+    box.classList.add('hidden');
   }
 
   // ===== Employee ID gate =====
@@ -144,10 +207,10 @@
   function renderSteps(){
     const box=$('stepsBox');
     if(!current){ box.textContent='—'; return; }
-    const steps=current.steps||[];
+    const steps=(current.steps||[]);
     box.innerHTML = steps.map((s,i)=>{
       const active = i===stepIndex;
-      const txt = resolveText(s.text||s.phraseId||'', s.role);
+      const txt = resolveText(s.text||s.phraseId||'');
       return `<div style="padding:8px;border:1px solid ${active?'#1f6feb':'#1e2230'};border-radius:10px;margin:6px 0;background:${active?'#0f1424':'#141822'}">
         <div style=\"display:flex;justify-content:space-between;align-items:center\"><strong>Step ${i+1} • ${s.role||''}</strong><span class='status'>${s.prompt||''}</span></div>
         <div style=\"margin-top:6px\">${txt.replace(/</g,'&lt;')}</div>
@@ -155,19 +218,18 @@
     }).join('');
   }
 
-  // ===== Pre‑recorded audio playback for Captain lines =====
+  // ===== Captain audio =====
   function playCaptainAudio(src) {
-    const audio = $('captainAudio');
-    if (!audio) return;
+    const audio = $('captainAudio'); if (!audio) return;
     try { audio.pause(); audio.currentTime = 0; audio.src = (/^https?:\/\//i.test(src)) ? src : `/audio/${src}`; const p = audio.play(); if (p && p.catch) { p.catch(err => { setText($('status'), 'Audio failed: ' + (err?.message || err)); }); } }
     catch (e) { setText($('status'), 'Audio error: ' + (e?.message || e)); }
   }
   function stopCaptainAudio(){ const a=$('captainAudio'); try{ a.pause(); }catch{} }
 
-  // ===== Optional TTS fallback (kept but unused) =====
+  // ===== Optional TTS fallback =====
   function speak(text){ try{ const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch{} }
 
-  // ===== STT (listen Iceman) — iOS Safari uses webkitSpeechRecognition =====
+  // ===== STT (iOS Safari) =====
   function makeRecognizer(){ const R = window.SpeechRecognition || window.webkitSpeechRecognition; if(!R) return null; const rec = new R(); rec.lang='en-US'; rec.continuous=false; rec.interimResults=false; rec.maxAlternatives=1; return rec; }
   async function listenOnce(){ return new Promise((resolve,reject)=>{ const rec = makeRecognizer(); if(!rec){ reject(new Error('Speech Recognition not supported. Use Safari on iOS.')); return; } rec.onresult = (ev)=>{ const t = ev.results[0][0].transcript || ''; resolve(t); }; rec.onerror = (e)=>reject(new Error(e.error||'mic error')); try{ rec.start(); }catch(e){ reject(e); } }); }
 
@@ -183,7 +245,7 @@
   }
 
   // ===== Simulator helpers =====
-  const expectedFor = (st) => resolveText(st.text || st.phraseId || '', st.role);
+  const expectedFor = (st) => resolveText(st.text || st.phraseId || '');
 
   async function playCaptainAndAwait(st) {
     const audioSrc = st.audio || st.audioUrl || null;
@@ -195,15 +257,27 @@
     });
   }
 
-  async function listenUntilPass(st, timeoutMs = STEP_TIMEOUT_MS) {
-    const endBy = Date.now() + timeoutMs; let best = 0;
+  // Windowed listener: keep best score within ~20s, then advance regardless
+  async function listenWindow(st, windowMs = STEP_TIMEOUT_MS) {
+    const endBy = Date.now() + windowMs; let best = 0, bestHeard = '';
     while (Date.now() < endBy && !stopFlag) {
       setText($('status'),'Listening…');
-      try { const heard = await listenOnce(); const exp = expectedFor(st); const score = wordScore(exp, heard); setScore(score); setText($('status'), `Heard: \"${heard}\"`); best = Math.max(best, score); if (score >= PASS_THRESHOLD) return { passed: true, score }; }
-      catch (e) { setText($('status'), 'Mic error: '+(e.message||e)); await wait(600); }
+      try {
+        const heard = await listenOnce();
+        const exp   = expectedForGrading(st);
+        const score = wordScore(exp, heard);
+        if (score > best) { best = score; bestHeard = heard; }
+        setScore(score);
+        setText($('status'), `Heard: "${heard}" (best ${best}%)`);
+      } catch (e) {
+        setText($('status'), 'Mic error: ' + (e.message || e));
+        await wait(600);
+      }
       await wait(400);
     }
-    return { passed: false, score: best };
+    const exp = expectedForGrading(st);
+    renderTranscript(exp, bestHeard || '', best);
+    return { score: best, heard: bestHeard };
   }
 
   async function runSimulator() {
@@ -213,67 +287,42 @@
 
     stopFlag = false;
     startTs = Date.now();
-    stepIndex = 0; setScore(0); renderSteps();
-
-    // --- NATO phonetics for grading Iceman tails only ---
-const NATO = {
-  A:'Alpha', B:'Bravo', C:'Charlie', D:'Delta', E:'Echo', F:'Foxtrot',
-  G:'Golf', H:'Hotel', I:'India',  J:'Juliet', K:'Kilo',  L:'Lima',
-  M:'Mike', N:'November', O:'Oscar', P:'Papa',  Q:'Quebec', R:'Romeo',
-  S:'Sierra', T:'Tango',  U:'Uniform', V:'Victor', W:'Whiskey', X:'X-ray',
-  Y:'Yankee', Z:'Zulu', '0':'Zero','1':'One','2':'Two','3':'Three','4':'Four',
-  '5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine'
-};
-
-function tailToPhonetic(tail) {
-  const m = String(tail||'').toUpperCase().match(/\bN[0-9A-Z]{3,}\b/);
-  if (!m) return null;
-  return m[0].split('').map(ch => NATO[ch] || ch).join(' ');
-}
-
-// Build expected text for GRADING.
-// Only when role === 'Iceman' do we convert N-tails to phonetics.
-function expectedForGrading(step) {
-  let exp = String(step?.text || step?.phraseId || '');
-  if (step?.role === 'Iceman') {
-    exp = exp.replace(/\bN[0-9A-Z]{3,}\b/gi, t => tailToPhonetic(t) || t);
-  }
-  return exp;
-}
+    stepIndex = 0; setScore(0); renderSteps(); clearTranscript();
 
     // Lock manual controls
     $('nextBtn').disabled = true; $('speakBtn').disabled = true; $('listenBtn').disabled = true; $('finishBtn').disabled = false;
     setText($('status'), 'Simulator running…');
 
-    while (!stopFlag) {
-      for (let i = 0; i < steps.length && !stopFlag; i++) {
-        stepIndex = i; renderSteps();
-        const st = steps[i];
-        if (st.role === 'Captain') {
-          await playCaptainAndAwait(st);
-          await wait(CAPTAIN_POST_DELAY_MS);
-        } else {
-          const { passed, score } = await listenUntilPass(st, STEP_TIMEOUT_MS);
-          if (!passed) {
-            setText($('status'), `Time up (best ${score}%). Restarting from Step 1…`);
-            stopCaptainAudio();
-            await wait(1000);
-            i = -1; // loop will ++ to 0
-            stepIndex = 0; setScore(0); renderSteps();
-            continue;
-          }
-        }
+    // Aggregate scoring across Iceman steps
+    let icemanCount = 0, scoreSum = 0;
+
+    for (let i = 0; i < steps.length && !stopFlag; i++) {
+      stepIndex = i; renderSteps(); clearTranscript();
+      const st = steps[i];
+      if (st.role === 'Captain') {
+        await playCaptainAndAwait(st);
+        await wait(CAPTAIN_POST_DELAY_MS);
+      } else {
+        const { score } = await listenWindow(st, STEP_TIMEOUT_MS);
+        icemanCount++; scoreSum += (isFinite(score) ? score : 0);
       }
-
-      // Completed one full run
-      const duration = Math.round((Date.now() - startTs)/1000) || '';
-      const score = parseInt(($('scorePct').textContent||'0'),10) || 0;
-      await logTrainingCloud({ empId: getEmployeeId(), scenarioId: current.id||'', scenarioLabel: current.label||'', outcome:'completed', score:String(score), durationSec:duration });
-
-      setText($('status'), 'Scenario complete. Restarting in 2s…');
-      await wait(2000);
-      stepIndex = 0; renderSteps();
     }
+
+    const finalScore = icemanCount ? Math.round(scoreSum / icemanCount) : 0;
+    setScore(finalScore);
+    setText($('status'), `Scenario complete • Final score: ${finalScore}%`);
+
+    const duration = Math.round((Date.now() - startTs)/1000) || '';
+    await logTrainingCloud({
+      empId: getEmployeeId(),
+      scenarioId: current.id || '',
+      scenarioLabel: current.label || '',
+      outcome: 'completed',
+      score: String(finalScore),
+      durationSec: duration
+    });
+
+    $('startBtn').disabled = false; $('finishBtn').disabled = true;
   }
 
   // ===== Wire UI =====
@@ -283,7 +332,7 @@ function expectedForGrading(step) {
 
     $('reloadScenarios').onclick=loadScenarios;
     $('scenarioSelect').onchange = (e)=>{
-      const id=e.target.value; current=SCENARIOS.find(s=>s.id===id)||null; setText($('desc'), current?(current.desc||''):'Select a scenario to begin.'); stepIndex=0; renderSteps();
+      const id=e.target.value; current=SCENARIOS.find(s=>s.id===id)||null; setText($('desc'), current?(current.desc||''):'Select a scenario to begin.'); stepIndex=0; renderSteps(); clearTranscript();
       $('startBtn').disabled = !current; $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true; setText($('status'),'Idle'); setScore(0); stopCaptainAudio();
     };
 
@@ -291,9 +340,9 @@ function expectedForGrading(step) {
 
     $('speakBtn').onclick=()=>{ const st = current?.steps?.[stepIndex]; if(!st) return; const audioSrc = st.audio || st.audioUrl || null; if(audioSrc){ playCaptainAudio(audioSrc); setText($('status'),'Playing Captain line…'); } else { setText($('status'),'No audio file defined for this Captain line.'); } };
 
-    $('listenBtn').onclick=async()=>{ const st = current?.steps?.[stepIndex]; if(!st) return; const expected = resolveText(st.text||'', 'Iceman'); setText($('status'),'Listening…'); try{ const heard = await listenOnce(); const score = wordScore(expected, heard); setScore(score); setText($('status'), `Heard: \"${heard}\"`); } catch(e){ setText($('status'), 'Mic error: '+(e.message||e)); } };
+    $('listenBtn').onclick=async()=>{ const st = current?.steps?.[stepIndex]; if(!st) return; setText($('status'),'Listening…'); try{ const heard = await listenOnce(); const expected = expectedForGrading(st); const score = wordScore(expected, heard); setScore(score); setText($('status'), `Heard: "${heard}"`); renderTranscript(expected, heard, score); } catch(e){ setText($('status'), 'Mic error: '+(e.message||e)); } };
 
-    $('nextBtn').onclick=()=>{ if(!current) return; const total=(current.steps||[]).length; if(total===0) return; stopCaptainAudio(); stepIndex = Math.min(stepIndex+1, total-1); renderSteps(); setText($('status'),'Step '+(stepIndex+1)+' of '+total); };
+    $('nextBtn').onclick=()=>{ if(!current) return; const total=(current.steps||[]).length; if(total===0) return; stopCaptainAudio(); stepIndex = Math.min(stepIndex+1, total-1); renderSteps(); clearTranscript(); setText($('status'),'Step '+(stepIndex+1)+' of '+total); };
 
     $('finishBtn').onclick=async()=>{ stopFlag = true; stopCaptainAudio(); if(!current) return; const duration = Math.round((Date.now()-startTs)/1000)||''; const score = parseInt(($('scorePct').textContent||'0'),10)||0; await logTrainingCloud({ empId:getEmployeeId(), scenarioId: current.id||'', scenarioLabel: current.label||'', outcome:'completed', score:String(score), durationSec:duration }); $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true; setText($('status'),'Stopped.'); };
   });
