@@ -215,6 +215,32 @@
     startTs = Date.now();
     stepIndex = 0; setScore(0); renderSteps();
 
+    // --- NATO phonetics for grading Iceman tails only ---
+const NATO = {
+  A:'Alpha', B:'Bravo', C:'Charlie', D:'Delta', E:'Echo', F:'Foxtrot',
+  G:'Golf', H:'Hotel', I:'India',  J:'Juliet', K:'Kilo',  L:'Lima',
+  M:'Mike', N:'November', O:'Oscar', P:'Papa',  Q:'Quebec', R:'Romeo',
+  S:'Sierra', T:'Tango',  U:'Uniform', V:'Victor', W:'Whiskey', X:'X-ray',
+  Y:'Yankee', Z:'Zulu', '0':'Zero','1':'One','2':'Two','3':'Three','4':'Four',
+  '5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine'
+};
+
+function tailToPhonetic(tail) {
+  const m = String(tail||'').toUpperCase().match(/\bN[0-9A-Z]{3,}\b/);
+  if (!m) return null;
+  return m[0].split('').map(ch => NATO[ch] || ch).join(' ');
+}
+
+// Build expected text for GRADING.
+// Only when role === 'Iceman' do we convert N-tails to phonetics.
+function expectedForGrading(step) {
+  let exp = String(step?.text || step?.phraseId || '');
+  if (step?.role === 'Iceman') {
+    exp = exp.replace(/\bN[0-9A-Z]{3,}\b/gi, t => tailToPhonetic(t) || t);
+  }
+  return exp;
+}
+
     // Lock manual controls
     $('nextBtn').disabled = true; $('speakBtn').disabled = true; $('listenBtn').disabled = true; $('finishBtn').disabled = false;
     setText($('status'), 'Simulator running…');
