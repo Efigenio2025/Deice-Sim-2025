@@ -63,11 +63,11 @@
     </nav>
 
     <main class="main">
-      <!-- CONTENT TAB (placeholder for your JSON editor or other content mgmt) -->
+      <!-- CONTENT TAB -->
       <section id="tab-content" class="tab">
         <div class="card">
           <h1>Content</h1>
-          <div class="note">Manage JSON files (scenarios.json, phrases.json) in this section. (Your existing editor or links can live here.)</div>
+          <div class="note">Manage JSON files (scenarios.json, phrases.json). Use your existing editor or open them directly.</div>
           <div class="row" style="margin-top:8px">
             <a class="btn ghost" href="/scenarios.json" target="_blank">Open scenarios.json</a>
             <a class="btn ghost" href="/phrases.json" target="_blank">Open phrases.json</a>
@@ -79,7 +79,7 @@
       <section id="tab-logs" class="tab hidden">
         <div class="card">
           <h1>Training Logs</h1>
-          <div class="note">Pulls from /api/logs-list (backed by Supabase). Filter by employee ID or scenario text.</div>
+          <div class="note">Uses /api/logs-list (Supabase-backed). Filter by employee ID or scenario text.</div>
           <div class="row" style="margin:6px 0 10px">
             <input id="logFilter" placeholder="Filter (emp_id or scenario)" />
             <input id="logLimit" type="number" min="1" max="1000" value="200" style="max-width:120px" />
@@ -91,14 +91,14 @@
         </div>
       </section>
 
-      <!-- PUBLISH TAB (placeholder) -->
+      <!-- PUBLISH TAB -->
       <section id="tab-publish" class="tab hidden">
         <div class="card">
           <h1>Publish</h1>
-          <div class="note">When ready, commit JSON changes to GitHub and redeploy on Vercel.</div>
+          <div class="note">Commit JSON changes to GitHub; Vercel auto‑deploys.</div>
           <ul class="note">
-            <li>Validate JSON (no trailing commas, valid arrays).</li>
-            <li>Commit to main → Vercel auto‑deploys.</li>
+            <li>Validate JSON (no trailing commas, arrays at top-level).</li>
+            <li>Commit to main → Vercel deploys.</li>
             <li>Verify on <span class="pill">/train.html</span>.</li>
           </ul>
         </div>
@@ -123,7 +123,7 @@
       document.getElementById('logoutBtn').onclick=()=>{ try{sessionStorage.removeItem(KEY);}catch(_){} location.reload(); };
     })();
 
-    // ===== Simple tab switcher =====
+    // ===== Simple tab switcher (auto-refresh Logs) =====
     (function(){
       const links = document.querySelectorAll('.nav a[data-tab]');
       const tabs  = { content: document.getElementById('tab-content'), logs: document.getElementById('tab-logs'), publish: document.getElementById('tab-publish') };
@@ -131,18 +131,22 @@
         Object.keys(tabs).forEach(k=> tabs[k].classList.toggle('hidden', k!==which));
         links.forEach(a=> a.setAttribute('aria-current', a.dataset.tab===which ? 'page' : 'false'));
       }
-      links.forEach(a=> a.addEventListener('click', (e)=>{   e.preventDefault();   const tab = a.dataset.tab;   show(tab);   history.replaceState({},'', '#'+tab);   if (tab === 'logs') {     document.getElementById('fetchLogs')?.click(); // auto-refresh on tab open   } }));
+      links.forEach(a=> a.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const tab = a.dataset.tab;
+        show(tab);
+        history.replaceState({},'', '#'+tab);
+        if (tab === 'logs') { document.getElementById('fetchLogs')?.click(); }
+      }));
       const hash = (location.hash||'').replace('#','');
-const initial = ['content','logs','publish'].includes(hash) ? hash : 'content';
-show(initial);
-if (initial === 'logs') {
-  document.getElementById('fetchLogs')?.click(); // auto-refresh on first load
-}
+      const initial = ['content','logs','publish'].includes(hash) ? hash : 'content';
+      show(initial);
+      if (initial === 'logs') { document.getElementById('fetchLogs')?.click(); }
     })();
 
     // ===== Training Logs viewer =====
     (function(){
-      const ADMIN_TOKEN = Adm1n_R34d_T0ken_7788 ; // <-- replace in production
+      const ADMIN_TOKEN = 'YOUR_ADMIN_TOKEN_HERE'; // <-- replace in production
 
       const btn   = document.getElementById('fetchLogs');
       const inpQ  = document.getElementById('logFilter');
@@ -161,7 +165,7 @@ if (initial === 'logs') {
       }
 
       function renderLogs(res){
-        const { rows = [], total = 0, limit = 0 } = res || {};
+        const { rows = [], total = 0 } = res || {};
         info.textContent = `Rows: ${rows.length} / ${total}`;
         if(!rows.length){ table.innerHTML = '<div class="status">No logs.</div>'; return; }
         const cols = ['ts','emp_id','scenario_id','scenario_label','outcome','score','duration_sec','user_agent','ip'];
@@ -178,21 +182,13 @@ if (initial === 'logs') {
         return lines.join('\n');
       }
 
-   btn.addEventListener('click', async ()=>{
-  info.textContent = 'Loading…';
-  table.innerHTML = '';
-  try {
-    const data = await fetchLogs();
-    renderLogs(data);
-  } catch (e) {
-    const msg = e.message || String(e);
-    info.textContent = msg;
-    console.error('logs-list error:', msg);
-    alert(msg); // makes failure visible
-  }
-});
+      btn.addEventListener('click', async ()=>{
+        info.textContent='Loading…'; table.innerHTML='';
+        try{ const data = await fetchLogs(); renderLogs(data); btnCsv.onclick = ()=>{ const csv = toCSV(data); if(!csv){ alert('No data'); return; } const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='training_logs.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 500); }; }
+        catch(e){ const msg = e.message || String(e); info.textContent = msg; alert(msg); }
+      });
 
-      // Auto‑load when the Logs tab is first shown via hash
+      // Auto‑load if landing on #logs
       if((location.hash||'')==='#logs') btn.click();
     })();
   </script>
