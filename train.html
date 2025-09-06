@@ -33,6 +33,8 @@
 
     /* live mic box */
     .live-box{margin-top:10px;padding:10px;border:1px solid #223259;border-radius:10px;background:#141822;min-height:40px;font-size:1rem;color:#b7c7ff}
+
+    /* modal visibility helper */
     .hidden{display:none !important}
   </style>
 </head>
@@ -40,7 +42,10 @@
   <div class="wrap">
     <div class="row" style="justify-content:space-between">
       <a href="index.html" class="btn ghost">← Home</a>
-      <span class="pill" id="empIdBadge">ID: —</span>
+      <div class="row" style="gap:8px;align-items:center">
+        <span class="pill" id="empIdBadge">ID: —</span>
+        <button id="changeIdBtn" class="btn ghost" type="button">Change ID</button>
+      </div>
     </div>
 
     <!-- Controls pinned to top -->
