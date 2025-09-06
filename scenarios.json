@@ -7,8 +7,8 @@
       {
         "prompt": "init",
         "role": "Captain",
-        "text": "Iceman, this is [TAIL]. We are configured for Type I. Engines are running, APU is off. Request full body Type I application.",
-        "audio": "captain_initial.mp3"
+        "text": "Iceman, this is N443DF. We are configured for Type I. Engines are running, APU is off. Request full body Type 1 application.",
+        "audio": "init.mp3"
       },
       {
         "prompt": "prep",
@@ -18,8 +18,8 @@
       {
         "prompt": "ready",
         "role": "Captain",
-        "text": "[TAIL], ready for deicing.",
-        "audio": "captain_ready.mp3"
+        "text": "Iceman aircraft N443DF, ready for deicing. ",
+        "audio": "ready.mp3"
       },
       {
         "prompt": "start",
@@ -30,6 +30,12 @@
         "prompt": "post",
         "role": "Iceman",
         "text": "Captain, [TAIL], deicing complete. Post-deicing check complete, deicing personnel and equipment are safely away."
+      },
+      {
+        "prompt": "final",
+        "role": "Captain",
+        "text": "Iceman, aircraft N443DF copies. Stay warm out there!"
+        "audio": "Final.mp3"
       }
     ]
   },
