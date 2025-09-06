@@ -7,7 +7,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN; // secret for admin.html fetches
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, { auth: { persistSession: false } });
 
 export default async function handler(req, res) {
-  if (req.headers Adm1n_R34d_T0ken_7788 !== ADMIN_TOKEN) {
+  if (req.headers [Adm1n_R34d_T0ken_7788] !== ADMIN_TOKEN) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
