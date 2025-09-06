@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>De‑Ice Trainer — Simulator</title>
+  <title>De-Ice Trainer — Simulator</title>
   <style>
     :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--danger:#e5534b;--ok:#19c37d}
     *{box-sizing:border-box}
@@ -18,11 +18,12 @@
     .status{font-size:.92rem;color:var(--muted)}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
     textarea,input,select{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
+    .hidden{display:none !important}
     .foot{margin-top:10px;color:#96a3bf;font-size:.85rem}
     .progress{height:12px;background:#1a2136;border:1px solid #223259;border-radius:999px;overflow:hidden}
     .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
     .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-    /* diff/highlights */
+    /* transcript / diff */
     .diff{margin-top:8px;font-size:.95rem}
     .diff h3{margin:6px 0 4px;font-size:.9rem;color:#96a3bf}
     .tok{display:inline-block;padding:0 3px;border-radius:6px;margin:0 1px 3px 0}
@@ -96,13 +97,13 @@
     </div>
   </div>
 
-  <!-- Audio player for pre‑recorded Captain lines -->
+  <!-- Audio player for pre-recorded Captain lines -->
   <audio id="captainAudio" preload="metadata" playsinline></audio>
 
 <script>
 (function(){
   // ===== constants =====
-  const WRITE_TOKEN = 'wR1te_Train3r_XyZ_90210'; // update if you rotate
+  const WRITE_TOKEN = 'wR1te_Train3r_XyZ_90210';
   const EMP_ID_KEY = 'trainer.employeeId';
 
   // Simulator config
@@ -123,9 +124,6 @@
   }
   function setScore(pct){ pct=Math.max(0,Math.min(100, pct|0)); setText($('scorePct'), pct+'%'); $('scoreBar').style.width=pct+'%'; }
 
-  // Display only
-  function resolveText(txt){ return txt || ''; }
-
   // --- NATO phonetics for grading Iceman tails only ---
   const NATO = {
     A:'Alpha', B:'Bravo', C:'Charlie', D:'Delta', E:'Echo', F:'Foxtrot',
@@ -140,6 +138,7 @@
     if (!m) return null;
     return m[0].split('').map(ch => NATO[ch] || ch).join(' ');
   }
+  // Expected text for GRADING (Iceman only → tails become phonetics)
   function expectedForGrading(step) {
     let exp = String(step?.text || step?.phraseId || '');
     if (step?.role === 'Iceman') {
@@ -153,8 +152,8 @@
   function buildHighlights(expected, heard){
     const eT = tokens(expected); const hT = tokens(heard);
     const eSet = new Set(eT); const hSet = new Set(hT);
-    const expHTML = eT.map(w => `<span class=\"tok ${hSet.has(w)?'ok':'miss'}\">${w}</span>`).join(' ');
-    const heardHTML = hT.map(w => `<span class=\"tok ${eSet.has(w)?'ok':'extra'}\">${w}</span>`).join(' ');
+    const expHTML = eT.map(w => `<span class="tok ${hSet.has(w)?'ok':'miss'}">${w}</span>`).join(' ');
+    const heardHTML = hT.map(w => `<span class="tok ${eSet.has(w)?'ok':'extra'}">${w}</span>`).join(' ');
     return { expHTML, heardHTML };
   }
   function gradeDetails(expected, heard){
@@ -175,7 +174,7 @@
     if(!expLine||!heardLine||!stats) return;
     if (st?.role === 'Iceman') {
       const expected = expectedForGrading(st);
-      expLine.innerHTML = expected.split(' ').map(w=>`<span class=\"tok miss\">${w}</span>`).join(' ');
+      expLine.innerHTML = expected.split(' ').map(w=>`<span class="tok miss">${w}</span>`).join(' ');
       heardLine.innerHTML = '';
       stats.textContent = 'Waiting for input…';
     } else {
@@ -185,7 +184,7 @@
     }
   }
 
-  // ===== Employee ID gate =====
+  // ===== Employee ID gate (single, authoritative version) =====
   function getEmployeeId(){ return sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || ''; }
   function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch{} }
   function ensureEmpGate(){
@@ -194,7 +193,17 @@
     function close(){ modal.classList.add('hidden'); }
     const existing=getEmployeeId();
     if(!existing){ open(); } else { setText(badge,'ID: '+existing); close(); }
-    save.onclick=()=>{ const v=(input.value||'').trim(); if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ setText(msg,'Enter a valid ID (min 3 chars).'); return; } setEmployeeId(v); setText(badge,'ID: '+v); setText(msg,''); close(); // hides the modal
+    save.onclick=()=>{
+      const v=(input.value||'').trim();
+      if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){
+        setText(msg,'Enter a valid ID (min 3 chars).');
+        return;
+      }
+      setEmployeeId(v);
+      setText(badge,'ID: '+v);
+      setText(msg,'');
+      close(); // <-- closes the modal
+    };
     cancel.onclick=()=>{ setText(msg,'Employee ID is required to proceed.'); };
   }
 
@@ -219,21 +228,25 @@
     const steps=(current.steps||[]);
     box.innerHTML = steps.map((s,i)=>{
       const active = i===stepIndex;
-      const txt = resolveText(s.text||s.phraseId||'');
-      return `<div style=\"padding:8px;border:1px solid ${active?'#1f6feb':'#1e2230'};border-radius:10px;margin:6px 0;background:${active?'#0f1424':'#141822'}\">\n        <div style=\\\"display:flex;justify-content:space-between;align-items:center\\\"><strong>Step ${i+1} • ${s.role||''}</strong><span class='status'>${s.prompt||''}</span></div>\n        <div style=\\\"margin-top:6px\\\">${txt.replace(/</g,'&lt;')}</div>\n      </div>`;
+      const txt = String(s.text||s.phraseId||'');
+      return `<div style="padding:8px;border:1px solid ${active?'#1f6feb':'#1e2230'};border-radius:10px;margin:6px 0;background:${active?'#0f1424':'#141822'}">
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Step ${i+1} • ${s.role||''}</strong><span class='status'>${s.prompt||''}</span></div>
+        <div style="margin-top:6px">${txt.replace(/</g,'&lt;')}</div>
+      </div>`;
     }).join('');
   }
 
   // ===== Captain audio =====
   function playCaptainAudio(src) {
     const audio = $('captainAudio'); if (!audio) return;
-    try { audio.pause(); audio.currentTime = 0; audio.src = (/^https?:\/\//i.test(src)) ? src : `/audio/${src}`; const p = audio.play(); if (p && p.catch) { p.catch(err => { setText($('status'), 'Audio failed: ' + (err?.message || err)); }); } }
-    catch (e) { setText($('status'), 'Audio error: ' + (e?.message || e)); }
+    try {
+      audio.pause(); audio.currentTime = 0;
+      audio.src = (/^https?:\/\//i.test(src)) ? src : `/audio/${src}`;
+      const p = audio.play();
+      if (p && p.catch) { p.catch(err => { setText($('status'), 'Audio failed: ' + (err?.message || err)); }); }
+    } catch (e) { setText($('status'), 'Audio error: ' + (e?.message || e)); }
   }
   function stopCaptainAudio(){ const a=$('captainAudio'); try{ a.pause(); }catch{} }
-
-  // ===== Optional TTS fallback =====
-  function speak(text){ try{ const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch{} }
 
   // ===== STT (iOS Safari) =====
   function makeRecognizer(){ const R = window.SpeechRecognition || window.webkitSpeechRecognition; if(!R) return null; const rec = new R(); rec.lang='en-US'; rec.continuous=false; rec.interimResults=false; rec.maxAlternatives=1; return rec; }
@@ -244,7 +257,11 @@
     const statusEl = $('status');
     try{
       if(!empId || empId.trim().length<3){ statusEl.textContent='Cloud log blocked: Employee ID missing.'; return false; }
-      const resp = await fetch('/api/logs-write', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-write-token': WRITE_TOKEN }, body: JSON.stringify({ emp_id: empId, scenario_id: scenarioId||'', scenario_label: scenarioLabel||'', outcome, score, duration_sec: durationSec||null }) });
+      const resp = await fetch('/api/logs-write', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'x-write-token': WRITE_TOKEN },
+        body: JSON.stringify({ emp_id: empId, scenario_id: scenarioId||'', scenario_label: scenarioLabel||'', outcome, score, duration_sec: durationSec||null })
+      });
       if(!resp.ok){ const body=await resp.text().catch(()=> ''); statusEl.textContent=`Cloud log failed • ${resp.status} ${resp.statusText} • ${body}`; return false; }
       statusEl.textContent='Logged to cloud ✓'; return true;
     }catch(e){ statusEl.textContent=`Cloud log error • ${e?.message||e}`; return false; }
@@ -261,7 +278,7 @@
     });
   }
 
-  // Windowed listener: keep best score within 5s, then advance regardless
+  // Windowed listener: keep best score within ~5s, then advance regardless
   async function listenWindow(st, windowMs = STEP_TIMEOUT_MS) {
     const endBy = Date.now() + windowMs; let best = 0, bestHeard = '';
     while (Date.now() < endBy && !stopFlag) {
@@ -331,16 +348,23 @@
     $('startBtn').disabled = false; $('finishBtn').disabled = true;
   }
 
-  // ===== Wire UI =====
-    document.addEventListener('DOMContentLoaded', ()=>{
+  // ===== Wire UI (single definition; no duplicates) =====
+  document.addEventListener('DOMContentLoaded', ()=>{
     ensureEmpGate();
     loadScenarios();
 
     $('reloadScenarios').onclick=loadScenarios;
+
     $('scenarioSelect').onchange = (e)=>{
-      const id=e.target.value; current=SCENARIOS.find(s=>s.id===id)||null; setText($('desc'), current?(current.desc||''):'Select a scenario to begin.'); stepIndex=0; renderSteps();
+      const id=e.target.value;
+      current=SCENARIOS.find(s=>s.id===id)||null;
+      setText($('desc'), current?(current.desc||''):'Select a scenario to begin.');
+      stepIndex=0; renderSteps();
       const st = current?.steps?.[stepIndex]; primeTranscriptForStep(st);
-      $('startBtn').disabled = !current; $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true; setText($('status'),'Idle'); setScore(0); stopCaptainAudio();
+      $('startBtn').disabled = !current;
+      $('nextBtn').disabled=true; $('finishBtn').disabled=true;
+      $('speakBtn').disabled=true; $('listenBtn').disabled=true;
+      setText($('status'),'Idle'); setScore(0); stopCaptainAudio();
     };
 
     $('startBtn').onclick = ()=>{ if(!current) return; runSimulator().catch(()=>{}); };
