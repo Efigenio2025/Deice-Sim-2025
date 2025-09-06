@@ -131,9 +131,13 @@
         Object.keys(tabs).forEach(k=> tabs[k].classList.toggle('hidden', k!==which));
         links.forEach(a=> a.setAttribute('aria-current', a.dataset.tab===which ? 'page' : 'false'));
       }
-      links.forEach(a=> a.addEventListener('click', (e)=>{ e.preventDefault(); show(a.dataset.tab); history.replaceState({},'', '#'+a.dataset.tab); }));
+      links.forEach(a=> a.addEventListener('click', (e)=>{   e.preventDefault();   const tab = a.dataset.tab;   show(tab);   history.replaceState({},'', '#'+tab);   if (tab === 'logs') {     document.getElementById('fetchLogs')?.click(); // auto-refresh on tab open   } }));
       const hash = (location.hash||'').replace('#','');
-      if(['content','logs','publish'].includes(hash)) show(hash); else show('content');
+const initial = ['content','logs','publish'].includes(hash) ? hash : 'content';
+show(initial);
+if (initial === 'logs') {
+  document.getElementById('fetchLogs')?.click(); // auto-refresh on first load
+}
     })();
 
     // ===== Training Logs viewer =====
