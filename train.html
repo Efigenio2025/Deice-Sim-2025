@@ -24,8 +24,6 @@
     .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
   </style>
 </head>
-  <!-- Audio player for Captain lines (pre-recorded) -->
-<audio id="captainAudio" preload="metadata" playsinline></audio>
 <body>
   <div class="wrap">
     <div class="row" style="justify-content:space-between">
@@ -79,6 +77,9 @@
     </div>
   </div>
 
+  <!-- Audio player for pre‑recorded Captain lines -->
+  <audio id="captainAudio" preload="metadata" playsinline></audio>
+
 <script>
 (function(){
   // ===== constants =====
@@ -98,15 +99,10 @@
   }
   function setScore(pct){ pct=Math.max(0,Math.min(100, pct|0)); setText($('scorePct'), pct+'%'); $('scoreBar').style.width=pct+'%'; }
 
-  // Role-aware token resolution: Iceman gets REG if [TAIL] present
+  // Role-aware token resolution: show [REG] for Iceman if the step text uses [TAIL]
   function resolveText(txt, role){
-    // If scenarios include tokens like [TAIL]/[REG]/[LOCAL_TIME]/[FLUID_BRAND], you can wire them here.
-    // For now pass-through, but map [TAIL] -> [REG] for Iceman if both present in text later.
     if(!txt) return '';
-    if(role==='Iceman'){
-      // If both tokens provided in the text, prefer REG by swapping TAIL with REG.
-      return txt.replaceAll('[TAIL]','[REG]');
-    }
+    if(role==='Iceman') return txt.replaceAll('[TAIL]','[REG]');
     return txt;
   }
 
@@ -128,9 +124,11 @@
   async function loadScenarios(){
     const sel=$('scenarioSelect'), desc=$('desc'); sel.innerHTML='<option value="">— loading —</option>';
     try{
-      const res = await fetch('/scenarios.json', {cache:'no-store'});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const data = await res.json();
+      const ts = Date.now();
+      // try root, then relative
+      const urls = [`/scenarios.json?v=${ts}`, `./scenarios.json?v=${ts}`];
+      let data=null; for(const u of urls){ const r=await fetch(u,{cache:'no-store'}); if(r.ok){ data=await r.json(); break; } }
+      if(!Array.isArray(data)) throw new Error('Invalid scenarios.json');
       SCENARIOS.splice(0,SCENARIOS.length,...data);
       sel.innerHTML = '<option value="">— select —</option>'+data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
       setText(desc,'Select a scenario to begin.');
@@ -151,18 +149,30 @@
     }).join('');
   }
 
-  // ===== TTS (speak Captain) =====
+  // ===== Pre‑recorded audio playback for Captain lines =====
+  function playCaptainAudio(src) {
+    const audio = $('captainAudio');
+    if (!audio) return;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = (/^https?:\/\//i.test(src)) ? src : `/audio/${src}`;
+      const p = audio.play();
+      if (p && p.catch) {
+        p.catch(err => { setText($('status'), 'Audio failed: ' + (err?.message || err)); });
+      }
+    } catch (e) {
+      setText($('status'), 'Audio error: ' + (e?.message || e));
+    }
+  }
+  function stopCaptainAudio(){ const a=$('captainAudio'); try{ a.pause(); }catch{} }
+
+  // ===== TTS fallback (optional; kept but unused by default) =====
   function speak(text){
-    try{
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang='en-US';
-      u.rate=1; u.pitch=1; u.volume=1;
-      speechSynthesis.cancel();
-      speechSynthesis.speak(u);
-    }catch(e){ console.warn('TTS not available',e); }
+    try{ const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=1; u.pitch=1; u.volume=1; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch{}
   }
 
-  // ===== STT (listen Iceman) — iOS Safari uses webkitSpeechRecognition =====
+  // ===== STT (listen Iceman) — Safari iOS uses webkitSpeechRecognition =====
   function makeRecognizer(){
     const R = window.SpeechRecognition || window.webkitSpeechRecognition;
     if(!R) return null;
@@ -170,7 +180,6 @@
     rec.lang='en-US'; rec.continuous=false; rec.interimResults=false; rec.maxAlternatives=1;
     return rec;
   }
-
   async function listenOnce(){
     return new Promise((resolve,reject)=>{
       const rec = makeRecognizer();
@@ -184,14 +193,18 @@
 
   // ===== Cloud logging =====
   async function logTrainingCloud({ empId, scenarioId, scenarioLabel, outcome='completed', score='', durationSec='' }){
+    const statusEl = $('status');
     try{
+      if(!empId || empId.trim().length<3){ statusEl.textContent='Cloud log blocked: Employee ID missing.'; return false; }
       const resp = await fetch('/api/logs-write', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'x-write-token': WRITE_TOKEN },
-        body: JSON.stringify({ emp_id: empId, scenario_id: scenarioId, scenario_label: scenarioLabel, outcome, score, duration_sec: durationSec })
+        body: JSON.stringify({ emp_id: empId, scenario_id: scenarioId||'', scenario_label: scenarioLabel||'', outcome, score, duration_sec: durationSec||null })
       });
-      return resp.ok;
-    }catch{ return false; }
+      if(!resp.ok){ const body=await resp.text().catch(()=> ''); statusEl.textContent=`Cloud log failed • ${resp.status} ${resp.statusText} • ${body}`; return false; }
+      statusEl.textContent='Logged to cloud ✓';
+      return true;
+    }catch(e){ statusEl.textContent=`Cloud log error • ${e?.message||e}`; return false; }
   }
 
   // ===== Wire UI =====
@@ -202,7 +215,7 @@
     $('reloadScenarios').onclick=loadScenarios;
     $('scenarioSelect').onchange = (e)=>{
       const id=e.target.value; current=SCENARIOS.find(s=>s.id===id)||null; setText($('desc'), current?(current.desc||''):'Select a scenario to begin.'); stepIndex=0; renderSteps();
-      $('startBtn').disabled = !current; $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true; setText($('status'),'Idle'); setScore(0);
+      $('startBtn').disabled = !current; $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true; setText($('status'),'Idle'); setScore(0); stopCaptainAudio();
     };
 
     $('startBtn').onclick=()=>{
@@ -217,28 +230,27 @@
     }
 
     $('speakBtn').onclick=()=>{
-      const st = current?.steps?.[stepIndex]; if(!st) return; const txt = resolveText(st.text||'', 'Captain'); speak(txt); };
+      const st = current?.steps?.[stepIndex]; if(!st) return;
+      const audioSrc = st.audio || st.audioUrl || null;
+      if(audioSrc){ playCaptainAudio(audioSrc); setText($('status'),'Playing Captain line…'); }
+      else { setText($('status'),'No audio file defined for this Captain line.'); /* Optional fallback: speak(resolveText(st.text||'', 'Captain')); */ }
+    };
 
     $('listenBtn').onclick=async()=>{
       const st = current?.steps?.[stepIndex]; if(!st) return; const expected = resolveText(st.text||'', 'Iceman');
       setText($('status'),'Listening…');
-      try{
-        const heard = await listenOnce();
-        const score = wordScore(expected, heard);
-        setScore(score);
-        setText($('status'), `Heard: "${heard}"`);
-      }catch(e){ setText($('status'), 'Mic error: '+(e.message||e)); }
+      try{ const heard = await listenOnce(); const score = wordScore(expected, heard); setScore(score); setText($('status'), `Heard: "${heard}"`); }
+      catch(e){ setText($('status'), 'Mic error: '+(e.message||e)); }
     };
 
     $('nextBtn').onclick=()=>{
-      if(!current) return; const total=(current.steps||[]).length; if(total===0) return;
+      if(!current) return; const total=(current.steps||[]).length; if(total===0) return; stopCaptainAudio();
       stepIndex = Math.min(stepIndex+1, total-1); renderSteps(); updateActionButtons(); setText($('status'),'Step '+(stepIndex+1)+' of '+total);
     };
 
     $('finishBtn').onclick=async()=>{
-      if(!current) return; const duration = Math.round((Date.now()-startTs)/1000)||''; const score = parseInt(($('scorePct').textContent||'0'),10)||0;
+      if(!current) return; stopCaptainAudio(); const duration = Math.round((Date.now()-startTs)/1000)||''; const score = parseInt(($('scorePct').textContent||'0'),10)||0;
       const ok = await logTrainingCloud({ empId:getEmployeeId(), scenarioId: current.id||'', scenarioLabel: current.label||'', outcome:'completed', score:String(score), durationSec:duration });
-      setText($('status'), ok? 'Logged to cloud ✓' : 'Completed (cloud log failed)');
       $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true;
     };
   });
