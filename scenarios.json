@@ -24,12 +24,12 @@
       {
         "prompt": "start",
         "role": "Iceman",
-        "text": "[TAIL], starting application of Type I now."
+        "text": "Aircraft N443FD starting application of Type I now."
       },
       {
         "prompt": "post",
         "role": "Iceman",
-        "text": "Captain, [TAIL], deicing complete. Post-deicing check complete, deicing personnel and equipment are safely away."
+        "text": "Captain, N443FD, deicing complete. Post-deicing check complete, deicing personnel and equipment are safely away."
       },
       {
         "prompt": "final",
