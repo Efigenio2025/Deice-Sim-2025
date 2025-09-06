@@ -20,22 +20,20 @@
     h2{font-size:1.05rem;margin:10px 0 8px}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     textarea,input,select{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
-    textarea{min-height:260px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
     .btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:700;border-radius:10px;padding:9px 12px;cursor:pointer}
     .ghost{background:#2b3147}
     .danger{background:var(--danger)}
     .note{color:var(--muted);font-size:.9rem}
     .status{font-size:.92rem;color:var(--muted)}
     .grid{display:grid;gap:12px}
-    @media(min-width:1000px){.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
     .ok{color:#98f5b0}
     .err{color:#ffb4b4}
     .lock{position:fixed;inset:0;background:linear-gradient(180deg,#0f1220,#0b0c10);display:flex;align-items:center;justify-content:center;z-index:9999}
     .lockCard{background:#101218;border:1px solid #1e2230;border-radius:16px;padding:20px;max-width:360px;width:92%}
     .hidden{display:none}
-    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:2px 6px;border-radius:6px;background:#141a2a;border:1px solid #243259}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
-    .stepCard{background:#141822;border:1px solid #243259;border-radius:10px;padding:10px;margin:8px 0}
   </style>
 </head>
 <body>
@@ -56,38 +54,60 @@
   <div id="console" class="shell hidden">
     <nav class="nav">
       <div class="brand">De‑Ice Admin</div>
-      <a href="#content" data-tab="content">Content</a>
+      <a href="#content" data-tab="content" aria-current="page">Content</a>
       <a href="builder.html">Builder ↗</a>
+      <a href="#logs" data-tab="logs">Training Logs</a>
       <a href="#publish" data-tab="publish">Publish</a>
       <a href="diagnostics.html">Diagnostics ↗</a>
       <div class="foot">Logged in • <button id="logoutBtn" class="ghost" style="padding:4px 8px">Log out</button></div>
     </nav>
+
     <main class="main">
-      <!-- BUILDER -->
-      <section id="tab-builder" class="tab">
+      <!-- CONTENT TAB (placeholder for your JSON editor or other content mgmt) -->
+      <section id="tab-content" class="tab">
         <div class="card">
-          <h1>Scenario Builder</h1>
-          <div class="note">Quickly add Captain/Iceman lines. Use <code>Captain:</code> or <code>Iceman:</code> prefixes for bulk paste.</div>
-
-          <div class="row">
-            <button class="btn" id="bulkPaste">Bulk Paste Script</button>
-            <button class="btn ghost" id="addStep">+ Add Step</button>
+          <h1>Content</h1>
+          <div class="note">Manage JSON files (scenarios.json, phrases.json) in this section. (Your existing editor or links can live here.)</div>
+          <div class="row" style="margin-top:8px">
+            <a class="btn ghost" href="/scenarios.json" target="_blank">Open scenarios.json</a>
+            <a class="btn ghost" href="/phrases.json" target="_blank">Open phrases.json</a>
           </div>
+        </div>
+      </section>
 
-          <div id="steps"></div>
-
-          <div class="row" style="margin-top:12px">
-            <button class="btn" id="saveScenario">Save Scenario</button>
-            <button class="btn ghost" id="resetScenario">Reset</button>
+      <!-- TRAINING LOGS TAB -->
+      <section id="tab-logs" class="tab hidden">
+        <div class="card">
+          <h1>Training Logs</h1>
+          <div class="note">Pulls from /api/logs-list (backed by Supabase). Filter by employee ID or scenario text.</div>
+          <div class="row" style="margin:6px 0 10px">
+            <input id="logFilter" placeholder="Filter (emp_id or scenario)" />
+            <input id="logLimit" type="number" min="1" max="1000" value="200" style="max-width:120px" />
+            <button id="fetchLogs" class="btn" type="button">Refresh</button>
+            <button id="exportCsv" class="btn ghost" type="button">Export CSV</button>
           </div>
+          <div id="logsInfo" class="status">—</div>
+          <div id="logsTable" class="card" style="margin-top:10px;overflow:auto;max-height:60vh"></div>
+        </div>
+      </section>
 
-          <div id="builderStatus" class="status">Idle</div>
+      <!-- PUBLISH TAB (placeholder) -->
+      <section id="tab-publish" class="tab hidden">
+        <div class="card">
+          <h1>Publish</h1>
+          <div class="note">When ready, commit JSON changes to GitHub and redeploy on Vercel.</div>
+          <ul class="note">
+            <li>Validate JSON (no trailing commas, valid arrays).</li>
+            <li>Commit to main → Vercel auto‑deploys.</li>
+            <li>Verify on <span class="pill">/train.html</span>.</li>
+          </ul>
         </div>
       </section>
     </main>
   </div>
 
   <script>
+    // ===== Passcode gate =====
     (function(){
       const PASSCODE = '369565';
       const lock=document.getElementById('lock');
@@ -100,64 +120,69 @@
       function tryUnlock(){ const v=(code.value||'').trim(); if(v===PASSCODE){ unlock(); } else { msg.textContent='Incorrect passcode'; } }
       go.onclick=tryUnlock; code.onkeydown=(e)=>{ if(e.key==='Enter') tryUnlock(); };
       if(sessionStorage.getItem(KEY)==='1'){ unlock(); }
+      document.getElementById('logoutBtn').onclick=()=>{ try{sessionStorage.removeItem(KEY);}catch(_){} location.reload(); };
     })();
 
-    // Simple Builder Logic
-    const stepsDiv=document.getElementById('steps');
-    const status=document.getElementById('builderStatus');
-    let steps=[];
+    // ===== Simple tab switcher =====
+    (function(){
+      const links = document.querySelectorAll('.nav a[data-tab]');
+      const tabs  = { content: document.getElementById('tab-content'), logs: document.getElementById('tab-logs'), publish: document.getElementById('tab-publish') };
+      function show(which){
+        Object.keys(tabs).forEach(k=> tabs[k].classList.toggle('hidden', k!==which));
+        links.forEach(a=> a.setAttribute('aria-current', a.dataset.tab===which ? 'page' : 'false'));
+      }
+      links.forEach(a=> a.addEventListener('click', (e)=>{ e.preventDefault(); show(a.dataset.tab); history.replaceState({},'', '#'+a.dataset.tab); }));
+      const hash = (location.hash||'').replace('#','');
+      if(['content','logs','publish'].includes(hash)) show(hash); else show('content');
+    })();
 
-    function render(){
-      stepsDiv.innerHTML='';
-      steps.forEach((st,idx)=>{
-        const div=document.createElement('div');
-        div.className='stepCard';
-        div.innerHTML=`
-          <div class="row" style="justify-content:space-between">
-            <strong>Step ${idx+1}</strong>
-            <button data-del="${idx}" class="btn danger">Delete</button>
-          </div>
-          <div class="row">
-            <select data-role="${idx}">
-              <option ${st.role==='Captain'?'selected':''}>Captain</option>
-              <option ${st.role==='Iceman'?'selected':''}>Iceman</option>
-            </select>
-            <input type="text" data-prompt="${idx}" placeholder="Prompt/context" value="${st.prompt}" />
-          </div>
-          <textarea data-text="${idx}" placeholder="Line text">${st.text}</textarea>`;
-        stepsDiv.appendChild(div);
+    // ===== Training Logs viewer =====
+    (function(){
+      const ADMIN_TOKEN = 'YOUR_ADMIN_TOKEN_HERE'; // <-- replace in production
+
+      const btn   = document.getElementById('fetchLogs');
+      const inpQ  = document.getElementById('logFilter');
+      const inpL  = document.getElementById('logLimit');
+      const info  = document.getElementById('logsInfo');
+      const table = document.getElementById('logsTable');
+      const btnCsv= document.getElementById('exportCsv');
+
+      async function fetchLogs(){
+        const q = (inpQ.value||'').trim();
+        const limit = Math.min(Math.max(parseInt(inpL.value||'200',10),1),1000);
+        const url = `/api/logs-list?limit=${limit}${q?`&q=${encodeURIComponent(q)}`:''}`;
+        const resp = await fetch(url, { headers: { 'x-admin-token': ADMIN_TOKEN } });
+        if(!resp.ok){ const t = await resp.text().catch(()=> ''); throw new Error(`Fetch failed: ${resp.status} ${resp.statusText} • ${t}`); }
+        return resp.json();
+      }
+
+      function renderLogs(res){
+        const { rows = [], total = 0, limit = 0 } = res || {};
+        info.textContent = `Rows: ${rows.length} / ${total}`;
+        if(!rows.length){ table.innerHTML = '<div class="status">No logs.</div>'; return; }
+        const cols = ['ts','emp_id','scenario_id','scenario_label','outcome','score','duration_sec','user_agent','ip'];
+        const thead = '<thead><tr>' + cols.map(h=>`<th>${h}</th>`).join('') + '</tr></thead>';
+        const tbody = '<tbody>' + rows.map(r => '<tr>' + cols.map(h => `<td>${(r[h] ?? '')}</td>`).join('') + '</tr>').join('') + '</tbody>';
+        table.innerHTML = `<table>${thead}${tbody}</table>`;
+      }
+
+      function toCSV(res){
+        const rows = res?.rows || []; if(!rows.length) return '';
+        const cols = ['ts','emp_id','scenario_id','scenario_label','outcome','score','duration_sec','user_agent','ip'];
+        const esc = (v)=>{ if(v==null) return ''; const s=String(v).replace(/"/g,'""'); return /[",\n]/.test(s)?`"${s}"`:s; };
+        const lines = [cols.join(',')].concat(rows.map(r=> cols.map(c=>esc(r[c])).join(',')));
+        return lines.join('\n');
+      }
+
+      btn.addEventListener('click', async ()=>{
+        info.textContent='Loading…'; table.innerHTML='';
+        try{ const data = await fetchLogs(); renderLogs(data); btnCsv.onclick = ()=>{ const csv = toCSV(data); if(!csv){ alert('No data'); return; } const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='training_logs.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 500); }; }
+        catch(e){ info.textContent = e.message || String(e); }
       });
-      document.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=()=>{ steps.splice(btn.dataset.del,1); render(); });
-      document.querySelectorAll('[data-role]').forEach(sel=>sel.onchange=(e)=>{ steps[e.target.dataset.role].role=e.target.value; });
-      document.querySelectorAll('[data-prompt]').forEach(inp=>inp.oninput=(e)=>{ steps[e.target.dataset.prompt].prompt=e.target.value; });
-      document.querySelectorAll('[data-text]').forEach(txt=>txt.oninput=(e)=>{ steps[e.target.dataset.text].text=e.target.value; });
-    }
 
-    document.getElementById('addStep').onclick=()=>{ steps.push({role:'Iceman',prompt:'',text:''}); render(); };
-    document.getElementById('resetScenario').onclick=()=>{ steps=[]; render(); status.textContent='Reset'; };
-    document.getElementById('saveScenario').onclick=()=>{
-      if(!steps.length){ status.textContent='No steps'; return; }
-      const scenario={id:'newScenario',label:'New Scenario',steps};
-      const blob=new Blob([JSON.stringify([scenario],null,2)],{type:'application/json'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download='scenarios.json';a.click();
-      status.textContent='Downloaded scenarios.json';
-    };
-
-    document.getElementById('bulkPaste').onclick=()=>{
-      const text=prompt('Paste Captain/Iceman script lines:');
-      if(!text) return;
-      steps=[];
-      text.split(/\n/).forEach(line=>{
-        const m=line.match(/^(Captain|Iceman):\s*(.+)$/i);
-        if(m) steps.push({role:m[1],prompt:'',text:m[2]});
-      });
-      render();
-      status.textContent='Bulk script imported';
-    };
-
-    render();
+      // Auto‑load when the Logs tab is first shown via hash
+      if((location.hash||'')==='#logs') btn.click();
+    })();
   </script>
 </body>
 </html>
