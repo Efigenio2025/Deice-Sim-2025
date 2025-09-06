@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>De‑Ice Trainer</title>
   <style>
-    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--danger:#e5534b}
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--danger:#e5534b;--ok:#19c37d}
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:980px;margin:0 auto;padding:16px}
@@ -17,12 +17,11 @@
     .status{font-size:.92rem;color:var(--muted)}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
     textarea,input,select{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
-    textarea{min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
     .hidden{display:none !important}
-    .dim{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999}
-    .modal{background:#101218;border:1px solid #1e2230;border-radius:14px;padding:16px;max-width:380px;width:92%}
-    a, a:visited{color:#cfe1ff}
     .foot{margin-top:10px;color:#96a3bf;font-size:.85rem}
+    .progress{height:12px;background:#1a2136;border:1px solid #223259;border-radius:999px;overflow:hidden}
+    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
+    .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
   </style>
 </head>
 <body>
@@ -41,7 +40,6 @@
         <button id="reloadScenarios" class="btn ghost" type="button">Reload</button>
       </div>
       <div id="desc" class="status" style="margin-top:6px">Select a scenario to begin.</div>
-      <div class="status" style="margin-top:6px">If loading fails, open <a href="/scenarios.json" target="_blank" rel="noopener">/scenarios.json</a> or <a href="./scenarios.json" target="_blank" rel="noopener">./scenarios.json</a>.</div>
     </div>
 
     <div class="card">
@@ -49,8 +47,15 @@
       <div id="stepsBox" class="status">—</div>
       <div class="row" style="margin-top:10px">
         <button id="startBtn" class="btn" type="button">Start</button>
+        <button id="speakBtn" class="btn ghost" type="button" disabled>Speak Captain</button>
+        <button id="listenBtn" class="btn ghost" type="button" disabled>Listen & Grade (Iceman)</button>
         <button id="nextBtn" class="btn ghost" type="button" disabled>Next</button>
         <button id="finishBtn" class="btn danger" type="button" disabled>Mark Complete</button>
+      </div>
+      <div class="scoreline">
+        <div class="status">Score: <span id="scorePct">0%</span></div>
+        <div style="flex:1"></div>
+        <div class="progress" style="width:300px"><div id="scoreBar" class="bar"></div></div>
       </div>
       <div id="status" class="status">Idle</div>
     </div>
@@ -58,12 +63,9 @@
     <div class="foot">V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS</div>
   </div>
 
-  <!-- On‑screen error panel -->
-  <div id="errorBox" class="status" style="color:#ffb4b4;margin:12px 16px 24px"></div>
-
   <!-- Employee ID Modal -->
-  <div id="empIdModal" class="dim">
-    <div class="modal">
+  <div id="empIdModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999">
+    <div class="card" style="max-width:380px;width:92%">
       <h2 style="margin:0 0 8px">Enter Employee ID</h2>
       <p style="margin:0 0 10px;color:#96a3bf;font-size:.95rem">Required to log completed trainings.</p>
       <input id="empIdInput" placeholder="e.g., 123456" />
@@ -77,173 +79,166 @@
 
 <script>
 (function(){
-  // ===== util =====
-  const $ = (id)=>document.getElementById(id);
-  const setText = (el, txt)=>{ if(el) el.textContent = txt; };
-  const showErr = (msg, e)=>{ console.error(msg, e||''); setText($('errorBox'), msg); };
-
   // ===== constants =====
-  // Option A: we use a client token. You provided this value.
   const WRITE_TOKEN = 'wR1te_Train3r_XyZ_90210';
-
-  // ===== state =====
-  const scenarios = [];
-  let current = null, startTs = 0, stepIndex = 0;
-
-  // ===== employee id gate =====
   const EMP_ID_KEY = 'trainer.employeeId';
-  const getEmployeeId = ()=> sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || '';
-  const setEmployeeId = (id)=>{ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch{} };
 
-  function initEmployeeGate(){
-    const modal = $('empIdModal'), input = $('empIdInput'), save=$('empIdSave'), cancel=$('empIdCancel'), msg=$('empIdMsg'), badge=$('empIdBadge');
-    if(!modal || !input || !save || !cancel || !badge){ showErr('Employee ID modal elements missing.'); return; }
-    function open(){ modal.classList.remove('hidden'); setTimeout(()=>input.focus(), 40); }
+  // ===== helpers =====
+  const $ = id => document.getElementById(id);
+  const setText = (el, t)=>{ if(el) el.textContent = t; };
+  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+  function wordScore(expected, said){
+    const e = new Set(norm(expected).split(' ').filter(Boolean));
+    const s = new Set(norm(said).split(' ').filter(Boolean));
+    if(e.size===0) return 0;
+    let hit=0; e.forEach(w=>{ if(s.has(w)) hit++; });
+    return Math.round((hit / e.size) * 100);
+  }
+  function setScore(pct){ pct=Math.max(0,Math.min(100, pct|0)); setText($('scorePct'), pct+'%'); $('scoreBar').style.width=pct+'%'; }
+
+  // Role-aware token resolution: Iceman gets REG if [TAIL] present
+  function resolveText(txt, role){
+    // If scenarios include tokens like [TAIL]/[REG]/[LOCAL_TIME]/[FLUID_BRAND], you can wire them here.
+    // For now pass-through, but map [TAIL] -> [REG] for Iceman if both present in text later.
+    if(!txt) return '';
+    if(role==='Iceman'){
+      // If both tokens provided in the text, prefer REG by swapping TAIL with REG.
+      return txt.replaceAll('[TAIL]','[REG]');
+    }
+    return txt;
+  }
+
+  // ===== Employee ID gate =====
+  function getEmployeeId(){ return sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || ''; }
+  function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch{} }
+  function ensureEmpGate(){
+    const modal=$('empIdModal'), input=$('empIdInput'), save=$('empIdSave'), cancel=$('empIdCancel'), msg=$('empIdMsg'), badge=$('empIdBadge');
+    function open(){ modal.classList.remove('hidden'); setTimeout(()=>input.focus(),40); }
     function close(){ modal.classList.add('hidden'); }
-
-    const existing = getEmployeeId();
-    if(!existing){ open(); } else { setText(badge, 'ID: '+existing); close(); }
-
-    save.onclick = ()=>{
-      const v=(input.value||'').trim();
-      if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ setText(msg, 'Enter a valid ID (min 3 chars).'); return; }
-      setEmployeeId(v); setText(badge, 'ID: '+v); setText(msg,''); close();
-    };
-    // keep Cancel blocked to enforce ID
-    cancel.onclick = ()=>{ setText(msg,'Employee ID is required to proceed.'); };
+    const existing=getEmployeeId();
+    if(!existing){ open(); } else { setText(badge,'ID: '+existing); close(); }
+    save.onclick=()=>{ const v=(input.value||'').trim(); if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ setText(msg,'Enter a valid ID (min 3 chars).'); return; } setEmployeeId(v); setText(badge,'ID: '+v); setText(msg,''); close(); };
+    cancel.onclick=()=>{ setText(msg,'Employee ID is required to proceed.'); };
   }
 
-  // ===== scenarios loader (robust) =====
+  // ===== Scenarios =====
+  const SCENARIOS=[]; let current=null; let stepIndex=0; let startTs=0;
   async function loadScenarios(){
-    const sel  = $('scenarioSelect');
-    const desc = $('desc');
-    const statusEl = $('status');
-    if(!sel || !desc){ showErr('Scenario selector elements missing.'); return; }
-
-    sel.innerHTML = '<option value="">— loading —</option>';
-    setText(desc,'Loading scenarios…');
-
-    const ts = Date.now();
-    const candidates = [`/scenarios.json?v=${ts}`, `./scenarios.json?v=${ts}`, `/data/scenarios.json?v=${ts}`];
-
-    let data=null, used='', lastErr=null;
-    for(const url of candidates){
-      try{
-        const res = await fetch(url, { cache:'no-store' });
-        if(!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-        const text = await res.text();
-        try{ data = JSON.parse(text); } catch(e){ throw new Error(`Invalid JSON at ${url}: ${e.message}`); }
-        if(!Array.isArray(data)) throw new Error(`Expected an array at ${url}`);
-        used = url; break;
-      }catch(e){ lastErr=e; }
-    }
-
-    if(!data){
-      const msg = `Failed to load scenarios. ${lastErr ? lastErr.message : ''}`;
-      sel.innerHTML = '<option value="">(load failed)</option>';
-      setText(desc, msg); setText(statusEl, msg); showErr(msg, lastErr);
-      return;
-    }
-
-    scenarios.splice(0, scenarios.length, ...data);
-    sel.innerHTML = '<option value="">— select —</option>' + data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
-    desc.innerHTML = `Loaded ${data.length} scenario(s) from <code>${used.replace(/\\?v=.*/, '')}</code>`;
-    setText(statusEl, 'Scenarios loaded ✓');
+    const sel=$('scenarioSelect'), desc=$('desc'); sel.innerHTML='<option value="">— loading —</option>';
+    try{
+      const res = await fetch('/scenarios.json', {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      SCENARIOS.splice(0,SCENARIOS.length,...data);
+      sel.innerHTML = '<option value="">— select —</option>'+data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
+      setText(desc,'Select a scenario to begin.');
+    }catch(e){ sel.innerHTML='<option value="">(load failed)</option>'; setText(desc,'Could not load scenarios.json'); }
   }
 
-  // ===== render =====
   function renderSteps(){
-    const box = $('stepsBox');
-    if(!box){ showErr('Steps box missing.'); return; }
+    const box=$('stepsBox');
     if(!current){ box.textContent='—'; return; }
-    const items = (current.steps||[]).map((s,i)=>{
+    const steps=current.steps||[];
+    box.innerHTML = steps.map((s,i)=>{
       const active = i===stepIndex;
+      const txt = resolveText(s.text||s.phraseId||'', s.role);
       return `<div style="padding:8px;border:1px solid ${active?'#1f6feb':'#1e2230'};border-radius:10px;margin:6px 0;background:${active?'#0f1424':'#141822'}">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <strong>Step ${i+1} • ${s.role||''}</strong>
-          <span class="status">${s.prompt||''}</span>
-        </div>
-        <div style="margin-top:6px">${(s.text||s.phraseId||'').toString().replace(/</g,'&lt;')}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Step ${i+1} • ${s.role||''}</strong><span class='status'>${s.prompt||''}</span></div>
+        <div style="margin-top:6px">${txt.replace(/</g,'&lt;')}</div>
       </div>`;
     }).join('');
-    box.innerHTML = items || '<div class="status">No steps</div>';
   }
 
-  // ===== cloud logging =====
+  // ===== TTS (speak Captain) =====
+  function speak(text){
+    try{
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang='en-US';
+      u.rate=1; u.pitch=1; u.volume=1;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    }catch(e){ console.warn('TTS not available',e); }
+  }
+
+  // ===== STT (listen Iceman) — iOS Safari uses webkitSpeechRecognition =====
+  function makeRecognizer(){
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!R) return null;
+    const rec = new R();
+    rec.lang='en-US'; rec.continuous=false; rec.interimResults=false; rec.maxAlternatives=1;
+    return rec;
+  }
+
+  async function listenOnce(){
+    return new Promise((resolve,reject)=>{
+      const rec = makeRecognizer();
+      if(!rec){ reject(new Error('Speech Recognition not supported. Use Safari on iOS.')); return; }
+      rec.onresult = (ev)=>{ const t = ev.results[0][0].transcript || ''; resolve(t); };
+      rec.onerror = (e)=>reject(new Error(e.error||'mic error'));
+      rec.onend = ()=>{};
+      try{ rec.start(); }catch(e){ reject(e); }
+    });
+  }
+
+  // ===== Cloud logging =====
   async function logTrainingCloud({ empId, scenarioId, scenarioLabel, outcome='completed', score='', durationSec='' }){
     try{
-      const headers = { 'Content-Type': 'application/json', 'x-write-token': WRITE_TOKEN };
       const resp = await fetch('/api/logs-write', {
-        method: 'POST', headers,
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'x-write-token': WRITE_TOKEN },
         body: JSON.stringify({ emp_id: empId, scenario_id: scenarioId, scenario_label: scenarioLabel, outcome, score, duration_sec: durationSec })
       });
-      if(!resp.ok){
-        const t = await resp.text().catch(()=> '');
-        console.warn('cloud log failed', resp.status, t);
-        return false;
-      }
-      return true;
-    }catch(e){ console.error('cloud log error', e); return false; }
+      return resp.ok;
+    }catch{ return false; }
   }
 
-  // ===== wire controls after DOM ready =====
+  // ===== Wire UI =====
   document.addEventListener('DOMContentLoaded', ()=>{
-    try{
-      initEmployeeGate();
+    ensureEmpGate();
+    loadScenarios();
 
-      const sel = $('scenarioSelect');
-      const desc= $('desc');
-      const startBtn = $('startBtn');
-      const nextBtn  = $('nextBtn');
-      const finishBtn= $('finishBtn');
-      const statusEl = $('status');
+    $('reloadScenarios').onclick=loadScenarios;
+    $('scenarioSelect').onchange = (e)=>{
+      const id=e.target.value; current=SCENARIOS.find(s=>s.id===id)||null; setText($('desc'), current?(current.desc||''):'Select a scenario to begin.'); stepIndex=0; renderSteps();
+      $('startBtn').disabled = !current; $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true; setText($('status'),'Idle'); setScore(0);
+    };
 
-      if(!sel||!startBtn||!nextBtn||!finishBtn){ showErr('One or more required buttons/selector are missing.'); return; }
+    $('startBtn').onclick=()=>{
+      if(!current) return; startTs=Date.now(); stepIndex=0; renderSteps(); setText($('status'),'In progress…'); $('nextBtn').disabled=false; $('finishBtn').disabled=false; updateActionButtons();
+    };
 
-      $('reloadScenarios')?.addEventListener('click', loadScenarios);
-
-      sel.onchange = (e)=>{
-        const id = e.target.value;
-        current = scenarios.find(s=>s.id===id) || null;
-        setText(desc, current ? (current.desc||'') : 'Select a scenario to begin.');
-        stepIndex = 0; renderSteps();
-        startBtn.disabled = !current; nextBtn.disabled = true; finishBtn.disabled = true; setText(statusEl,'Idle');
-      };
-
-      startBtn.onclick = ()=>{
-        if(!current){ setText(statusEl,'Select a scenario first'); return; }
-        startTs = Date.now(); stepIndex = 0; renderSteps();
-        nextBtn.disabled = false; finishBtn.disabled = false; setText(statusEl,'In progress…');
-      };
-
-      nextBtn.onclick = ()=>{
-        if(!current) return;
-        const total=(current.steps||[]).length;
-        if(total===0) return;
-        stepIndex = Math.min(stepIndex+1, total-1); renderSteps();
-      };
-
-      finishBtn.onclick = async ()=>{
-        if(!current) return;
-        const duration = Math.round((Date.now()-startTs)/1000) || '';
-        const ok = await logTrainingCloud({
-          empId: getEmployeeId(),
-          scenarioId: current.id || '',
-          scenarioLabel: current.label || '',
-          outcome: 'completed',
-          score: '',
-          durationSec: duration
-        });
-        setText(statusEl, ok ? 'Logged to cloud ✓' : 'Completed (cloud log failed)');
-        nextBtn.disabled = true; finishBtn.disabled = true;
-      };
-
-      // kick off
-      loadScenarios().catch(e=>showErr('Unexpected load error', e));
-      renderSteps();
-    }catch(e){
-      showErr('Fatal script error: '+ (e?.message||e), e);
+    function updateActionButtons(){
+      const steps = current?.steps||[]; const st = steps[stepIndex];
+      const isCaptain = st?.role==='Captain';
+      $('speakBtn').disabled = !isCaptain;
+      $('listenBtn').disabled = isCaptain; // listen only on Iceman
     }
+
+    $('speakBtn').onclick=()=>{
+      const st = current?.steps?.[stepIndex]; if(!st) return; const txt = resolveText(st.text||'', 'Captain'); speak(txt); };
+
+    $('listenBtn').onclick=async()=>{
+      const st = current?.steps?.[stepIndex]; if(!st) return; const expected = resolveText(st.text||'', 'Iceman');
+      setText($('status'),'Listening…');
+      try{
+        const heard = await listenOnce();
+        const score = wordScore(expected, heard);
+        setScore(score);
+        setText($('status'), `Heard: "${heard}"`);
+      }catch(e){ setText($('status'), 'Mic error: '+(e.message||e)); }
+    };
+
+    $('nextBtn').onclick=()=>{
+      if(!current) return; const total=(current.steps||[]).length; if(total===0) return;
+      stepIndex = Math.min(stepIndex+1, total-1); renderSteps(); updateActionButtons(); setText($('status'),'Step '+(stepIndex+1)+' of '+total);
+    };
+
+    $('finishBtn').onclick=async()=>{
+      if(!current) return; const duration = Math.round((Date.now()-startTs)/1000)||''; const score = parseInt(($('scorePct').textContent||'0'),10)||0;
+      const ok = await logTrainingCloud({ empId:getEmployeeId(), scenarioId: current.id||'', scenarioLabel: current.label||'', outcome:'completed', score:String(score), durationSec:duration });
+      setText($('status'), ok? 'Logged to cloud ✓' : 'Completed (cloud log failed)');
+      $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true;
+    };
   });
 })();
 </script>
