@@ -174,11 +174,19 @@
         return lines.join('\n');
       }
 
-      btn.addEventListener('click', async ()=>{
-        info.textContent='Loading…'; table.innerHTML='';
-        try{ const data = await fetchLogs(); renderLogs(data); btnCsv.onclick = ()=>{ const csv = toCSV(data); if(!csv){ alert('No data'); return; } const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='training_logs.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 500); }; }
-        catch(e){ info.textContent = e.message || String(e); }
-      });
+   btn.addEventListener('click', async ()=>{
+  info.textContent = 'Loading…';
+  table.innerHTML = '';
+  try {
+    const data = await fetchLogs();
+    renderLogs(data);
+  } catch (e) {
+    const msg = e.message || String(e);
+    info.textContent = msg;
+    console.error('logs-list error:', msg);
+    alert(msg); // makes failure visible
+  }
+});
 
       // Auto‑load when the Logs tab is first shown via hash
       if((location.hash||'')==='#logs') btn.click();
