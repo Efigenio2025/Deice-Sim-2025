@@ -1,49 +1,163 @@
 [
   {
-    "id": "Scenario 1",
-    "label": "Full Body Type I + Wings/Tail Type IV",
-    "desc": "Full Body Type I + Wings/Tail Type IV",
+    "id": "scn1",
+    "label": "Full Body Type I Only",
+    "desc": "Scenario 1: Full body Type I deicing only",
     "steps": [
       {
-  "prompt": "init",
-  "role": "Captain",
-  "text": "Iceman, this is [REG]. We are configured for Type I. Engines are running, APU is off. Request full body Type I application.",
-  "audio": "captain_initial.mp3"
-},
+        "prompt": "init",
+        "role": "Captain",
+        "text": "Iceman, this is [TAIL]. We are configured for Type I. Engines are running, APU is off. Request full body Type I application.",
+        "audio": "captain_initial.mp3"
+      },
       {
-        "prompt": "Iceman line",
+        "prompt": "prep",
         "role": "Iceman",
         "text": "Captain, please prepare the aircraft for deicing."
       },
       {
-        "prompt": "Captain line",
+        "prompt": "ready",
         "role": "Captain",
-        "text": "November One Two Three Alpha Bravo, ready for deicing."
+        "text": "[TAIL], ready for deicing.",
+        "audio": "captain_ready.mp3"
       },
       {
-        "prompt": "Iceman line",
+        "prompt": "start",
         "role": "Iceman",
-        "text": "N123AB, starting application of Type I now."
+        "text": "[TAIL], starting application of Type I now."
       },
       {
-        "prompt": "Iceman line",
+        "prompt": "post",
         "role": "Iceman",
-        "text": "N123AB, deicing with Type I complete. Standing by for Type IV configuration."
-      },
+        "text": "Captain, [TAIL], deicing complete. Post-deicing check complete, deicing personnel and equipment are safely away."
+      }
+    ]
+  },
+  {
+    "id": "scn2",
+    "label": "Full Body Type I + Type IV",
+    "desc": "Scenario 2: Type I followed by Type IV full body",
+    "steps": [
       {
-        "prompt": "Captain line",
+        "prompt": "init",
         "role": "Captain",
-        "text": "Iceman, this is November One Two Three Alpha Bravo. We are now configured for Type IV. Engines are running, APU is off."
+        "text": "Iceman, this is [TAIL]. We are configured for Type I. Engines are running, APU is off. Request full body Type I followed by full body Type IV application.",
+        "audio": "captain_initial_typeiv.mp3"
       },
       {
-        "prompt": "Iceman line",
+        "prompt": "prep",
         "role": "Iceman",
-        "text": "N123AB, starting application of Type IV on wings and tail now."
+        "text": "Captain, please prepare the aircraft for deicing."
       },
       {
-        "prompt": "Iceman line",
+        "prompt": "ready",
+        "role": "Captain",
+        "text": "[TAIL], ready for deicing.",
+        "audio": "captain_ready_typeiv.mp3"
+      },
+      {
+        "prompt": "start_type1",
         "role": "Iceman",
-        "text": "Captain, N123AB, you have been anti-iced with Type IV, Cryotech Polar Guard X-Tend at 100%, starting at 17:04. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away."
+        "text": "[TAIL], starting application of Type I now."
+      },
+      {
+        "prompt": "after_type1",
+        "role": "Iceman",
+        "text": "[TAIL], deicing with Type I complete. Standing by for Type IV configuration."
+      },
+      {
+        "prompt": "config_typeiv",
+        "role": "Captain",
+        "text": "Iceman, this is [TAIL]. We are now configured for Type IV. Engines are running, APU is off.",
+        "audio": "captain_config_typeiv.mp3"
+      },
+      {
+        "prompt": "start_typeiv",
+        "role": "Iceman",
+        "text": "[TAIL], starting application of Type IV now."
+      },
+      {
+        "prompt": "post",
+        "role": "Iceman",
+        "text": "Captain, [TAIL], you have been anti-iced with Type IV, Cryotech Polar Guard X-Tend at 100%, starting at [LOCAL_TIME]. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away."
+      }
+    ]
+  },
+  {
+    "id": "scn3",
+    "label": "Full Body Type I + Wings/Tail Type IV",
+    "desc": "Scenario 3: Type I followed by Type IV on wings/tail only",
+    "steps": [
+      {
+        "prompt": "init",
+        "role": "Captain",
+        "text": "Iceman, this is [TAIL]. We are configured for Type I. Engines are running, APU is off. Request full body Type I followed by Type IV on wings and tail only.",
+        "audio": "captain_initial_wingtail.mp3"
+      },
+      {
+        "prompt": "prep",
+        "role": "Iceman",
+        "text": "Captain, please prepare the aircraft for deicing."
+      },
+      {
+        "prompt": "ready",
+        "role": "Captain",
+        "text": "[TAIL], ready for deicing.",
+        "audio": "captain_ready_wingtail.mp3"
+      },
+      {
+        "prompt": "start_type1",
+        "role": "Iceman",
+        "text": "[TAIL], starting application of Type I now."
+      },
+      {
+        "prompt": "after_type1",
+        "role": "Iceman",
+        "text": "[TAIL], deicing with Type I complete. Standing by for Type IV configuration."
+      },
+      {
+        "prompt": "config_typeiv",
+        "role": "Captain",
+        "text": "Iceman, this is [TAIL]. We are now configured for Type IV. Engines are running, APU is off.",
+        "audio": "captain_config_typeiv2.mp3"
+      },
+      {
+        "prompt": "start_typeiv",
+        "role": "Iceman",
+        "text": "[TAIL], starting application of Type IV on wings and tail now."
+      },
+      {
+        "prompt": "post",
+        "role": "Iceman",
+        "text": "Captain, [TAIL], you have been anti-iced with Type IV, Cryotech Polar Guard X-Tend at 100%, starting at [LOCAL_TIME]. Post deicing/anti-icing check complete, deicing personnel and equipment are safely away."
+      }
+    ]
+  },
+  {
+    "id": "scn4",
+    "label": "Pre-Takeoff Contamination Check",
+    "desc": "Scenario 4: PTCC with outcomes clean or requires deicing",
+    "steps": [
+      {
+        "prompt": "init",
+        "role": "Captain",
+        "text": "Iceman, this is [TAIL]. Request a pre-takeoff contamination check.",
+        "audio": "captain_request_ptcc.mp3"
+      },
+      {
+        "prompt": "ack",
+        "role": "Iceman",
+        "text": "[TAIL], this is Iceman. Copy, pre-takeoff contamination check requested. Stand by."
+      },
+      {
+        "prompt": "result_clean",
+        "role": "Iceman",
+        "text": "Captain, [TAIL], the pre-takeoff contamination check has been completed. The aircraft and engines are ready for departure."
+      },
+      {
+        "prompt": "result_deice",
+        "role": "Iceman",
+        "text": "Captain, [TAIL], the pre-takeoff contamination check has been completed. The aircraft and engines require deicing."
       }
     ]
   }
