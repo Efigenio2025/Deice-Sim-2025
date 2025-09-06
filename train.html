@@ -194,7 +194,7 @@
     function close(){ modal.classList.add('hidden'); }
     const existing=getEmployeeId();
     if(!existing){ open(); } else { setText(badge,'ID: '+existing); close(); }
-    save.onclick=()=>{ const v=(input.value||'').trim(); if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ setText(msg,'Enter a valid ID (min 3 chars).'); return; } setEmployeeId(v); setText(badge,'ID: '+v); setText(msg,''); close(); // hides the modal };
+    save.onclick=()=>{ const v=(input.value||'').trim(); if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ setText(msg,'Enter a valid ID (min 3 chars).'); return; } setEmployeeId(v); setText(badge,'ID: '+v); setText(msg,''); close(); // hides the modal
     cancel.onclick=()=>{ setText(msg,'Employee ID is required to proceed.'); };
   }
 
