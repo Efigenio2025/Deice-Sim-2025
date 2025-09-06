@@ -5,10 +5,11 @@
     "desc": "Full Body Type I + Wings/Tail Type IV",
     "steps": [
       {
-        "prompt": "Captain line",
-        "role": "Captain",
-        "text": "Iceman, this is November One Two Three Alpha Bravo. We are configured for Type I. Engines are running, APU is off. Request full body Type I followed by Type IV on wings and tail only."
-      },
+  "prompt": "init",
+  "role": "Captain",
+  "text": "Iceman, this is [REG]. We are configured for Type I. Engines are running, APU is off. Request full body Type I application.",
+  "audio": "captain_initial.mp3"
+},
       {
         "prompt": "Iceman line",
         "role": "Iceman",
