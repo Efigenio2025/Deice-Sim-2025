@@ -139,6 +139,7 @@
   function gradeDetails(expected, heard){ const eSet=new Set(tokens(expected)), hSet=new Set(tokens(heard)); const matched=[...eSet].filter(w=>hSet.has(w)); return { matchedCount: matched.length, total: eSet.size }; }
   function renderTranscript(expected, heard, pct){
     const expLine=$('expLine'), heardLine=$('heardLine'), stats=$('wordStats');
+    if(!expLine||!heardLine||!stats) return;
     const {expHTML, heardHTML} = buildHighlights(expected, heard);
     const {matchedCount, total} = gradeDetails(expected, heard);
     expLine.innerHTML=expHTML; heardLine.innerHTML=heardHTML;
@@ -146,6 +147,7 @@
   }
   function primeTranscriptForStep(st){
     const expLine=$('expLine'), heardLine=$('heardLine'), stats=$('wordStats');
+    if(!expLine||!heardLine||!stats) return;
     if(st?.role==='Iceman'){
       const expected=expectedForGrading(st);
       expLine.innerHTML = expected.split(' ').map(w=>`<span class="tok miss">${w}</span>`).join(' ');
@@ -156,6 +158,7 @@
   }
 
   // ===== Employee ID gate =====
+  const EMP_ID_KEY = 'trainer.employeeId';
   function getEmployeeId(){ return sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || ''; }
   function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch{} }
   function ensureEmpGate(){
@@ -222,6 +225,7 @@
       if(!rec){ reject(new Error('Speech Recognition not supported. Use Safari on iOS.')); return; }
       rec.onresult = (ev)=>{ try{ resolve(ev.results[0][0].transcript || ''); }catch{ resolve(''); } };
       rec.onerror  = (e)=> reject(new Error(e.error || 'mic error'));
+      rec.onend    = ()=>{}; // avoid GC glitches on iOS
       try { rec.start(); } catch(err) { reject(err); }
     });
   }
@@ -255,7 +259,7 @@
     });
   }
 
-  // Listen for up to 5s, keep best score, advance regardless
+  // Listen up to 5s, keep best score, advance regardless
   async function listenWindow(st, windowMs = STEP_TIMEOUT_MS){
     if(!hasSTT()){ setText($('status'),'Mic not supported. Use Safari on iOS.'); return {score:0, heard:''}; }
     const endBy = Date.now() + windowMs; let best=0, bestHeard='';
@@ -269,9 +273,9 @@
         setScore(score);
         setText($('status'), `Heard: "${heard}" (best ${best}%)`);
       }catch(e){
-        // Permission/gesture errors on iOS Safari surface as "not-allowed" or "no-speech"
+        // Permission/gesture errors like 'not-allowed' or 'no-speech'
         setText($('status'), `Mic error: ${e.message || e}. Try tapping “Listen & Grade”.`);
-        break; // stop loop; let user trigger via button
+        break; // let user use manual button
       }
       await wait(150);
     }
@@ -325,7 +329,6 @@
 
   // ===== UI wiring =====
   function enableManualMic(){
-    // Let the trainee kick STT via user gesture if auto-start was blocked
     const btn = $('listenBtn');
     btn.disabled = false;
     btn.onclick = async ()=>{
@@ -344,11 +347,24 @@
       }
     };
   }
+  function renderStepsAndPrime(){ renderSteps(); const st = current?.steps?.[stepIndex]; primeTranscriptForStep(st); }
 
-  function renderStepsAndPrime(){
-    renderSteps();
-    const st = current?.steps?.[stepIndex];
-    primeTranscriptForStep(st);
+  // ===== Employee gate (single, correct) =====
+  function getEmployeeId(){ return sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || ''; }
+  function setEmployeeId(id){ try{ sessionStorage.setItem(EMP_ID_KEY,id); localStorage.setItem(EMP_ID_KEY,id);}catch{} }
+
+  function ensureEmpGate(){
+    const modal=$('empIdModal'), input=$('empIdInput'), save=$('empIdSave'), cancel=$('empIdCancel'), msg=$('empIdMsg'), badge=$('empIdBadge');
+    function open(){ modal.classList.remove('hidden'); setTimeout(()=>input.focus(),40); }
+    function close(){ modal.classList.add('hidden'); }
+    const existing=getEmployeeId();
+    if(!existing){ open(); } else { setText(badge,'ID: '+existing); close(); }
+    save.onclick=()=>{
+      const v=(input.value||'').trim();
+      if(!/^[A-Za-z0-9_-]{3,}$/.test(v)){ setText(msg,'Enter a valid ID (min 3 chars).'); return; }
+      setEmployeeId(v); setText(badge,'ID: '+v); setText(msg,''); close();
+    };
+    cancel.onclick=()=>{ setText(msg,'Employee ID is required to proceed.'); };
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
@@ -370,11 +386,9 @@
 
     $('startBtn').onclick = ()=>{
       if(!current) return;
-      // On iOS, STT requires a user gesture. We already have one (this click),
-      // but auto-start may still get blocked. We run and also enable manual mic.
       runSimulator().catch(()=>{});
-      enableManualMic();
-      $('speakBtn').disabled = false; // allow manual Captain playback
+      enableManualMic();     // allow manual STT if auto-gesture gets blocked by iOS
+      $('speakBtn').disabled = false;
     };
 
     $('speakBtn').onclick=()=>{
@@ -389,12 +403,11 @@
     $('finishBtn').onclick=async()=>{ stopFlag=true; stopCaptainAudio(); if(!current) return;
       const duration = Math.round((Date.now()-startTs)/1000)||'';
       const score = parseInt(($('scorePct').textContent||'0'),10)||0;
-      await logTrainingCloud({ empId:getEmployeeId(), scenarioId: current.id||'', scenarioLabel: current.label||'', outcome:'completed', score:String(score), durationSec:duration });
+      await logTrainingCloud({ emp_id:getEmployeeId(), scenario_id: current.id||'', scenario_label: current.label||'', outcome:'completed', score:String(score), duration_sec:duration });
       $('nextBtn').disabled=true; $('finishBtn').disabled=true; $('speakBtn').disabled=true; $('listenBtn').disabled=true;
       setText($('status'),'Stopped.');
     };
   });
-
 })();
 </script>
 </body>
