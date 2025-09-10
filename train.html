@@ -2,40 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0c10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>De-Ice Trainer — Simulator</title>
   <style>
-    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--danger:#e5534b;--ok:#19c37d}
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;
+          --accent:#1f6feb;--danger:#e5534b;--ok:#19c37d;
+          --radius:16px;--tap:48px;--space:18px}
+    @media (prefers-color-scheme: light){
+      :root{--bg:#f6f8fb;--card:#ffffff;--ink:#0b0c10;--muted:#4b5565;--line:#e5e7ef;--accent:#1259d6}
+    }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-    .wrap{max-width:980px;margin:0 auto;padding:16px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .top-controls{margin:12px 0;gap:10px;flex-wrap:wrap}
-    .btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:700;border-radius:10px;padding:9px 12px;cursor:pointer}
+    body{margin:0;background:var(--bg);color:var(--ink);
+         font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+         -webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+    .wrap{max-width:980px;margin:0 auto;
+          padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space);
+          display:flex;flex-direction:column;gap:var(--space)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .btn{appearance:none;border:0;border-radius:12px;
+         background:var(--accent);color:#fff;font-weight:800;
+         padding:12px 14px;cursor:pointer;text-decoration:none;
+         display:inline-flex;align-items:center;justify-content:center;
+         min-height:var(--tap);touch-action:manipulation}
     .ghost{background:#2b3147}
     .danger{background:var(--danger)}
+    @media (prefers-color-scheme: light){
+      .ghost{background:#e8eefc;color:#0b2a7a}
+    }
+    .card{background:var(--card);border:1px solid var(--line);
+          border-radius:var(--radius);padding:var(--space)}
     .status{font-size:.92rem;color:var(--muted)}
-    .pill{display:inline-block;background:#16213a;border:1px solid #223259;color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:700}
-    textarea,input,select{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
-    .foot{margin-top:10px;color:#96a3bf;font-size:.85rem}
+    .pill{display:inline-block;background:#16213a;border:1px solid #223259;
+          color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.8rem;font-weight:700}
     .progress{height:12px;background:#1a2136;border:1px solid #223259;border-radius:999px;overflow:hidden}
-    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
+    .bar{height:100%;width:0;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
     .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-
-    /* transcript / highlights */
-    .diff{margin-top:8px;font-size:.95rem}
-    .diff h3{margin:6px 0 4px;font-size:.9rem;color:#96a3bf}
-    .tok{display:inline-block;padding:0 3px;border-radius:6px;margin:0 1px 3px 0}
-    .ok{background:#12291c;border:1px solid #1f5d38}
-    .miss{background:#2a1616;border:1px solid #8a2c2c;text-decoration:underline}
-    .extra{background:#1a1d2a;border:1px solid #2f375c;opacity:.8}
-
-    /* live mic box */
-    .live-box{margin-top:10px;padding:10px;border:1px solid #223259;border-radius:10px;background:#141822;min-height:40px;font-size:1rem;color:#b7c7ff}
-
-    /* modal visibility helper */
-    .hidden{display:none !important}
+    .diff h3{margin:6px 0 4px;font-size:.9rem;color:var(--muted)}
+    .live-box{margin-top:10px;padding:10px;border:1px solid #223259;border-radius:10px;
+              background:#141822;min-height:40px;font-size:1rem;color:#b7c7ff}
+    .hidden{display:none!important}
+    .foot{margin-top:auto;color:var(--muted);font-size:.92rem;padding-bottom:env(safe-area-inset-bottom,0)}
+    .btn:focus-visible{outline:3px solid #86b7ff;outline-offset:2px}
   </style>
 </head>
 <body>
@@ -48,13 +58,13 @@
       </div>
     </div>
 
-    <!-- Controls pinned to top -->
-    <div class="row top-controls">
-      <button id="startBtn" class="btn" type="button">Start Simulator</button>
-      <button id="speakBtn" class="btn ghost" type="button" disabled>Speak Captain</button>
-      <button id="listenBtn" class="btn ghost" type="button" disabled>Listen & Grade (Iceman)</button>
-      <button id="nextBtn" class="btn ghost" type="button" disabled>Next</button>
-      <button id="finishBtn" class="btn danger" type="button" disabled>Mark Complete</button>
+    <!-- Top controls -->
+    <div class="row">
+      <button id="startBtn" class="btn">Start Simulator</button>
+      <button id="speakBtn" class="btn ghost" disabled>Speak Captain</button>
+      <button id="listenBtn" class="btn ghost" disabled>Listen & Grade (Iceman)</button>
+      <button id="nextBtn" class="btn ghost" disabled>Next</button>
+      <button id="finishBtn" class="btn danger" disabled>Mark Complete</button>
     </div>
 
     <div class="card">
@@ -71,7 +81,7 @@
     <div class="card">
       <h2>Steps</h2>
       <div id="stepsBox" class="status">—</div>
-      <div class="status" style="margin-top:6px">Simulator: ~5s listen per Iceman step • Final score computed at the end</div>
+      <div class="status" style="margin-top:6px">Simulator: ~5s listen per Iceman step • Final score at end</div>
       <div class="scoreline">
         <div class="status">Score: <span id="scorePct">0%</span></div>
         <div style="flex:1"></div>
@@ -79,8 +89,7 @@
       </div>
       <div id="status" class="status">Idle</div>
 
-      <!-- transcript / diff box (always visible) -->
-      <div id="transcriptBox" class="diff">
+      <div class="diff">
         <h3>Expected (for grading)</h3>
         <div id="expLine">—</div>
         <h3 style="margin-top:8px">Heard</h3>
@@ -88,23 +97,24 @@
         <div id="wordStats" class="status" style="margin-top:6px"></div>
       </div>
 
-      <!-- live mic transcription box -->
       <div>
         <h3 style="margin-top:12px">Live Input</h3>
         <div id="liveBox" class="live-box">(waiting…)</div>
       </div>
     </div>
 
-    <div class="foot">V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS</div>
+    <footer class="foot">
+      V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS
+    </footer>
   </div>
 
   <!-- Employee ID Modal -->
   <div id="empIdModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999">
     <div class="card" style="max-width:380px;width:92%">
       <h2 style="margin:0 0 8px">Enter Employee ID</h2>
-      <p style="margin:0 0 10px;color:#96a3bf;font-size:.95rem">Required to log completed trainings.</p>
+      <p style="margin:0 0 10px;color:var(--muted);font-size:.95rem">Required to log trainings.</p>
       <input id="empIdInput" placeholder="e.g., 123456" />
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <div class="row" style="justify-content:flex-end">
         <button id="empIdCancel" class="btn ghost" type="button">Cancel</button>
         <button id="empIdSave" class="btn" type="button">Continue</button>
       </div>
@@ -112,10 +122,10 @@
     </div>
   </div>
 
-  <!-- Audio player for pre-recorded Captain lines -->
+  <!-- Audio for Captain lines -->
   <audio id="captainAudio" preload="metadata" playsinline></audio>
 
-  <!-- All behavior lives in this file -->
-  <script src="trainer-sim.js"></script>
+  <!-- Simulator logic -->
+  <script src="trainer-sim.js?v=2"></script>
 </body>
 </html>
