@@ -2,7 +2,7 @@
   {
     "id": "scn1",
     "label": "Full Body Type I Only",
-    "desc": "Scenario 1: Full body Type I deicing only with enriched conversational flow",
+    "desc": "Scenario 1: Full body Type I deicing only",
     "steps": [
       {
         "prompt": "hail",
@@ -18,45 +18,34 @@
       {
         "prompt": "init",
         "role": "Captain",
-        "text": "Iceman, N443DF, looks like we’ll need a full body Type I deicing today.",
+        "text": "Iceman, N443DF, we’ll need a full body Type I deicing today.",
         "audio": "scn1_captain_init.mp3"
       },
       {
         "prompt": "prep",
         "role": "Iceman",
-        "text": "Copy that N443DF, you are requesting full body Type I. Please prepare the aircraft for deicing."
+        "text": "Copy that N443DF, requesting full body Type I. Please prepare the aircraft for deicing."
       },
       {
         "prompt": "ready",
         "role": "Captain",
-        "text": "Iceman, aircraft N443DF ready for deicing. We are configured for Type I. Engines are running, APU is off.",
+        "text": "Iceman, aircraft N443DF ready for deicing. Engines running, APU off.",
         "audio": "scn1_captain_ready.mp3"
       },
       {
         "prompt": "start",
         "role": "Iceman",
-        "text": "Aircraft N443DF, copy that engines running and APU off, full body Type I requested. Starting Type I application now."
-      },
-      {
-        "prompt": "update",
-        "role": "Iceman",
-        "text": "Aircraft N443DF, do you copy?"
-      },
-      {
-        "prompt": "ack_update",
-        "role": "Captain",
-        "text": "Go ahead, Iceman, for aircraft N443DF.",
-        "audio": "scn1_captain_ack_update.mp3"
+        "text": "Aircraft N443DF, copy engines running and APU off. Starting full body Type I application now."
       },
       {
         "prompt": "post",
         "role": "Iceman",
-        "text": "Yes, N443DF, deicing complete. Post-deicing check complete, deicing personnel and equipment are safely away."
+        "text": "N443DF, deicing complete. Post-deicing check complete, personnel and equipment clear."
       },
       {
         "prompt": "final",
         "role": "Captain",
-        "text": "Iceman, aircraft N443DF copies. Thank you for your help and stay warm out there!",
+        "text": "Iceman, N443DF copies. Thank you for your help and stay warm out there!",
         "audio": "scn1_captain_final.mp3"
       }
     ]
