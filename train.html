@@ -7,33 +7,28 @@
   <title>De-Ice Trainer — Simulator</title>
   <style>
     :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;
-          --accent:#1f6feb;--danger:#e5534b;--ok:#19c37d;
-          --radius:16px;--tap:48px;--space:18px}
+          --accent:#1f6feb;--danger:#e5534b;--ok:#19c37d;--radius:16px;--tap:48px;--space:18px}
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);
          font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:980px;margin:0 auto;
-          padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space);
-          display:flex;flex-direction:column;gap:var(--space)}
+      padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space);
+      display:flex;flex-direction:column;gap:var(--space)}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .btn{appearance:none;border:0;border-radius:12px;
-         background:var(--accent);color:#fff;font-weight:800;
-         padding:12px 14px;cursor:pointer;text-decoration:none;
-         display:inline-flex;align-items:center;justify-content:center;
-         min-height:var(--tap)}
+    .btn{appearance:none;border:0;border-radius:12px;background:var(--accent);
+      color:#fff;font-weight:800;padding:12px 16px;cursor:pointer;min-height:var(--tap)}
     .ghost{background:#2b3147}
     .danger{background:var(--danger)}
     .card{background:var(--card);border:1px solid var(--line);
-          border-radius:var(--radius);padding:var(--space)}
+      border-radius:var(--radius);padding:var(--space)}
     .status{font-size:.92rem;color:var(--muted)}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;
-          color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.8rem;font-weight:700}
+      color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.8rem;font-weight:700}
+    .live-inline{width:100%;border:1px solid #223259;border-radius:10px;
+      padding:10px;background:#141822;color:#b7c7ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .progress{height:12px;background:#1a2136;border:1px solid #223259;border-radius:999px;overflow:hidden}
     .bar{height:100%;width:0;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
     .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-    .diff h3{margin:6px 0 4px;font-size:.9rem;color:var(--muted)}
-    .live-box{margin-top:10px;padding:10px;border:1px solid #223259;border-radius:10px;
-              background:#141822;min-height:40px;font-size:1rem;color:#b7c7ff}
     .hidden{display:none!important}
     .foot{margin-top:auto;color:var(--muted);font-size:.92rem;padding-bottom:env(safe-area-inset-bottom,0)}
   </style>
@@ -49,13 +44,10 @@
       </div>
     </div>
 
-    <!-- controls -->
+    <!-- ONLY two controls -->
     <div class="row">
       <button id="startBtn" class="btn">Start Simulator</button>
-      <button id="speakBtn" class="btn ghost" disabled>Speak Captain</button>
-      <button id="listenBtn" class="btn ghost" disabled>Listen & Grade (Iceman)</button>
-      <button id="nextBtn" class="btn ghost" disabled>Next</button>
-      <button id="finishBtn" class="btn danger" disabled>Mark Complete</button>
+      <button id="pauseBtn" class="btn ghost">Pause Simulator</button>
     </div>
 
     <!-- scenario selection -->
@@ -70,33 +62,24 @@
       <div id="desc" class="status" style="margin-top:6px">Select a scenario to begin.</div>
     </div>
 
-    <!-- simulator -->
-    <div class="card">
-      <!-- transcript / diff + live input at TOP -->
-      <div class="diff">
-        <h3>Expected (for grading)</h3>
-        <div id="expLine">—</div>
-        <h3 style="margin-top:8px">Heard</h3>
-        <div id="heardLine">—</div>
-        <div id="wordStats" class="status" style="margin-top:6px"></div>
+    <!-- live input (single line) -->
+    <div class="card" aria-live="polite" aria-label="Live microphone input">
+      <div class="row" style="justify-content:space-between">
+        <strong>Live Input</strong>
+        <span id="status" class="status">Idle</span>
       </div>
+      <div id="liveInline" class="live-inline">(waiting…)</div>
+    </div>
 
-      <div>
-        <h3 style="margin-top:12px">Live Input</h3>
-        <div id="liveBox" class="live-box">(waiting…)</div>
-      </div>
-
-      <!-- steps follow -->
-      <h2 style="margin-top:18px">Steps</h2>
-      <div id="stepsBox" class="status">—</div>
-      <div class="status" style="margin-top:6px">Simulator: ~5s listen per Iceman step • Final score at end</div>
-
+    <!-- current step only -->
+    <div id="stepsCard" class="card">
+      <h2>Step</h2>
+      <div id="stepsBox" class="status">—</div> <!-- JS should render ONLY the active step here -->
       <div class="scoreline">
         <div class="status">Score: <span id="scorePct">0%</span></div>
         <div style="flex:1"></div>
         <div class="progress" style="width:300px"><div id="scoreBar" class="bar"></div></div>
       </div>
-      <div id="status" class="status">Idle</div>
     </div>
 
     <footer class="foot">
@@ -108,7 +91,7 @@
   <div id="empIdModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999">
     <div class="card" style="max-width:380px;width:92%">
       <h2 style="margin:0 0 8px">Enter Employee ID</h2>
-      <p style="margin:0 0 10px;color:var(--muted);font-size:.95rem">Required to log trainings.</p>
+      <p style="margin:0 0 10px;color:#96a3bf;font-size:.95rem">Required to log trainings.</p>
       <input id="empIdInput" placeholder="e.g., 123456" />
       <div class="row" style="justify-content:flex-end">
         <button id="empIdCancel" class="btn ghost" type="button">Cancel</button>
@@ -118,10 +101,10 @@
     </div>
   </div>
 
-  <!-- audio for Captain lines -->
+  <!-- captain audio -->
   <audio id="captainAudio" preload="metadata" playsinline></audio>
 
-  <!-- simulator logic -->
-  <script src="trainer-sim.js?v=4"></script>
+  <!-- logic -->
+  <script src="trainer-sim.js?v=5"></script>
 </body>
 </html>
