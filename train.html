@@ -10,13 +10,14 @@
           --accent:#1f6feb;--danger:#e5534b;--ok:#19c37d;--radius:16px;--tap:48px;--space:18px}
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);
-         font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+         font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+         -webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
     .wrap{max-width:980px;margin:0 auto;
       padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space);
       display:flex;flex-direction:column;gap:var(--space)}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .btn{appearance:none;border:0;border-radius:12px;background:var(--accent);
-      color:#fff;font-weight:800;padding:12px 16px;cursor:pointer;min-height:var(--tap)}
+      color:#fff;font-weight:800;padding:12px 16px;cursor:pointer;min-height:var(--tap);text-decoration:none}
     .ghost{background:#2b3147}
     .danger{background:var(--danger)}
     .card{background:var(--card);border:1px solid var(--line);
@@ -35,7 +36,7 @@
 </head>
 <body>
   <div class="wrap">
-    <!-- top bar -->
+    <!-- Top bar -->
     <div class="row" style="justify-content:space-between">
       <a href="index.html" class="btn ghost">← Home</a>
       <div class="row" style="gap:8px;align-items:center">
@@ -44,13 +45,13 @@
       </div>
     </div>
 
-    <!-- ONLY two controls -->
+    <!-- Only two controls -->
     <div class="row">
-      <button id="startBtn" class="btn">Start Simulator</button>
-      <button id="pauseBtn" class="btn ghost">Pause Simulator</button>
+      <button id="startBtn" class="btn" type="button">Start Simulator</button>
+      <button id="pauseBtn" class="btn ghost" type="button">Pause Simulator</button>
     </div>
 
-    <!-- scenario selection -->
+    <!-- Scenario selection -->
     <div class="card">
       <h2>Trainer</h2>
       <div class="row">
@@ -62,7 +63,7 @@
       <div id="desc" class="status" style="margin-top:6px">Select a scenario to begin.</div>
     </div>
 
-    <!-- live input (single line) -->
+    <!-- Live input line -->
     <div class="card" aria-live="polite" aria-label="Live microphone input">
       <div class="row" style="justify-content:space-between">
         <strong>Live Input</strong>
@@ -71,10 +72,10 @@
       <div id="liveInline" class="live-inline">(waiting…)</div>
     </div>
 
-    <!-- current step only -->
-    <div id="stepsCard" class="card">
+    <!-- Current step only -->
+    <div id="stepsCard" class="card hidden">
       <h2>Step</h2>
-      <div id="stepsBox" class="status">—</div> <!-- JS should render ONLY the active step here -->
+      <div id="stepsBox" class="status">—</div>
       <div class="scoreline">
         <div class="status">Score: <span id="scorePct">0%</span></div>
         <div style="flex:1"></div>
@@ -101,10 +102,10 @@
     </div>
   </div>
 
-  <!-- captain audio -->
+  <!-- Captain audio -->
   <audio id="captainAudio" preload="metadata" playsinline></audio>
 
-  <!-- logic -->
-  <script src="trainer-sim.js?v=5"></script>
+  <!-- Simulator logic -->
+  <script src="trainer-sim.js?v=6"></script>
 </body>
 </html>
