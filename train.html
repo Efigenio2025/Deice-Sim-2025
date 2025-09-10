@@ -31,8 +31,13 @@
     .bar{height:100%;width:0;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
     .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
     .hidden{display:none!important}
-    .foot{margin-top:auto;color:var(--muted);font-size:.92rem;padding-bottom:env(safe-area-inset-bottom,0)}
     select, input{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
+
+    /* Duolingo-style tokens */
+    .tok{display:inline-block;padding:0 4px;border-radius:6px;margin:0 2px 4px 0}
+    .ok{background:#12291c;border:1px solid #1f5d38}
+    .miss{background:#2a1616;border:1px solid #8a2c2c;text-decoration:underline}
+    .extra{background:#1a1d2a;border:1px solid #2f375c;opacity:.9}
   </style>
 </head>
 <body>
@@ -46,7 +51,7 @@
       </div>
     </div>
 
-    <!-- Only two controls -->
+    <!-- Start / Pause -->
     <div class="row">
       <button id="startBtn" class="btn" type="button">Start Simulator</button>
       <button id="pauseBtn" class="btn ghost" type="button">Pause Simulator</button>
@@ -84,9 +89,22 @@
       </div>
     </div>
 
-    <footer class="foot">
-      V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS
-    </footer>
+    <!-- Duolingo-style transcript panel -->
+    <div id="transcriptCard" class="card">
+      <h2>Transcript</h2>
+      <div class="status" id="expHeader">Expected</div>
+      <div id="expLine"></div>
+      <div class="status" id="heardHeader" style="margin-top:8px">You said</div>
+      <div id="heardLine"></div>
+      <div id="wordStats" class="status" style="margin-top:6px"></div>
+    </div>
+
+    <!-- Final results -->
+    <div id="resultsCard" class="card hidden">
+      <h2>Results</h2>
+      <p class="status">Final score: <strong id="finalScore">0%</strong></p>
+      <ol id="resultsList" style="padding-left:18px;margin:8px 0 0"></ol>
+    </div>
   </div>
 
   <!-- Employee ID Modal -->
@@ -107,6 +125,6 @@
   <audio id="captainAudio" preload="metadata" playsinline></audio>
 
   <!-- Simulator logic -->
-  <script src="trainer-sim.js?v=7"></script>
+  <script src="trainer-sim.js?v=8"></script>
 </body>
 </html>
