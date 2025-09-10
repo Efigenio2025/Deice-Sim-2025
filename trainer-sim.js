@@ -1,4 +1,4 @@
-// ================= De-Ice Trainer — Duolingo-style Simulator =================
+// ================= De-Ice Trainer — Duolingo-style Simulator + Safari Audio Unlock =================
 (function () {
   // ---- Config ----
   const EMP_ID_KEY = 'trainer.employeeId';
@@ -32,10 +32,10 @@
   const tokenize = s => norm(s).split(' ').filter(Boolean);
   function diffWords(exp, heard){
     const E = tokenize(exp), H = tokenize(heard);
-    const ok = new Set(H); // overlap view (simple but effective for training)
-    const expToks = E.map(w => ({ w, cls: ok.has(w) ? 'ok' : 'miss' }));
-    const extraToks = H.filter(w => !new Set(E).has(w)).map(w => ({ w, cls: 'extra' }));
-    return { expToks, extraToks, expCount: E.length, hitCount: E.filter(w => ok.has(w)).length };
+    const setE = new Set(E), setH = new Set(H);
+    const expToks = E.map(w => ({ w, cls: setH.has(w) ? 'ok' : 'miss' }));
+    const extraToks = H.filter(w => !setE.has(w)).map(w => ({ w, cls: 'extra' }));
+    return { expToks, extraToks, expCount: E.length, hitCount: E.filter(w => setH.has(w)).length };
   }
   function renderToks(el, toks){
     if (!el) return;
@@ -64,7 +64,7 @@
   let pauseFlag = false;
   let recActive = null;
   let stepScores = [];
-  let perStep = []; // [{i, role, prompt, score, heard}]
+  let perStep = []; // [{i, role, prompt, heard, score}]
 
   // ---- Employee ID gate (minimal) ----
   function getEmployeeId(){ return sessionStorage.getItem(EMP_ID_KEY) || localStorage.getItem(EMP_ID_KEY) || ''; }
@@ -125,9 +125,42 @@
 
     // Keep transcript panel up-to-date with expected line (display form)
     setText($('expHeader'), 'Expected');
-    renderToks($('expLine'), tokenize(st._displayLine||'').map(w => ({w, cls:'ok'}))); // greyed "ok" styling baseline
+    renderToks($('expLine'), tokenize(st._displayLine||'').map(w => ({w, cls:'ok'}))); // baseline
     setText($('heardHeader'), 'You said');
     $('heardLine').innerHTML = ''; setText($('wordStats'),'');
+  }
+
+  // ---- Safari audio unlock on first user gesture ----
+  let __audioUnlocked = false;
+  async function unlockAudio() {
+    if (__audioUnlocked) return true;
+
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        await ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.01);
+      }
+    } catch {}
+
+    try {
+      const a = $('captainAudio');
+      if (a) {
+        a.muted = true;
+        await a.play().catch(()=>{});
+        a.pause();
+        a.currentTime = 0;
+      }
+    } catch {}
+
+    __audioUnlocked = true;
+    return true;
   }
 
   // ---- Captain audio: reliable multi-file play ----
@@ -144,18 +177,28 @@
         cleanup();
         try{ a.pause(); a.currentTime=0; }catch{}
         a.src=url;
+
         a.onloadedmetadata = () => {
           const dur = (isFinite(a.duration) && a.duration>0) ? a.duration*1000+1000 : 12000;
           timeoutId = setTimeout(()=>{ cleanup(); if(!settled){ settled=true; resolve(); } }, Math.min(dur, 15000));
         };
+
         a.oncanplay = () => {
+          // make sure we’re audible now
+          a.muted = false;
+          try { a.load(); } catch {}
+
           a.onended = () => { cleanup(); if (!settled) { settled = true; resolve(); } };
           const p=a.play();
           if(p && p.catch){
-            p.catch(() => { setText($('status'),'Audio blocked (autoplay). Tap Start again if needed.'); cleanup(); if (!settled) { settled = true; resolve(); } });
+            p.catch(() => { // autoplay blocked; continue flow
+              setText($('status'),'Audio blocked (autoplay). Tap Start again if needed.');
+              cleanup(); if (!settled) { settled = true; resolve(); }
+            });
           }
           setText($('liveInline'),'(captain audio)'); setText($('status'),'Playing Captain line…');
         };
+
         a.onerror = () => tryUrl(i+1);
       };
       tryUrl(0);
@@ -199,8 +242,7 @@
           }
           interimText = interim.trim();
           live(interimText);
-
-          // Live Duolingo-style heard line (unstyled interim)
+          // Live heard line
           $('heardLine').textContent = (finalText.trim() + ' ' + interimText).trim();
         };
 
@@ -271,9 +313,9 @@
           stepScores.push(score);
           perStep.push({ i: i+1, role: st.role, prompt: st.prompt || '', heard, score });
 
-          // Live Duolingo-style highlights on completion of step
+          // Highlights on completion
           const { expToks, extraToks, expCount, hitCount } = diffWords(expectedDisplay, heard);
-          renderToks($('expLine'), expToks); // ok/miss on expected tokens
+          renderToks($('expLine'), expToks);
           renderToks($('heardLine'), extraToks.length ? extraToks : [{w: heard || '—', cls: heard ? 'ok' : 'miss'}]);
           setText($('wordStats'), `${hitCount}/${expCount} expected words matched • Step score ${score}%`);
 
@@ -334,9 +376,11 @@
       $('resultsCard')?.classList.add('hidden');
     });
 
-    $('startBtn')?.addEventListener('click', ()=>{
+    $('startBtn')?.addEventListener('click', async ()=>{
       if(running){ setText($('status'),'Already running…'); return; }
       if(!current){ setText($('status'),'Select a scenario first.'); return; }
+      // Unlock Safari audio with a clear user gesture
+      await unlockAudio();
       $('resultsCard')?.classList.add('hidden');
       runSimulator().catch(()=>{});
     });
