@@ -1,11 +1,11 @@
-// ================= De-Ice Trainer — Efficient, Stable Simulator =================
+// ================= De-Ice Trainer — Efficient, Stable Simulator (2025-09-09) =================
 (function () {
   // ---- Config ----
   const EMP_ID_KEY = 'trainer.employeeId';
   const MIN_LISTEN_MS = 1500;   // min time to keep mic open
   const MAX_LISTEN_MS = 6000;   // hard cap per Iceman step
   const SILENCE_MS    = 1200;   // end early if quiet this long
-  const CAPTAIN_DELAY_MS = 400; // settle after captain audio
+  const CAPTAIN_DELAY_MS = 1000; // settle after captain audio (increased from 400)
 
   // ---- DOM helpers ----
   const $ = id => document.getElementById(id);
@@ -125,18 +125,17 @@
         a.src=url;
 
         a.onloadedmetadata = () => {
-          // safety timeout: metadata duration + 1s (or 12s max)
           const dur = (isFinite(a.duration) && a.duration>0) ? a.duration*1000+1000 : 12000;
           timeoutId = setTimeout(()=>{ cleanup(); if(!settled){ settled=true; resolve(); } }, Math.min(dur, 15000));
         };
 
         a.oncanplay = () => {
-          a.onended = () => { cleanup(); if(!settled){ settled=true; resolve(); } };
+          a.onended = () => { cleanup(); if (!settled) { settled = true; resolve(); } };
           const p=a.play();
           if(p && p.catch){
-            p.catch(()=>{ // autoplay blocked; don’t stall flow
+            p.catch(() => { // autoplay blocked; continue flow
               setText($('status'),'Audio blocked (autoplay). Tap Start again if needed.');
-              cleanup(); if(!settled){ settled=true; resolve(); }
+              cleanup(); if (!settled) { settled = true; resolve(); }
             });
           }
           setText($('liveInline'),'(captain audio)'); setText($('status'),'Playing Captain line…');
@@ -205,6 +204,11 @@
       const endAll = (reason='end')=>{
         stopped = true;
         try{ recActive && recActive.abort && recActive.abort(); }catch{}
+
+        // --- NEW: minimum spoken words requirement to avoid noise auto-advance ---
+        const tokenCount = finalText.trim().split(/\s+/).filter(Boolean).length;
+        if (tokenCount < 3) { finalText = ''; } // treat as no usable speech
+
         resolve({ final: finalText.trim(), interim: interimText.trim(), ended: reason });
       };
 
@@ -240,7 +244,7 @@
       if (st.role === 'Captain') {
         await playCaptainAudio(st.audio || st.audioUrl || '');
         if(!running || pauseFlag) break;
-        await wait(CAPTAIN_DELAY_MS);
+        await wait(CAPTAIN_DELAY_MS); // increased settle time
       } else {
         try{
           const { final, interim } = await listenStep();
