@@ -6,34 +6,27 @@
   <meta name="theme-color" content="#0b0c10" />
   <title>De-Ice Trainer — Simulator</title>
   <style>
-    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;
-          --accent:#1f6feb;--danger:#e5534b;--ok:#19c37d;--radius:16px;--tap:48px;--space:18px}
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;
+          --line:#1e2230;--accent:#1f6feb;--danger:#e5534b;--ok:#19c37d}
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);
-         font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-         -webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
-    .wrap{max-width:980px;margin:0 auto;
-      padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space);
-      display:flex;flex-direction:column;gap:var(--space)}
+         font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:960px;margin:0 auto;padding:18px;display:flex;flex-direction:column;gap:18px}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .btn{appearance:none;border:0;border-radius:12px;background:var(--accent);
-      color:#fff;font-weight:800;padding:12px 16px;cursor:pointer;min-height:var(--tap);text-decoration:none}
+         color:#fff;font-weight:800;padding:12px 16px;cursor:pointer;text-decoration:none}
     .ghost{background:#2b3147}
     .danger{background:var(--danger)}
-    .card{background:var(--card);border:1px solid var(--line);
-      border-radius:var(--radius);padding:var(--space)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
     .status{font-size:.92rem;color:var(--muted)}
     .pill{display:inline-block;background:#16213a;border:1px solid #223259;
-      color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.8rem;font-weight:700}
+          color:#b7c7ff;border-radius:999px;padding:2px 8px;font-size:.8rem;font-weight:700}
     .live-inline{width:100%;border:1px solid #223259;border-radius:10px;
-      padding:10px;background:#141822;color:#b7c7ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+                 padding:10px;background:#141822;color:#b7c7ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .progress{height:12px;background:#1a2136;border:1px solid #223259;border-radius:999px;overflow:hidden}
     .bar{height:100%;width:0;background:linear-gradient(90deg,var(--danger),#f89c2c,#f6e05e,#a4e786,var(--ok));transition:width .25s}
     .scoreline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
     .hidden{display:none!important}
-    select, input{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
-
-    /* Duolingo-style tokens */
     .tok{display:inline-block;padding:0 4px;border-radius:6px;margin:0 2px 4px 0}
     .ok{background:#12291c;border:1px solid #1f5d38}
     .miss{background:#2a1616;border:1px solid #8a2c2c;text-decoration:underline}
@@ -70,7 +63,7 @@
     </div>
 
     <!-- Live input line -->
-    <div class="card" aria-live="polite" aria-label="Live microphone input">
+    <div class="card">
       <div class="row" style="justify-content:space-between">
         <strong>Live Input</strong>
         <span id="status" class="status">Idle</span>
@@ -78,7 +71,7 @@
       <div id="liveInline" class="live-inline">(waiting…)</div>
     </div>
 
-    <!-- Current step only -->
+    <!-- Current step -->
     <div id="stepsCard" class="card hidden">
       <h2>Step</h2>
       <div id="stepsBox" class="status">—</div>
@@ -89,17 +82,17 @@
       </div>
     </div>
 
-    <!-- Duolingo-style transcript panel -->
+    <!-- Transcript panel -->
     <div id="transcriptCard" class="card">
       <h2>Transcript</h2>
-      <div class="status" id="expHeader">Expected</div>
+      <div class="status">Expected</div>
       <div id="expLine"></div>
-      <div class="status" id="heardHeader" style="margin-top:8px">You said</div>
+      <div class="status" style="margin-top:8px">You said</div>
       <div id="heardLine"></div>
       <div id="wordStats" class="status" style="margin-top:6px"></div>
     </div>
 
-    <!-- Final results -->
+    <!-- Results -->
     <div id="resultsCard" class="card hidden">
       <h2>Results</h2>
       <p class="status">Final score: <strong id="finalScore">0%</strong></p>
@@ -110,8 +103,8 @@
   <!-- Employee ID Modal -->
   <div id="empIdModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999">
     <div class="card" style="max-width:380px;width:92%">
-      <h2 style="margin:0 0 8px">Enter Employee ID</h2>
-      <p style="margin:0 0 10px" class="status">Required to log trainings.</p>
+      <h2>Enter Employee ID</h2>
+      <p class="status">Required to log trainings.</p>
       <input id="empIdInput" placeholder="e.g., 123456" />
       <div class="row" style="justify-content:flex-end">
         <button id="empIdCancel" class="btn ghost" type="button">Cancel</button>
@@ -121,10 +114,10 @@
     </div>
   </div>
 
-  <!-- Captain audio -->
+  <!-- Audio -->
   <audio id="captainAudio" preload="metadata" playsinline muted></audio>
 
-  <!-- Simulator logic -->
-  <script src="trainer-sim.js?v=8"></script>
+  <!-- Logic -->
+  <script src="trainer-sim.js?v=1"></script>
 </body>
 </html>
