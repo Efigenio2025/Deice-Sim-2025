@@ -4,20 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0c10" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>De-Ice Trainer — Simulator</title>
   <style>
     :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;
           --accent:#1f6feb;--danger:#e5534b;--ok:#19c37d;
           --radius:16px;--tap:48px;--space:18px}
-    @media (prefers-color-scheme: light){
-      :root{--bg:#f6f8fb;--card:#ffffff;--ink:#0b0c10;--muted:#4b5565;--line:#e5e7ef;--accent:#1259d6}
-    }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);
-         font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-         -webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+         font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:980px;margin:0 auto;
           padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space);
           display:flex;flex-direction:column;gap:var(--space)}
@@ -26,12 +20,9 @@
          background:var(--accent);color:#fff;font-weight:800;
          padding:12px 14px;cursor:pointer;text-decoration:none;
          display:inline-flex;align-items:center;justify-content:center;
-         min-height:var(--tap);touch-action:manipulation}
+         min-height:var(--tap)}
     .ghost{background:#2b3147}
     .danger{background:var(--danger)}
-    @media (prefers-color-scheme: light){
-      .ghost{background:#e8eefc;color:#0b2a7a}
-    }
     .card{background:var(--card);border:1px solid var(--line);
           border-radius:var(--radius);padding:var(--space)}
     .status{font-size:.92rem;color:var(--muted)}
@@ -45,11 +36,11 @@
               background:#141822;min-height:40px;font-size:1rem;color:#b7c7ff}
     .hidden{display:none!important}
     .foot{margin-top:auto;color:var(--muted);font-size:.92rem;padding-bottom:env(safe-area-inset-bottom,0)}
-    .btn:focus-visible{outline:3px solid #86b7ff;outline-offset:2px}
   </style>
 </head>
 <body>
   <div class="wrap">
+    <!-- top bar -->
     <div class="row" style="justify-content:space-between">
       <a href="index.html" class="btn ghost">← Home</a>
       <div class="row" style="gap:8px;align-items:center">
@@ -58,7 +49,7 @@
       </div>
     </div>
 
-    <!-- Top controls -->
+    <!-- controls -->
     <div class="row">
       <button id="startBtn" class="btn">Start Simulator</button>
       <button id="speakBtn" class="btn ghost" disabled>Speak Captain</button>
@@ -67,8 +58,21 @@
       <button id="finishBtn" class="btn danger" disabled>Mark Complete</button>
     </div>
 
+    <!-- scenario selection -->
     <div class="card">
-      <!-- ====== MOVED TO TOP: transcript / diff / live input ====== -->
+      <h2>Trainer</h2>
+      <div class="row">
+        <label style="flex:1 1 260px">Select scenario
+          <select id="scenarioSelect"><option value="">— loading —</option></select>
+        </label>
+        <button id="reloadScenarios" class="btn ghost" type="button">Reload</button>
+      </div>
+      <div id="desc" class="status" style="margin-top:6px">Select a scenario to begin.</div>
+    </div>
+
+    <!-- simulator -->
+    <div class="card">
+      <!-- transcript / diff + live input at TOP -->
       <div class="diff">
         <h3>Expected (for grading)</h3>
         <div id="expLine">—</div>
@@ -81,8 +85,8 @@
         <h3 style="margin-top:12px">Live Input</h3>
         <div id="liveBox" class="live-box">(waiting…)</div>
       </div>
-      <!-- ====== /moved section ====== -->
 
+      <!-- steps follow -->
       <h2 style="margin-top:18px">Steps</h2>
       <div id="stepsBox" class="status">—</div>
       <div class="status" style="margin-top:6px">Simulator: ~5s listen per Iceman step • Final score at end</div>
@@ -114,10 +118,10 @@
     </div>
   </div>
 
-  <!-- Audio for Captain lines -->
+  <!-- audio for Captain lines -->
   <audio id="captainAudio" preload="metadata" playsinline></audio>
 
-  <!-- Simulator logic -->
-  <script src="trainer-sim.js?v=3"></script>
+  <!-- simulator logic -->
+  <script src="trainer-sim.js?v=4"></script>
 </body>
 </html>
