@@ -68,27 +68,7 @@
     </div>
 
     <div class="card">
-      <h1>Trainer</h1>
-      <div class="row">
-        <label style="flex:1 1 260px">Select scenario
-          <select id="scenarioSelect"><option value="">— loading —</option></select>
-        </label>
-        <button id="reloadScenarios" class="btn ghost" type="button">Reload</button>
-      </div>
-      <div id="desc" class="status" style="margin-top:6px">Select a scenario to begin.</div>
-    </div>
-
-    <div class="card">
-      <h2>Steps</h2>
-      <div id="stepsBox" class="status">—</div>
-      <div class="status" style="margin-top:6px">Simulator: ~5s listen per Iceman step • Final score at end</div>
-      <div class="scoreline">
-        <div class="status">Score: <span id="scorePct">0%</span></div>
-        <div style="flex:1"></div>
-        <div class="progress" style="width:300px"><div id="scoreBar" class="bar"></div></div>
-      </div>
-      <div id="status" class="status">Idle</div>
-
+      <!-- ====== MOVED TO TOP: transcript / diff / live input ====== -->
       <div class="diff">
         <h3>Expected (for grading)</h3>
         <div id="expLine">—</div>
@@ -101,6 +81,18 @@
         <h3 style="margin-top:12px">Live Input</h3>
         <div id="liveBox" class="live-box">(waiting…)</div>
       </div>
+      <!-- ====== /moved section ====== -->
+
+      <h2 style="margin-top:18px">Steps</h2>
+      <div id="stepsBox" class="status">—</div>
+      <div class="status" style="margin-top:6px">Simulator: ~5s listen per Iceman step • Final score at end</div>
+
+      <div class="scoreline">
+        <div class="status">Score: <span id="scorePct">0%</span></div>
+        <div style="flex:1"></div>
+        <div class="progress" style="width:300px"><div id="scoreBar" class="bar"></div></div>
+      </div>
+      <div id="status" class="status">Idle</div>
     </div>
 
     <footer class="foot">
@@ -126,6 +118,6 @@
   <audio id="captainAudio" preload="metadata" playsinline></audio>
 
   <!-- Simulator logic -->
-  <script src="trainer-sim.js?v=2"></script>
+  <script src="trainer-sim.js?v=3"></script>
 </body>
 </html>
