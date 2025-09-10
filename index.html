@@ -2,118 +2,53 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- Mobile & iOS friendly -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0c10" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>De-Ice Trainer — Welcome</title>
   <style>
-    /* System dark/light with high contrast by default */
-    :root{
-      --bg:#0b0c10; --card:#101218; --ink:#eaeaea; --muted:#a6b2c9; --line:#1e2230;
-      --accent:#1f6feb; --danger:#e5534b; --ok:#19c37d;
-      --radius:16px; --space:18px; --tap:48px;
-    }
-    @media (prefers-color-scheme: light){
-      :root{ --bg:#f6f8fb; --card:#ffffff; --ink:#0b0c10; --muted:#4b5565; --line:#e5e7ef; --accent:#1259d6; }
-    }
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--danger:#e5534b;--ok:#19c37d}
     *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; background:var(--bg); color:var(--ink);
-      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-      /* iOS text zoom & tap highlight */
-      -webkit-text-size-adjust:100%;
-      -webkit-tap-highlight-color:transparent;
-    }
-    a{color:inherit}
-    .wrap{
-      max-width:980px; margin:0 auto; padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space);
-      min-height:100%;
-      display:flex; flex-direction:column; gap:var(--space);
-    }
-    .header{display:flex;justify-content:space-between;align-items:center;gap:12px}
-    .brand{font-weight:800;font-size:1.25rem;letter-spacing:.2px}
-    .card{
-      background:var(--card); border:1px solid var(--line);
-      border-radius:var(--radius); padding:var(--space); margin:0;
-      box-shadow:0 1px 0 rgba(0,0,0,.06);
-    }
-    .grid{
-      display:grid; gap:14px;
-      grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
-    }
-    .btn{
-      appearance:none; border:0; border-radius:12px;
-      background:var(--accent); color:#fff; text-decoration:none;
-      display:inline-flex; align-items:center; justify-content:center;
-      padding:14px 16px; font-weight:800; min-height:var(--tap); width:100%;
-      touch-action:manipulation; cursor:pointer;
-    }
-    .ghost{ background:#2b3147; color:#fff; }
-    @media (prefers-color-scheme: light){
-      .ghost{ background:#e8eefc; color:#0b2a7a; }
-    }
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:980px;margin:0 auto;padding:18px}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .brand{font-weight:800;font-size:1.2rem;letter-spacing:.3px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+    .btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:800;border-radius:12px;padding:12px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+    .ghost{background:#2b3147}
+    .muted{color:var(--muted)}
     .tile{display:flex;flex-direction:column;gap:12px;min-height:160px}
     .tile h2{margin:0;font-size:1.05rem}
-    .tile p{margin:0;color:var(--muted)}
-    .foot{margin-top:auto;color:var(--muted);font-size:.92rem;padding-bottom:env(safe-area-inset-bottom,0)}
-    /* Bigger targets on very small screens */
-    @media (max-width:380px){
-      .btn{padding:16px 18px;font-weight:900}
-      .brand{font-size:1.15rem}
-    }
-    /* Respect reduced motion */
-    @media (prefers-reduced-motion: reduce){
-      *{animation:none!important;transition:none!important}
-    }
-    /* Focus styles for accessibility */
-    .btn:focus-visible{outline:3px solid #86b7ff; outline-offset:2px}
+    .tile p{margin:0;color:#96a3bf}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="header">
-      <div class="brand" aria-label="De-Ice Trainer">De-Ice Trainer</div>
-      <a class="btn ghost" href="train.html" aria-label="Start Training">Start Training →</a>
+      <div class="brand">De-Ice Trainer</div>
+      <a class="btn ghost" href="train.html">Start Training →</a>
     </div>
 
-    <section class="card" role="region" aria-labelledby="welcome">
-      <h1 id="welcome" style="margin:0 0 6px">Welcome</h1>
-      <p style="margin:0;color:var(--muted)">
-        Practice agent-to-flight deck de-ice/anti-ice communications by voice.
-        Best on <strong>Safari (iOS)</strong> with microphone allowed.
+    <div class="card">
+      <h1 style="margin:0 0 6px">Welcome</h1>
+      <p class="muted" style="margin:0">
+        Use this app to practice agent-to-flight deck de-ice/anti-ice communications by voice.
+        For best results, run on <strong>Safari (iOS)</strong> with microphone permission enabled.
       </p>
-    </section>
+    </div>
 
-    <section class="grid" aria-label="Main actions">
-      <article class="card tile">
+    <div class="grid">
+      <div class="card tile">
         <h2>Train</h2>
-        <p>Voice-driven scenarios. Captain lines play; you speak Iceman. Live transcript and scoring.</p>
+        <p>Voice-driven scenarios. Captain lines play; you speak Iceman. Live transcript, word highlights, and scoring.</p>
         <div><a class="btn" href="train.html">Start Training</a></div>
-      </article>
+      </div>
 
-      <article class="card tile">
+      <div class="card tile">
         <h2>Admin</h2>
-        <p>Manage scenarios and view logs. Passcode required.</p>
+        <p>Protected area for managing scenarios and viewing logs. Passcode required.</p>
         <div><a class="btn ghost" href="admin.html">Open Admin</a></div>
-      </article>
-    </section>
-
-    <footer class="foot">
-      V1 • For training purposes only • OMA Station — Microphone works only in Safari on iOS
-    </footer>
+      </div>
+    </div>
   </div>
-
-  <!-- Tiny enhancement: warn if iOS PWA (mic may be blocked) -->
-  <script>
-    (function(){
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-      if (isStandalone && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        console.warn('iOS standalone mode can block mic. Use Safari directly if mic fails.');
-      }
-    })();
-  </script>
 </body>
 </html>
