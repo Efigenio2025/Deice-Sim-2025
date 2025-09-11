@@ -356,8 +356,9 @@ function onPause() {
 
       {/* controls */}
       <div className="row">
-        <button className="btn" onClick={onStart}>Start Simulator</button>
-        <button className="btn ghost" onClick={onPause}>Pause Simulator</button>
+  <button type="button" className="btn" onClick={onStart}>Start Simulator</button>
+  <button type="button" className="btn ghost" onClick={onPause}>Pause Simulator</button>
+</div>
       </div>
 
       {/* scenario select */}
