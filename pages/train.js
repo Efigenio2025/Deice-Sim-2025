@@ -275,6 +275,8 @@ export default function TrainPage() {
         if (!runningRef.current || pausedRef.current) break;
         await new Promise((r) => setTimeout(r, CAPTAIN_DELAY_MS));
       } else {
+        setStatus("Listening… please speak the Iceman line");
+        setLive("(listening…)");
         const { final, interim } = await listenStep();
         const heard = (final || interim || "").trim();
 
@@ -351,7 +353,7 @@ export default function TrainPage() {
             <select
               onChange={(e) => {
                 const scn = JSON.parse(JSON.stringify(scenarios.find((s) => s.id === e.target.value)));
-                if (scn) { prepScenarioForGrading(scn); setCurrent(scn); setStepIndex(-1); setScore(0); setResults([]); setStatus("Idle"); setLive("(waiting…)"); }
+                if (scn) { prepScenarioForGrading(scn); setCurrent(scn); setStepIndex(-1); setScore(0); setResults([]); setStatus("Idle"); setLive("(waiting…)"); setStatus(`Loaded scenario: ${scn.label || scn.id}`); }
               }}
               value={current?.id || ""}
             >
