@@ -1,5 +1,4 @@
 // pages/train.js
-'use client';
 import { useEffect, useRef, useState } from 'react';
 
 const MIN_LISTEN_MS = 1500;
