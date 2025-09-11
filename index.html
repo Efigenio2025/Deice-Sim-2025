@@ -2,23 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0c10" />
   <title>De-Ice Trainer — Welcome</title>
   <style>
-    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--danger:#e5534b;--ok:#19c37d}
+    :root{--bg:#0b0c10;--card:#101218;--ink:#eaeaea;--muted:#96a3bf;--line:#1e2230;--accent:#1f6feb;--radius:16px;--space:18px}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-    .wrap{max-width:980px;margin:0 auto;padding:18px}
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+    .wrap{max-width:980px;margin:0 auto;padding:calc(env(safe-area-inset-top,0) + var(--space)) var(--space) var(--space)}
     .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-    .brand{font-weight:800;font-size:1.2rem;letter-spacing:.3px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+    .brand{font-weight:800;font-size:1.15rem;letter-spacing:.3px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:var(--space);margin:14px 0}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
-    .btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:800;border-radius:12px;padding:12px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+    .btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:800;border-radius:12px;padding:12px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:44px}
     .ghost{background:#2b3147}
     .muted{color:var(--muted)}
     .tile{display:flex;flex-direction:column;gap:12px;min-height:160px}
     .tile h2{margin:0;font-size:1.05rem}
-    .tile p{margin:0;color:#96a3bf}
+    .tile p{margin:0;color:var(--muted)}
+    .foot{margin-top:14px;color:#96a3bf;font-size:.9rem}
   </style>
 </head>
 <body>
@@ -31,24 +33,31 @@
     <div class="card">
       <h1 style="margin:0 0 6px">Welcome</h1>
       <p class="muted" style="margin:0">
-        Use this app to practice agent-to-flight deck de-ice/anti-ice communications by voice.
-        For best results, run on <strong>Safari (iOS)</strong> with microphone permission enabled.
+        Practice agent-to-flight deck de-ice/anti-ice communications with voice input, live transcript, and scoring.
       </p>
     </div>
 
     <div class="grid">
       <div class="card tile">
         <h2>Train</h2>
-        <p>Voice-driven scenarios. Captain lines play; you speak Iceman. Live transcript, word highlights, and scoring.</p>
+        <p>Captain lines play; you speak Iceman. Live transcript, word highlights, and end-of-run scoring.</p>
         <div><a class="btn" href="train.html">Start Training</a></div>
       </div>
 
       <div class="card tile">
         <h2>Admin</h2>
-        <p>Protected area for managing scenarios and viewing logs. Passcode required.</p>
+        <p>Manage scenarios and view logs (passcode required).</p>
         <div><a class="btn ghost" href="admin.html">Open Admin</a></div>
       </div>
+
+      <div class="card tile">
+        <h2>Diagnostics</h2>
+        <p>Check mic/voice support and JSON/audio availability on the deployed environment.</p>
+        <div><a class="btn ghost" href="diagnostic.html">Open Diagnostics</a></div>
+      </div>
     </div>
+
+    <div class="foot">V1 • For training purposes only • OMA Station</div>
   </div>
 </body>
 </html>
