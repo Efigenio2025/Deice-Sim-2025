@@ -1,21 +1,65 @@
-import { wordScore } from '@/lib/scoring';
-import { makeRecognizer } from '@/lib/speech';
-import { playCaptainAudio, unlockAudioOnce } from '@/lib/audio';
-import { useEmpGate } from '@/lib/useEmpGate';
+// /pages/train.js
+import { useEffect, useRef, useState } from 'react';
+import { ensureMicPermission, makeRecognizer, listenOnce } from '@/lib/speech';
+import { unlockAudioOnce, playCaptainAudio } from '@/lib/audio'; // optional if you play captain audio
 
 export default function Train() {
-  const [scenarios, setScenarios] = useState([]);
-  const [current, setCurrent] = useState(null);
-  const [stepIndex, setStepIndex] = useState(-1);
-  const [running, setRunning] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const [score, setScore] = useState(0);
-  const [live, setLive] = useState('(waiting…)');
   const [status, setStatus] = useState('Idle');
-  const [expTokens, setExpTokens] = useState([]);
-  const [heardTokens, setHeardTokens] = useState([]);
-  const [wordStats, setWordStats] = useState('');
-  const [results, setResults] = useState([]);
+  const [live, setLive] = useState('(waiting…)');
+  const [scenarios, setScenarios] = useState([]);
+  const [sel, setSel] = useState('');
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/scenarios.json', { cache: 'no-store' });
+        const data = await r.json();
+        setScenarios(data);
+        if (data?.[0]?.id) setSel(data[0].id);
+      } catch {
+        setStatus('Could not load scenarios.json');
+      }
+    })();
+  }, []);
+
+  async function start() {
+    try {
+      await unlockAudioOnce();
+      await ensureMicPermission(setStatus);
+      setStatus('Mic ready. Starting recognition…');
+      setLive('(listening…)');
+
+      const { final, interim } = await listenOnce({
+        onInterim: (t) => setLive(t || '(listening…)'),
+        onStatus: (s) => setStatus(s),
+      });
+
+      const heard = (final || interim || '').trim();
+      setStatus(heard ? `Heard: "${heard}"` : 'No speech detected.');
+      setLive(heard || '(done)');
+    } catch (e) {
+      setStatus('Mic failed to start.');
+    }
+  }
+
+  return (
+    <div style={{ padding: 16 }}>
+      <h1>Train</h1>
+      <p>Status: {status}</p>
+      <div>
+        <select value={sel} onChange={e=> setSel(e.target.value)}>
+          {scenarios.map(s => <option key={s.id} value={s.id}>{s.label||s.id}</option>)}
+        </select>
+      </div>
+      <button onClick={start}>Start Mic</button>
+      <div style={{ marginTop: 8, padding: 8, border: '1px solid #334', borderRadius: 8 }}>
+        Live Input: {live}
+      </div>
+      <audio ref={audioRef} id="captainAudio" preload="metadata" playsInline />
+    </div>
+  );
+}
 
   // Employee ID
   const { badge, modal } = useEmpGate();
