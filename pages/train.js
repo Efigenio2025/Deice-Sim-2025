@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const MIN_LISTEN_MS = 1500;
-const MAX_LISTEN_MS = 6000;
-const SILENCE_MS = 1200;
-const CAPTAIN_DELAY_MS = 900;
+const MAX_LISTEN_MS = 25000;
+const SILENCE_MS = 4500;
+const CAPTAIN_DELAY_MS = 2500;
 
 const NATO = {
   A: "Alpha", B: "Bravo", C: "Charlie", D: "Delta", E: "Echo", F: "Foxtrot",
