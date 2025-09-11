@@ -73,9 +73,9 @@
 </div>
 
 <audio id="captainAudio" preload="metadata" playsinline muted></audio>
-
+  
 <script>
-/* ===== Inline scenarios (you can replace with fetch later) ===== */
+/* ===== Inline scenarios (fallback) ===== */
 const INLINE_SCENARIOS = [
   {
     "id": "scn1",
@@ -96,7 +96,7 @@ const INLINE_SCENARIOS = [
   }
 ];
 
-/* ===== Core helpers ===== */
+/* ===== Core helpers (unchanged) ===== */
 const $ = id => document.getElementById(id);
 const setText = (el,t)=>{ if(el) el.textContent=t; };
 const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
@@ -125,17 +125,17 @@ function diffWords(exp, heard){
 function renderToks(el, toks){ if(!el) return; el.innerHTML = toks.map(t=>`<span class="tok ${t.cls}">${t.w}</span>`).join(' '); }
 
 /* ===== State ===== */
-let SCENARIOS = INLINE_SCENARIOS.slice();
+let SCENARIOS = [];   // will be filled by loadScenarios()
 let current = null, stepIndex=-1, running=false, paused=false, recActive=null;
 let stepScores=[];
 
-/* ===== iOS / Audio unlock ===== */
+/* ===== iOS / Audio unlock (unchanged) ===== */
 async function unlockAudio(){
   try{ const Ctx=window.AudioContext||window.webkitAudioContext; if(Ctx){ const ctx=new Ctx(); await ctx.resume(); const o=ctx.createOscillator(), g=ctx.createGain(); g.gain.value=0; o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.01);} }catch{}
   try{ const a=$('captainAudio'); a.muted=true; await a.play().catch(()=>{}); a.pause(); a.currentTime=0; }catch{}
 }
 
-/* ===== Captain audio (non-blocking if 404) ===== */
+/* ===== Captain audio (unchanged) ===== */
 function playCaptainAudio(src){
   const a=$('captainAudio'); if(!a || !src) return Promise.resolve();
   const candidates=[`/audio/${src}`, `/${src}`];
@@ -150,7 +150,7 @@ function playCaptainAudio(src){
   });
 }
 
-/* ===== Mic listen (robust) ===== */
+/* ===== Mic listen (unchanged from last patch) ===== */
 function throttle(fn, ms){ let t=0; return (...a)=>{ const n=Date.now(); if(n-t>=ms){ t=n; fn(...a);} }; }
 async function listenStep({minMs=1500, maxMs=6000, silenceMs=1200}={}){
   return new Promise(resolve=>{
@@ -172,7 +172,7 @@ async function listenStep({minMs=1500, maxMs=6000, silenceMs=1200}={}){
   });
 }
 
-/* ===== Render & run ===== */
+/* ===== Render & run (unchanged) ===== */
 function renderActive(){
   const card=$('stepCard'), box=$('stepBox');
   if(!current || stepIndex<0 || stepIndex>=current.steps.length){ card.classList.add('hidden'); setText(box,'—'); return; }
@@ -180,13 +180,10 @@ function renderActive(){
   const st=current.steps[stepIndex]; box.innerHTML = `<div style="padding:8px;border:1px solid #1f6feb;border-radius:10px;background:#0f1424">
     <div style="display:flex;justify-content:space-between"><strong>Step ${stepIndex+1} • ${st.role}</strong><span class="status">${st.prompt||''}</span></div>
     <div style="margin-top:6px">${(st._displayLine||st.text||'').replace(/</g,'&lt;')}</div></div>`;
-  // show expected baseline
   const tokens = tokenize(st._displayLine||st.text||'').map(w=>({w,cls:'ok'}));
   renderToks($('expLine'), tokens); $('heardLine').innerHTML=''; setText($('wordStats'),'');
 }
 function setScore(p){ p=Math.max(0,Math.min(100,p|0)); setText($('scorePct'), p+'%'); $('scoreBar').style.width=p+'%'; }
-const tokenize = s => norm(s).split(' ').filter(Boolean);
-
 async function run(){
   running=true; paused=false; setScore(0); setText($('status'),'Running…'); $('live').textContent='(waiting…)';
   const steps=current.steps||[]; let scores=[];
@@ -198,8 +195,8 @@ async function run(){
     else{
       const {final,interim}=await listenStep(); const heard=(final||interim||'').trim();
       const expectedGrade=st._expectedForGrade || st.text || ''; const expectedDisplay=st._displayLine || st.text || '';
-      const score=wordScore(expectedGrade, heard); scores.push(score);
       const {expToks, extras, expCount, hitCount}=diffWords(expectedDisplay, heard);
+      const score=wordScore(expectedGrade, heard); scores.push(score);
       renderToks($('expLine'), expToks); renderToks($('heardLine'), extras.length?extras:[{w:heard||'—',cls:heard?'ok':'miss'}]);
       setText($('wordStats'), `${hitCount}/${expCount} expected words matched • Step score ${score}%`);
       setScore(Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)); setText($('status'), heard?`Heard: "${heard}"`:'No speech detected.'); $('live').textContent=heard||'(listening done)';
@@ -208,23 +205,52 @@ async function run(){
   running=false; setText($('status'),'Complete');
 }
 
+/* ===== Load scenarios: try /scenarios.json, else use inline ===== */
+async function loadScenariosWithFallback(){
+  let scenarios = [];
+  try{
+    const r = await fetch('/scenarios.json?v='+Date.now(), {cache:'no-store'});
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data) && data.length) {
+        scenarios = data;
+        console.log('Loaded scenarios.json:', data.length);
+      } else {
+        console.warn('scenarios.json present but empty/invalid, using inline fallback.');
+      }
+    } else {
+      console.warn('scenarios.json HTTP', r.status, '- using inline fallback.');
+    }
+  } catch (e) {
+    console.warn('scenarios.json fetch error, using inline fallback:', e);
+  }
+  if (!scenarios.length) scenarios = INLINE_SCENARIOS.slice();
+  scenarios.forEach(prepareScenario);
+  return scenarios;
+}
+
 /* ===== Boot ===== */
-(function init(){
-  // env badge
+(async function init(){
+  // Env badge
   const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone===true);
   const https = location.protocol==='https:' || location.hostname==='localhost';
   const hasSR = !!(window.SpeechRecognition||window.webkitSpeechRecognition);
   setText($('envBadge'), `SR:${hasSR?'yes':'no'} • HTTPS:${https?'yes':'no'} • PWA:${standalone?'yes':'no'}`);
 
-  // load scenarios inline
-  SCENARIOS.forEach(prepareScenario);
-  const sel=$('scenarioSelect'); sel.innerHTML = SCENARIOS.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
-  sel.onchange = e => { const id=e.target.value; current=SCENARIOS.find(s=>s.id===id)||null; setText($('desc'), current?(current.desc||''):'Select a scenario to begin.'); stepIndex=-1; renderActive(); };
-  if(SCENARIOS.length){ sel.value=SCENARIOS[0].id; sel.dispatchEvent(new Event('change')); }
-  // expose start/pause
+  // Load scenarios (fetch or fallback)
+  SCENARIOS = await loadScenariosWithFallback();
+  const sel=$('scenarioSelect');
+  if (SCENARIOS.length === 0) {
+    sel.innerHTML = '<option value="">(no scenarios found)</option>';
+    setText($('desc'), 'No scenarios found. Check scenarios.json or the inline fallback.');
+  } else {
+    sel.innerHTML = SCENARIOS.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
+    sel.onchange = e => { const id=e.target.value; current=SCENARIOS.find(s=>s.id===id)||null; setText($('desc'), current?(current.desc||''):'Select a scenario to begin.'); stepIndex=-1; renderActive(); };
+    sel.value = SCENARIOS[0].id; sel.dispatchEvent(new Event('change'));
+  }
+
+  // Start/Pause handlers
   window.__start = async ()=>{ await unlockAudio(); if(!current){ setText($('status'),'Select a scenario first.'); return; } run().catch(()=>{}); };
   window.__pause = ()=>{ running=false; paused=true; try{ recActive&&recActive.abort&&recActive.abort(); }catch{}; setText($('status'),'Paused'); };
 })();
 </script>
-</body>
-</html>
