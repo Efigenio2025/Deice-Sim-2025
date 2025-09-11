@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { prepareScenarioForGrading, scoreWords, diffWords } from '@/lib/scoring';
-import { ensureMic, listenStep } from '@/lib/speech';
-import { unlockAudio, playCaptainAudio, stopCaptainAudio } from '@/lib/audio';
-import useEmpGate from '@/lib/useEmpGate';
+import { wordScore } from '@/lib/scoring';
+import { makeRecognizer } from '@/lib/speech';
+import { playCaptainAudio, unlockAudioOnce } from '@/lib/audio';
+import { useEmpGate } from '@/lib/useEmpGate';
 
 export default function Train() {
   const [scenarios, setScenarios] = useState([]);
