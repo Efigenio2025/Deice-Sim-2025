@@ -103,28 +103,40 @@ export default function TrainPage() {
     return true;
   }
   function playCaptainAudio(file) {
-    const a = audioRef.current;
-    if (!a || !file) return Promise.resolve();
-    const url = `/audio/${file}`;
-    return new Promise((resolve) => {
-      function clean() {
-        a.onended = null; a.onerror = null; a.oncanplay = null; a.onloadedmetadata = null;
-      }
+  const a = audioRef.current;
+  if (!a || !file) return Promise.resolve();
+  const candidates = [`/audio/${file}`, `/${file}`];
+
+  return new Promise((resolve) => {
+    let i = 0;
+
+    const tryOne = () => {
+      if (i >= candidates.length) { setStatus("Audio not available"); resolve(); return; }
+
+      const url = candidates[i++];
+      const clean = () => { a.onended = a.onerror = a.oncanplay = a.onloadedmetadata = null; };
+
       try { a.pause(); a.currentTime = 0; } catch {}
       a.src = url;
+
       a.oncanplay = () => {
         a.muted = false;
-        a.onended = () => { clean(); resolve(); };
-        a.onerror = () => { clean(); resolve(); };
         const p = a.play();
-        if (p && p.catch) p.catch(() => { clean(); resolve(); });
+        if (p && p.catch) {
+          p.catch(() => { clean(); tryOne(); }); // try next path on autoplay block
+        }
         setStatus("Playing Captain line…");
         setLive("(captain audio)");
       };
-      a.onloadedmetadata = () => {}; // no-op, but defined
-      a.onerror = () => { clean(); resolve(); };
-    });
-  }
+
+      a.onended = () => { clean(); resolve(); };
+      a.onerror = () => { clean(); tryOne(); };
+      a.onloadedmetadata = () => {};
+    };
+
+    tryOne();
+  });
+}
 
   // permissions
   async function ensureMicPermission() {
