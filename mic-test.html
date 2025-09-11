@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mic Smoke Test (iOS Safari)</title>
+<style>
+  body{margin:0;background:#0b0c10;color:#eaeaea;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  .wrap{max-width:720px;margin:0 auto;padding:18px}
+  .card{background:#101218;border:1px solid #1e2230;border-radius:14px;padding:16px;margin:14px 0}
+  .btn{appearance:none;border:0;background:#1f6feb;color:#fff;font-weight:800;border-radius:10px;padding:12px 14px;cursor:pointer}
+  .ghost{background:#2b3147}
+  .status{color:#96a3bf}
+  .live{border:1px solid #223259;border-radius:10px;padding:10px;background:#141822;color:#b7c7ff;min-height:40px}
+</style>
+<body>
+<div class="wrap">
+  <h1>Mic Smoke Test</h1>
+  <div class="card">
+    <p class="status">HTTPS required • Use regular Safari (not PWA “Add to Home Screen”).</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="btnPerm" class="btn">Request Mic Permission</button>
+      <button id="btnListen" class="btn ghost">Start Listening</button>
+      <button id="btnStop" class="btn ghost">Stop</button>
+    </div>
+    <p id="status" class="status">Idle</p>
+    <div id="live" class="live">(waiting…)</div>
+  </div>
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  const setText = (el, t) => { if (el) el.textContent = t; };
+  let rec = null;
+
+  $('btnPerm').onclick = async () => {
+    try{
+      setText($('status'),'Requesting microphone permission…');
+      const s = await navigator.mediaDevices.getUserMedia({audio:true});
+      s.getTracks().forEach(t=>t.stop());
+      setText($('status'),'Microphone ready ✓');
+    }catch(e){
+      setText($('status'),'Mic permission not granted: '+(e.message||e));
+    }
+  };
+
+  $('btnListen').onclick = () => {
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!R){ setText($('status'),'SpeechRecognition not available on this device/browser'); return; }
+    rec = new R();
+    rec.lang='en-US'; rec.continuous=false; rec.interimResults=true; rec.maxAlternatives=1;
+    rec.onstart = () => setText($('status'),'Listening…');
+    rec.onresult = (ev)=>{
+      let final='', interim='';
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        const tr = ev.results[i][0]?.transcript || '';
+        if(ev.results[i].isFinal) final += ' ' + tr; else interim += ' ' + tr;
+      }
+      $('live').textContent = (final.trim()+' '+interim.trim()).trim() || '(listening…)';
+    };
+    rec.onerror = (e)=> setText($('status'),'Error: '+(e.error||'unknown'));
+    rec.onend   = ()=> setText($('status'),'Ended');
+    try{ rec.start(); }catch(e){ setText($('status'),'Start failed: '+(e.message||e)); }
+  };
+
+  $('btnStop').onclick = ()=>{
+    try{ rec && rec.abort && rec.abort(); }catch{}
+    setText($('status'),'Stopped');
+  };
+</script>
+</body>
+</html>
