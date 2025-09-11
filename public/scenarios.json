@@ -13,29 +13,29 @@
       {
         "prompt": "ack_hail",
         "role": "Iceman",
-        "text": "N443DF, this is Iceman, go ahead."
+        "text": "Go for iceman N443DF."
       },
       {
         "prompt": "init",
         "role": "Captain",
-        "text": "Iceman, N443DF, looks like we’ll need a full body Type I deicing today.",
+        "text": "Iceman, N443DF, looks like we’ll need a full body Type 1 deicing today.",
         "audio": "scn1_captain_init.mp3"
       },
       {
         "prompt": "prep",
         "role": "Iceman",
-        "text": "Copy that N443DF, you are requesting full body Type I. Please prepare the aircraft for deicing."
+        "text": "Copy that N443DF, you are requesting full body Type 1. Please prepare the aircraft for deicing."
       },
       {
         "prompt": "ready",
         "role": "Captain",
-        "text": "Iceman, aircraft N443DF ready for deicing. We are configured for Type I. Engines are running, APU is off.",
+        "text": "Iceman, aircraft N443DF ready for deicing. We are configured for Type 1. Engines are running, APU is off.",
         "audio": "scn1_captain_ready.mp3"
       },
       {
         "prompt": "start",
         "role": "Iceman",
-        "text": "Aircraft N443DF, copy that engines running and APU off, full body Type I requested. Starting Type I application now."
+        "text": "Aircraft N443DF, copy that engines running and APU off, full body Type 1 requested. Starting Type 1 application now."
       },
       {
         "prompt": "update",
@@ -51,12 +51,12 @@
       {
         "prompt": "post",
         "role": "Iceman",
-        "text": "Yes, N443DF, deicing complete. Post-deicing check complete, deicing personnel and equipment are safely away."
+        "text": "Yes, N443DF, deicing is complete. Post-deicing check is complete, deicing personnel and equipment are safely away."
       },
       {
         "prompt": "final",
         "role": "Captain",
-        "text": "Iceman, aircraft N443DF copies. Thank you for your help and stay warm out there!",
+        "text": "Hey Iceman, aircraft N443DF copies. Thank you for your help and stay warm out there!",
         "audio": "scn1_captain_final.mp3"
       }
     ]
