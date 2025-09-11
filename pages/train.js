@@ -433,7 +433,7 @@ function onPause() {
       </div>
 
       {/* captain audio element */}
-      <audio ref={audioRef} id="captainAudio" preload="metadata" playsInline muted />
+      <audio id="captainAudio" ref={audioRef} preload="metadata" playsInline muted />
     </div>
   );
 }
