@@ -57,6 +57,89 @@ export default function TrainPage(){
 
   const unlockAudio = useAudioUnlock(audioRef);
 
+  // ---- refs
+const audioRef = useRef(null);
+
+// ---- status helpers
+const [status, setStatus] = useState('Idle');
+const [running, setRunning] = useState(false);
+const [paused, setPaused]   = useState(false);
+
+// ---- audio unlock (Safari/Chrome)
+async function unlockAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) {
+      const ctx = new Ctx();
+      await ctx.resume();
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      osc.connect(g).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.01);
+    }
+  } catch {}
+  try {
+    const a = audioRef.current;
+    if (a) {
+      a.muted = true;
+      await a.play().catch(() => {});
+      a.pause();
+      a.currentTime = 0;
+    }
+  } catch {}
+  return true;
+}
+
+// ---- mic permission (prompt immediately on Start)
+async function ensureMicPermission() {
+  try {
+    if (navigator.permissions?.query) {
+      const p = await navigator.permissions.query({ name: 'microphone' });
+      if (p.state === 'denied') {
+        setStatus('Microphone is blocked. Allow it in site settings.');
+        throw new Error('mic-denied');
+      }
+    }
+  } catch {}
+  setStatus('Requesting microphone permission…');
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false }
+  });
+  stream.getTracks().forEach(t => t.stop());
+  setStatus('Microphone ready.');
+  return true;
+}
+
+// ---- start/pause handlers (bind these to the buttons)
+async function onStart() {
+  if (running) { setStatus('Already running…'); return; }
+  try {
+    await unlockAudio();
+    await ensureMicPermission();
+  } catch (e) {
+    // permission refused or blocked
+    return;
+  }
+  setPaused(false);
+  setRunning(true);
+  setStatus('Running…');
+
+  // kick your simulator loop here (whatever function you already have):
+  // await runSimulator();   // make sure runSimulator is defined in this component or imported
+}
+
+function onPause() {
+  setPaused(true);
+  setRunning(false);
+  setStatus('Paused');
+  try {
+    const a = audioRef.current; a && a.pause();
+  } catch {}
+  // also abort recognition if you hold a reference to it
+}
+
   // Load scenarios.json from /public
   useEffect(()=>{
     (async ()=>{
