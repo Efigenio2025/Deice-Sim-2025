@@ -1,4 +1,4 @@
-// ============== De-Ice Trainer — Self-contained entry (Start/Pause, mic, audio, scoring) ==============
+// ================= De-Ice Trainer — Main (Start/Pause, immediate mic prompt, audio unlock, scoring) =================
 (() => {
   // ---------- Config ----------
   const EMP_ID_KEY = 'trainer.employeeId';
@@ -45,7 +45,7 @@
   // ---------- NATO for Iceman tail grading ----------
   const NATO = {A:'Alpha',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',G:'Golf',H:'Hotel',I:'India',J:'Juliet',K:'Kilo',L:'Lima',M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',R:'Romeo',S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',X:'X-ray',Y:'Yankee',Z:'Zulu','0':'Zero','1':'One','2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine'};
   const toNatoTail = t => t.toUpperCase().split('').map(ch => NATO[ch] || ch).join(' ');
-  function hydrateScenarioForGrading(scn){
+  function prepareScenarioForGrading(scn){
     (scn.steps||[]).forEach(st=>{
       const base = String(st.text || st.phraseId || '');
       st._displayLine = base; // what we show
@@ -87,18 +87,26 @@
   async function loadScenarios(){
     const sel=$('scenarioSelect'), desc=$('desc');
     sel.innerHTML='<option value="">— loading —</option>';
-    const urls=[`/scenarios.json?v=${Date.now()}`, `./scenarios.json?v=${Date.now()}`];
-    for(const u of urls){
-      try{
-        const r=await fetch(u,{cache:'no-store'}); if(!r.ok) continue;
-        const data=await r.json(); if(!Array.isArray(data)) throw new Error('bad schema');
-        SCENARIOS=data;
-        sel.innerHTML='<option value="">— select —</option>'+data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
-        setText(desc,'Select a scenario to begin.');
-        return;
-      }catch{}
+    const url = `/scenarios.json?v=${Date.now()}`;
+    try{
+      const r=await fetch(url,{cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const data=await r.json();
+      if(!Array.isArray(data)) throw new Error('bad schema');
+      SCENARIOS=data;
+      sel.innerHTML=data.map(s=>`<option value="${s.id}">${s.label||s.id}</option>`).join('');
+      // Auto-select first scenario
+      if (data.length) {
+        sel.value = data[0].id;
+        const evt = new Event('change');
+        sel.dispatchEvent(evt);
+      }
+      setText(desc,'Select a scenario to begin.');
+    }catch(e){
+      sel.innerHTML='<option value="">(load failed)</option>';
+      setText(desc,'Could not load scenarios.json');
+      console.error('scenarios.json load error:', e);
     }
-    sel.innerHTML='<option value="">(load failed)</option>'; setText(desc,'Could not load scenarios.json');
   }
 
   // ---------- UI for active step ----------
@@ -135,6 +143,31 @@
       const a=$('captainAudio'); if(a){ a.muted=true; await a.play().catch(()=>{}); a.pause(); a.currentTime=0; }
     }catch{}
     audioUnlocked=true; return true;
+  }
+
+  // ---------- Mic permission (prompt immediately on Start) ----------
+  async function ensureMicPermission() {
+    try {
+      if (navigator.permissions?.query) {
+        const p = await navigator.permissions.query({ name: 'microphone' });
+        if (p.state === 'denied') {
+          setText($('status'), 'Microphone is blocked. Enable it in Settings for this site.');
+          throw new Error('mic-denied');
+        }
+      }
+    } catch {}
+    try {
+      setText($('status'), 'Requesting microphone permission…');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:false }
+      });
+      stream.getTracks().forEach(t => t.stop());
+      setText($('status'), 'Microphone ready.');
+      return true;
+    } catch (e) {
+      setText($('status'), 'Microphone permission was not granted.');
+      throw e;
+    }
   }
 
   // ---------- Captain audio ----------
@@ -193,7 +226,6 @@
   // ---------- Main simulator ----------
   async function runSimulator(){
     if(!current){ setText($('status'),'Select a scenario first.'); return; }
-    try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch{}
     try{ speechSynthesis.cancel(); }catch{}
 
     running=true; paused=false; stepIndex=0; stepScores=[]; resultsByStep=[];
@@ -257,35 +289,43 @@
   }
 
   // ---------- Wire UI ----------
-  document.addEventListener('DOMContentLoaded', async () => {
-    // Gate
-    mountGate();
-
-    // Load scenarios
-    await loadScenarios();
-
+  function mountUI(){
     // Scenario selection
     $('scenarioSelect')?.addEventListener('change', (e)=>{
       const id=e.target.value;
       current = SCENARIOS.find(s=>s.id===id) || null;
-      if(current) hydrateScenarioForGrading(current);
+      if(current) prepareScenarioForGrading(current);
       stepIndex=-1; renderActiveStep();
       setText($('desc'), current ? (current.desc||'') : 'Select a scenario to begin.');
       setText($('status'),'Idle'); setText($('liveInline'),'(waiting…)'); setScorePct(0);
       $('resultsCard')?.classList.add('hidden');
     });
 
-    // Reload button
+    // Reload scenarios
     $('reloadScenarios')?.addEventListener('click', loadScenarios);
 
-    // Start: unlock audio (Safari) then run
-    $('startBtn')?.addEventListener('click', async ()=>{
-      await unlockAudio();
-      if(!current){ setText($('status'),'Select a scenario first.'); return; }
-      runSimulator().catch(()=>{});
-    });
+    // Start/Pause wiring (listeners + inline fallback)
+    $('startBtn')?.addEventListener('click', window.__start);
+    $('pauseBtn')?.addEventListener('click', window.__pause);
+  }
 
-    // Pause
-    $('pauseBtn')?.addEventListener('click', pauseSimulator);
+  // ---------- Expose inline fallbacks ----------
+  window.__start = async () => {
+    try { await unlockAudio(); } catch {}
+    try { await ensureMicPermission(); } catch { return; }  // prompt immediately
+    if (!current) {
+      setText($('status'), 'Select a scenario first.');
+      return;
+    }
+    $('resultsCard')?.classList.add('hidden');
+    runSimulator().catch(()=>{});
+  };
+  window.__pause = pauseSimulator;
+
+  // ---------- Boot ----------
+  document.addEventListener('DOMContentLoaded', async () => {
+    mountGate();
+    mountUI();
+    await loadScenarios();       // auto-selects first scenario
   });
 })();
