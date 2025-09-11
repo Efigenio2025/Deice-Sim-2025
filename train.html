@@ -39,6 +39,7 @@
       width:100%; border:1px solid #223259; border-radius:10px; padding:10px;
       background:#141822; color:#b7c7ff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis
     }
+    select,input{width:100%;border:1px solid #2b3147;background:#0f1220;color:#eaeaea;border-radius:10px;padding:10px}
     .progress{height:12px; background:#1a2136; border:1px solid #223259; border-radius:999px; overflow:hidden}
     .bar{height:100%; width:0; background:linear-gradient(90deg,#e5534b,#f89c2c,#f6e05e,#a4e786,#19c37d); transition:width .25s}
     .scoreline{display:flex; justify-content:space-between; align-items:center; margin-top:8px}
@@ -55,7 +56,7 @@
   <div class="wrap">
     <!-- Top bar -->
     <div class="row" style="justify-content:space-between">
-      <a href="index.html" class="btn ghost">← Home</a>
+      <a href="/index.html" class="btn ghost">← Home</a>
       <div class="row" style="gap:8px; align-items:center">
         <span class="pill" id="empIdBadge">ID: —</span>
         <button id="changeIdBtn" class="btn ghost" type="button">Change ID</button>
@@ -103,9 +104,9 @@
     <!-- Transcript panel -->
     <div id="transcriptCard" class="card">
       <h2>Transcript</h2>
-      <div class="status">Expected</div>
+      <div class="status" id="expHeader">Expected</div>
       <div id="expLine"></div>
-      <div class="status" style="margin-top:8px">You said</div>
+      <div class="status" id="heardHeader" style="margin-top:8px">You said</div>
       <div id="heardLine"></div>
       <div id="wordStats" class="status" style="margin-top:6px"></div>
     </div>
