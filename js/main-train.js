@@ -192,26 +192,125 @@
   function stopCaptainAudio(){ try{ $('captainAudio')?.pause(); }catch{} }
 
   // ---------- Mic (single-recognizer per step, silence/timeout end) ----------
-  function throttle(fn, ms){ let t=0; return (...a)=>{ const n=Date.now(); if(n-t>=ms){ t=n; fn(...a); } }; }
-  async function listenStep({minMs=MIN_LISTEN_MS, maxMs=MAX_LISTEN_MS, silenceMs=SILENCE_MS}={}){
-    return new Promise(resolve=>{
-      const R=window.SpeechRecognition||window.webkitSpeechRecognition;
-      if(!R){ resolve({final:'', interim:'', ended:'nosr'}); return; }
-      let finalText='', interimText=''; let started=Date.now(), lastAct=started, stopped=false;
-      const live=throttle(t=> setText($('liveInline'), t || '(listening…)'), 80);
-      const shouldStop=()=>{ const now=Date.now(), elapsed=now-started, idle=now-lastAct; if(elapsed<minMs) return false; if(idle>=silenceMs) return true; if(elapsed>=maxMs) return true; return false; };
-      const startOne=()=>{ if(stopped) return; const rec=new R(); rec.lang='en-US'; rec.continuous=false; rec.interimResults=true; rec.maxAlternatives=1;
-        rec.onresult=(ev)=>{ let interim=''; for(let i=ev.resultIndex;i<ev.results.length;i++){ const tr=ev.results[i][0]?.transcript||''; if(ev.results[i].isFinal){ finalText+=' '+tr; lastAct=Date.now(); } else { interim+=' '+tr; } } interimText=interim.trim(); live(interimText); $('heardLine').textContent=(finalText.trim()+' '+interimText).trim(); };
-        rec.onerror = ()=> { if(shouldStop()) endAll('error'); else restart(); };
-        rec.onend   = ()=> { if(shouldStop()) endAll('ended'); else restart(); };
-        try{ rec.start(); recActive=rec; setText($('status'),'Listening…'); live('(listening…)'); }catch{ if(shouldStop()) endAll('start-failed'); else restart(); }
+function throttle(fn, ms){ let t=0; return (...a)=>{ const n=Date.now(); if(n - t >= ms){ t=n; fn(...a); } }; }
+
+async function listenStep({minMs=MIN_LISTEN_MS, maxMs=MAX_LISTEN_MS, silenceMs=SILENCE_MS} = {}) {
+  return new Promise(resolve => {
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!R) { resolve({ final: '', interim: '', ended: 'nosr' }); return; }
+
+    // generation guard: ignore stale restarts after we decide to end
+    const gen = Math.random().toString(36).slice(2);
+    let activeGen = gen;
+
+    let finalText = '';
+    let interimText = '';
+    let started = Date.now();
+    let lastAct = started;   // refreshed on ANY audio/speech activity
+    let stopped = false;
+
+    const live = throttle(t => setText($('liveInline'), t || '(listening…)'), 60);
+
+    const shouldStop = () => {
+      const now = Date.now();
+      const elapsed = now - started;
+      const idle = now - lastAct;
+      if (elapsed < minMs) return false;
+      if (idle >= silenceMs) return true;
+      if (elapsed >= maxMs) return true;
+      return false;
+    };
+
+    // clean abort for the active recognizer only
+    const hardEnd = (reason='end') => {
+      if (stopped) return;
+      stopped = true;
+      // abort any current SR instance
+      try { if (recActive && recActive.abort) recActive.abort(); } catch {}
+      resolve({ final: finalText.trim(), interim: interimText.trim(), ended: reason });
+    };
+
+    const startOne = () => {
+      if (stopped || activeGen !== gen) return;
+
+      const rec = new R();
+      rec.lang = 'en-US';
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+
+      // Keep a reference for pause/abort from outside
+      recActive = rec;
+
+      // Any of these indicate live audio detected – refresh lastAct
+      rec.onstart = () => { lastAct = Date.now(); setText($('status'), 'Listening…'); live('(listening…)'); };
+      rec.onsoundstart = () => { lastAct = Date.now(); };
+      rec.onspeechstart = () => { lastAct = Date.now(); };
+
+      rec.onresult = (ev) => {
+        let interim = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const alt = ev.results[i][0];
+          const tr = (alt && alt.transcript) ? alt.transcript : '';
+          if (tr) lastAct = Date.now(); // any text is activity
+          if (ev.results[i].isFinal) {
+            finalText += (finalText ? ' ' : '') + tr;
+          } else {
+            interim += (interim ? ' ' : '') + tr;
+          }
+        }
+        interimText = interim;
+        const combined = (finalText ? finalText + ' ' : '') + interimText;
+        $('heardLine').textContent = combined.trim();
+        live(interimText || combined || '(listening…)');
       };
-      const restart = ()=> setTimeout(()=>{ if(!stopped) startOne(); }, 120);
-      const endAll  = (reason='end')=>{ stopped=true; try{ recActive&&recActive.abort&&recActive.abort(); }catch{}; resolve({final:finalText.trim(), interim:interimText.trim(), ended:reason}); };
-      const guard = setInterval(()=>{ if(stopped){ clearInterval(guard); return; } if(paused || !running){ clearInterval(guard); endAll('paused'); } else if(shouldStop()){ clearInterval(guard); endAll('ok'); } }, 120);
-      startOne();
-    });
-  }
+
+      rec.onerror = (e) => {
+        // Common Safari errors: 'no-speech', 'aborted', 'network'
+        // - If within minMs, keep trying.
+        // - After minMs, allow guard to decide end vs restart.
+        const type = e && e.error ? e.error : 'error';
+        // If we already met minMs and idle says stop, end. Otherwise restart.
+        if (shouldStop()) hardEnd(type);
+        else restart();
+      };
+
+      rec.onend = () => {
+        // Natural onend fires frequently on iOS; decide using guard.
+        if (shouldStop()) hardEnd('ended');
+        else restart();
+      };
+
+      try {
+        rec.start();
+        setText($('status'), 'Listening…');
+        live('(listening…)');
+      } catch (err) {
+        // If start throws before minMs, try again; otherwise end gracefully
+        if (shouldStop()) hardEnd('start-failed');
+        else restart();
+      }
+    };
+
+    const restart = () => {
+      if (stopped || activeGen !== gen) return;
+      // brief delay prevents hot-loop thrash that iOS sometimes triggers
+      setTimeout(() => { if (!stopped && activeGen === gen) startOne(); }, 140);
+    };
+
+    // Safety guard timer: ends when paused/stopped OR min/idle/max satisfied
+    const guard = setInterval(() => {
+      if (stopped) { clearInterval(guard); return; }
+      if (paused || !running) { clearInterval(guard); hardEnd('paused'); return; }
+      if (shouldStop()) { clearInterval(guard); hardEnd('ok'); return; }
+    }, 120);
+
+    // Prime UI and begin
+    setText($('heardLine'), '');
+    live('(listening…)');
+    startOne();
+  });
+}
 
   // ---------- Results ----------
   function showResults(finalScore){
