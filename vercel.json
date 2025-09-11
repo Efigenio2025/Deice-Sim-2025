@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "routes": [
+    { "src": "/(index\\.html)?", "dest": "/index.html" },
+    { "src": "/train", "dest": "/train.html" },
+    { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/diagnostic", "dest": "/diagnostic.html" },
+    { "src": "/scenarios.json", "dest": "/scenarios.json" },
+    { "src": "/js/(.*)", "dest": "/js/$1" },
+    { "src": "/audio/(.*)", "dest": "/audio/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/scenarios.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" },
+        { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/audio/(.*)",
+      "headers": [
+        { "key": "Accept-Ranges", "value": "bytes" },
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}
