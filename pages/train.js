@@ -1,302 +1,356 @@
-// /pages/train.js
+// pages/train.js
+'use client';
 import { useEffect, useRef, useState } from 'react';
 
-// ---- minimal helpers (inline so no alias/import headaches) ----
-const norm = (s='') => s.toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+const MIN_LISTEN_MS = 1500;
+const MAX_LISTEN_MS = 6000;
+const SILENCE_MS    = 1200;
+const CAPTAIN_DELAY_MS = 900;
+
+const NATO = {A:'Alpha',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',G:'Golf',H:'Hotel',I:'India',J:'Juliet',K:'Kilo',L:'Lima',M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',R:'Romeo',S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',X:'X-ray',Y:'Yankee',Z:'Zulu','0':'Zero','1':'One','2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine'};
+const toNatoTail = t => t.toUpperCase().split('').map(ch => NATO[ch] || ch).join(' ');
+const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
 const tokenize = s => norm(s).split(' ').filter(Boolean);
-function wordScore(expected, said){
-  const e = new Set(tokenize(expected));
-  const s = new Set(tokenize(said));
-  if (!e.size) return 0;
-  let hit = 0; e.forEach(w => s.has(w) && hit++);
-  return Math.round((hit/e.size)*100);
-}
-function diffWords(exp, heard){
-  const E = tokenize(exp), H = tokenize(heard);
-  const setE = new Set(E), setH = new Set(H);
-  const expToks = E.map(w => ({ w, cls: setH.has(w) ? 'ok' : 'miss' }));
-  const extras  = H.filter(w => !setE.has(w)).map(w => ({ w, cls: 'extra' }));
-  return { expToks, extras, expCount: E.length, hitCount: E.filter(w => setH.has(w)).length };
-}
 
-async function ensureMicPermission(setStatus=()=>{}){
-  try{
-    setStatus('Requesting microphone permission…');
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:false }
-    });
-    stream.getTracks().forEach(t=>t.stop());
-    setStatus('Microphone ready.');
-    return true;
-  }catch(e){
-    setStatus('Microphone permission was not granted.');
-    throw e;
-  }
-}
-
-function listenOnce({
-  minMs=1200, maxMs=6000, silenceMs=1000,
-  onInterim=()=>{}, onStatus=()=>{}
-}={}){
-  return new Promise(resolve=>{
-    const R = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
-    if(!R){ resolve({final:'', interim:'', ended:'nosr'}); return; }
-
-    let finalText='', interimText='';
-    let started=Date.now(), lastAct=started, stopped=false;
-    const shouldStop=()=>{
-      const now=Date.now(), elapsed=now-started, idle=now-lastAct;
-      if(elapsed < minMs) return false;
-      if(idle   >= silenceMs) return true;
-      if(elapsed >= maxMs)     return true;
-      return false;
-    };
-
-    let rec;
-    const endAll = (reason='end')=>{
-      if(stopped) return;
-      stopped=true;
-      try{ rec && rec.abort && rec.abort(); }catch{}
-      resolve({ final:finalText.trim(), interim:interimText.trim(), ended:reason });
-    };
-    const restart = ()=> setTimeout(()=>{ if(!stopped) startOne(); }, 140);
-
-    const startOne = ()=>{
-      if(stopped) return;
-      rec = new R();
-      rec.lang='en-US'; rec.continuous=false; rec.interimResults=true; rec.maxAlternatives=1;
-
-      rec.onstart      = ()=>{ lastAct=Date.now(); onStatus('Listening…'); };
-      rec.onsoundstart = ()=>{ lastAct=Date.now(); };
-      rec.onspeechstart= ()=>{ lastAct=Date.now(); };
-
-      rec.onresult = (ev)=>{
-        let interim='';
-        for(let i=ev.resultIndex;i<ev.results.length;i++){
-          const tr = ev.results[i][0]?.transcript || '';
-          if(tr) lastAct = Date.now();
-          if(ev.results[i].isFinal) finalText += (finalText ? ' ' : '') + tr;
-          else interim += (interim ? ' ' : '') + tr;
-        }
-        interimText = interim;
-        onInterim((finalText + (interimText ? ' ' + interimText : '')).trim());
-      };
-
-      rec.onerror = ()=>{ if(shouldStop()) endAll('error'); else restart(); };
-      rec.onend   = ()=>{ if(shouldStop()) endAll('ended'); else restart(); };
-
-      try{ rec.start(); onStatus('Listening…'); }
-      catch{ if(shouldStop()) endAll('start-failed'); else restart(); }
-    };
-
-    const guard = setInterval(()=>{
-      if(stopped){ clearInterval(guard); return; }
-      if(shouldStop()){ clearInterval(guard); endAll('ok'); }
-    }, 120);
-
-    onInterim('');
-    onStatus('Preparing mic…');
-    startOne();
-  });
-}
-
-function useAudioUnlock(){
-  const unlocked = useRef(false);
-  return async function unlock(){
-    if(unlocked.current) return true;
+function useAudioUnlock(audioRef){
+  const unlockedRef = useRef(false);
+  const unlock = async () => {
+    if (unlockedRef.current) return true;
     try{
-      const Ctx = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
-      if(Ctx){ const ctx=new Ctx(); await ctx.resume(); const o=ctx.createOscillator(); const g=ctx.createGain(); g.gain.value=0; o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.01); }
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        await ctx.resume();
+        const osc = ctx.createOscillator(), g = ctx.createGain();
+        g.gain.value = 0; osc.connect(g).connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.02);
+      }
     }catch{}
-    unlocked.current = true;
+    try{
+      const a = audioRef.current;
+      if (a) {
+        a.muted = true;
+        await a.play().catch(()=>{});
+        a.pause(); a.currentTime = 0;
+      }
+    }catch{}
+    unlockedRef.current = true;
     return true;
   };
+  return unlock;
 }
 
-// ---- Page component ----
-export default function Train() {
-  const [status, setStatus] = useState('Idle');
-  const [live, setLive] = useState('(waiting…)');
+export default function TrainPage(){
+  const audioRef = useRef(null);
   const [scenarios, setScenarios] = useState([]);
   const [current, setCurrent] = useState(null);
   const [stepIndex, setStepIndex] = useState(-1);
-  const [score, setScore] = useState(0);
-  const [results, setResults] = useState([]);
-  const audioRef = useRef(null);
-  const unlockAudio = useAudioUnlock();
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused]   = useState(false);
 
-  // load scenarios.json
+  const [status, setStatus]   = useState('Idle');
+  const [live, setLive]       = useState('(waiting…)');
+  const [score, setScore]     = useState(0);
+
+  const [expTokens, setExpTokens]     = useState([]);
+  const [heardTokens, setHeardTokens] = useState([]);
+  const [wordStats, setWordStats]     = useState('');
+
+  const unlockAudio = useAudioUnlock(audioRef);
+
+  // Load scenarios.json from /public
   useEffect(()=>{
-    (async()=>{
+    (async ()=>{
       try{
-        const r = await fetch('/scenarios.json?'+Date.now(), {cache:'no-store'});
+        const r = await fetch('/scenarios.json?'+Date.now(), { cache:'no-store' });
+        if (!r.ok) throw new Error('HTTP '+r.status);
         const data = await r.json();
-        setScenarios(Array.isArray(data)?data:[]);
-        if(data?.[0]) setCurrent(data[0]);
-      }catch{
+        setScenarios(Array.isArray(data) ? data : []);
+        if (Array.isArray(data) && data.length){
+          const scn = prepForGrading(data[0]);
+          setCurrent(scn);
+          setStepIndex(-1);
+        }
+      }catch(e){
         setStatus('Could not load scenarios.json');
       }
     })();
   },[]);
 
-  async function onStart(){
+  function prepForGrading(scn){
+    const copy = JSON.parse(JSON.stringify(scn));
+    (copy.steps||[]).forEach(st=>{
+      const base = String(st.text || st.phraseId || '');
+      st._displayLine = base;
+      st._expectedForGrade = (st.role === 'Iceman')
+        ? base.replace(/\bN[0-9A-Z]{3,}\b/gi, m => toNatoTail(m))
+        : base;
+    });
+    return copy;
+  }
+
+  function wordScore(expected, said){
+    const e = new Set(tokenize(expected));
+    const s = new Set(tokenize(said));
+    if (!e.size) return 0;
+    let hit = 0; e.forEach(w=>{ if(s.has(w)) hit++; });
+    return Math.round((hit/e.size)*100);
+  }
+
+  function diffWords(exp, heard){
+    const E = tokenize(exp), H = tokenize(heard);
+    const setE = new Set(E), setH = new Set(H);
+    const expToks = E.map(w => ({ w, cls: setH.has(w) ? 'ok' : 'miss' }));
+    const extras  = H.filter(w => !setE.has(w)).map(w => ({ w, cls:'extra' }));
+    return { expToks, extras, expCount:E.length, hitCount:E.filter(w=>setH.has(w)).length };
+  }
+
+  async function playCaptainAudio(name){
+    const a = audioRef.current;
+    if (!a || !name) return;
+    const url = `/audio/${name}`; // Next.js serves /public/audio/… at /audio/…
+    return new Promise((resolve)=>{
+      let to=null;
+      const clean=()=>{ a.onended=a.onerror=a.oncanplay=a.onloadedmetadata=null; if(to) clearTimeout(to); };
+      try { a.pause(); a.currentTime=0; }catch{}
+      a.src = url;
+      a.onloadedmetadata = ()=>{
+        const dur = (isFinite(a.duration)&&a.duration>0) ? a.duration*1000+500 : 12000;
+        to = setTimeout(()=>{ clean(); resolve(); }, Math.min(dur,15000));
+      };
+      a.oncanplay = async ()=>{
+        try{
+          a.muted = false;
+          await a.play();
+          setStatus('Playing Captain line…');
+          setLive('(captain audio)');
+        }catch{ clean(); resolve(); return; }
+        a.onended = ()=>{ clean(); resolve(); };
+      };
+      a.onerror = ()=>{ clean(); resolve(); };
+    });
+  }
+
+  async function ensureMicPermission(){
     try{
-      await unlockAudio();
-      await ensureMicPermission(setStatus);
-      setStatus('Mic ready. Starting…');
-      setLive('(listening…)');
+      if (navigator.permissions?.query) {
+        const p = await navigator.permissions.query({ name:'microphone' });
+        if (p.state === 'denied') { setStatus('Microphone blocked. Enable it in site settings.'); throw new Error('mic-denied');}
+      }
+    }catch{}
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true }});
+    stream.getTracks().forEach(t=>t.stop());
+    setStatus('Microphone ready.');
+  }
 
-      const { final, interim } = await listenOnce({
-        onInterim: (t)=> setLive(t || '(listening…)'),
-        onStatus : (s)=> setStatus(s),
-      });
+  async function listenStep(){
+    return new Promise(resolve=>{
+      const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!R){ resolve({ final:'', interim:'', ended:'nosr' }); return; }
 
-      const heard = (final || interim || '').trim();
-      setStatus(heard ? `Heard: "${heard}"` : 'No speech detected.');
+      let finalText='', interimText='';
+      let started = Date.now(), lastAct = started, stopped=false;
 
-      // if you want scoring against first iceman step:
-      const st = current?.steps?.[0] || null;
-      const expected = st?.text || '';
-      const s = wordScore(expected, heard);
-      setScore(s);
+      const shouldStop = ()=>{
+        const now = Date.now(), elapsed = now-started, idle = now-lastAct;
+        if (elapsed < MIN_LISTEN_MS) return false;
+        if (idle >= SILENCE_MS) return true;
+        if (elapsed >= MAX_LISTEN_MS) return true;
+        return false;
+      };
 
-      const { expToks, extras, expCount, hitCount } = diffWords(expected, heard);
-      setResults([{ expToks, extras, stats: `${hitCount}/${expCount} words matched • ${s}%` }]);
-    }catch{
-      setStatus('Mic failed to start.');
+      const startOne = ()=>{
+        if (stopped) return;
+        const rec = new R();
+        rec.lang = 'en-US'; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 1;
+
+        rec.onstart = ()=>{ lastAct = Date.now(); setStatus('Listening…'); setLive('(listening…)'); };
+        rec.onspeechstart = ()=>{ lastAct = Date.now(); };
+
+        rec.onresult = (ev)=>{
+          let interim = '';
+          for (let i=ev.resultIndex; i<ev.results.length; i++){
+            const tr = ev.results[i][0]?.transcript || '';
+            if (tr) lastAct = Date.now();
+            if (ev.results[i].isFinal) finalText = (finalText ? finalText+' ' : '') + tr;
+            else interim = (interim ? interim+' ' : '') + tr;
+          }
+          interimText = interim;
+          const combined = (finalText ? finalText+' ' : '') + interimText;
+          setLive(combined || '(listening…)');
+        };
+
+        rec.onerror = ()=> { if (shouldStop()) endAll('error'); else restart(); };
+        rec.onend   = ()=> { if (shouldStop()) endAll('ended'); else restart(); };
+
+        try { rec.start(); } catch { if (shouldStop()) endAll('start-failed'); else restart(); }
+      };
+
+      const restart = ()=> setTimeout(()=>{ if(!stopped) startOne(); }, 140);
+
+      const endAll = (reason='end')=>{
+        stopped = true;
+        resolve({ final:finalText.trim(), interim:interimText.trim(), ended:reason });
+      };
+
+      const guard = setInterval(()=>{
+        if (stopped) { clearInterval(guard); return; }
+        if (paused || !running) { clearInterval(guard); endAll('paused'); return; }
+        if (shouldStop()) { clearInterval(guard); endAll('ok'); return; }
+      }, 120);
+
+      startOne();
+    });
+  }
+
+  function renderTranscript(expectedDisplay, heard){
+    const { expToks, extras, expCount, hitCount } = diffWords(expectedDisplay, heard);
+    setExpTokens(expToks);
+    setHeardTokens(extras.length ? extras : (heard ? [{w:heard, cls:'ok'}] : []));
+    setWordStats(`${hitCount}/${expCount} expected words matched`);
+  }
+
+  async function runSimulator(){
+    if (!current) { setStatus('Select a scenario first.'); return; }
+    setRunning(true); setPaused(false); setStepIndex(0); setScore(0);
+    setStatus('Running…'); setLive('(waiting…)');
+    setExpTokens([]); setHeardTokens([]); setWordStats('');
+
+    const steps = current.steps || [];
+    const stepScores = [];
+
+    for (let i=0; i<steps.length; i++){
+      if (!running || paused) break;
+      setStepIndex(i);
+      const st = steps[i];
+
+      if (st.role === 'Captain'){
+        await playCaptainAudio(st.audio || '');
+        if (!running || paused) break;
+        await new Promise(r=>setTimeout(r, CAPTAIN_DELAY_MS));
+      } else {
+        const { final, interim } = await listenStep();
+        const heard = (final || interim || '').trim();
+
+        const expectedGrade = st._expectedForGrade || st.text || '';
+        const expectedDisplay = st._displayLine || st.text || '';
+
+        const s = wordScore(expectedGrade, heard);
+        stepScores.push(s);
+        const avg = Math.round(stepScores.reduce((a,b)=>a+b,0)/stepScores.length);
+        setScore(avg);
+        renderTranscript(expectedDisplay, heard);
+        setStatus(heard ? `Heard: "${heard}"` : 'No speech detected.');
+      }
+    }
+
+    if (running && !paused){
+      setRunning(false);
+      setStatus('Scenario complete.');
     }
   }
 
-  function onPause(){
-    // single-listen sample has nothing persistent to stop;
-    // in your multi-step loop you’d abort the recognizer here.
+  const onStart = async ()=>{
+    await unlockAudio();
+    await ensureMicPermission();
+    runSimulator();
+  };
+  const onPause = ()=>{
+    if (!running) { setStatus('Idle'); return; }
+    setPaused(true); setRunning(false);
+    try { audioRef.current?.pause(); } catch {}
     setStatus('Paused');
-  }
-
-  // simple styles for tokens
-  const tokenStyle = (cls) => ({
-    display:'inline-block', padding:'0 4px', borderRadius:6, margin:'0 2px 4px 0',
-    ...(cls==='ok'   ? {background:'#12291c', border:'1px solid #1f5d38'} :
-      cls==='miss' ? {background:'#2a1616', border:'1px solid #8a2c2c', textDecoration:'underline'} :
-                     {background:'#1a1d2a', border:'1px solid #2f375c', opacity:.9})
-  });
-
-  const steps = current?.steps || [];
-  const active = (stepIndex>=0 && stepIndex<steps.length) ? steps[stepIndex] : null;
+  };
 
   return (
-    <div className="wrap" style={{maxWidth:980, margin:'0 auto', padding:18}}>
+    <div className="wrap">
       {/* top bar */}
-      <div className="row" style={{display:'flex',justifyContent:'space-between'}}>
+      <div className="row" style={{justifyContent:'space-between'}}>
         <a className="btn ghost" href="/">← Home</a>
-        <div className="row" style={{display:'flex',gap:8,alignItems:'center'}}>
+        <div className="row" style={{gap:8,alignItems:'center'}}>
           <span className="pill">ID: —</span>
-          {/* your change ID flow can be wired later */}
         </div>
       </div>
 
       {/* controls */}
-      <div className="row" style={{display:'flex',gap:10}}>
+      <div className="row">
         <button className="btn" onClick={onStart}>Start Simulator</button>
         <button className="btn ghost" onClick={onPause}>Pause Simulator</button>
       </div>
 
       {/* scenario select */}
-      <div className="card" style={{border:'1px solid #1e2230',borderRadius:16,padding:18,background:'#101218'}}>
+      <div className="card">
         <h2>Trainer</h2>
-        <div className="row" style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
-          <label style={{flex:'1 1 260px'}}>
-            Select scenario
+        <div className="row">
+          <label style={{flex:'1 1 260px'}}>Select scenario
             <select
-              value={current?.id || ''}
               onChange={e=>{
-                const scn = (scenarios || []).find(s=>s.id===e.target.value);
-                setCurrent(scn || null);
-                setStepIndex(-1);
-                setScore(0);
-                setResults([]);
-                setStatus('Idle');
-                setLive('(waiting…)');
+                const found = scenarios.find(s=>s.id===e.target.value);
+                if (found){ setCurrent(prepForGrading(found)); setStepIndex(-1); setScore(0); setStatus('Idle'); setLive('(waiting…)'); setExpTokens([]); setHeardTokens([]); setWordStats(''); }
               }}
-              style={{width:'100%',border:'1px solid #2b3147',background:'#0f1220',color:'#eaeaea',borderRadius:10,padding:10}}
+              value={current?.id || (scenarios[0]?.id || '')}
             >
               {scenarios.length===0 && <option value="">— loading —</option>}
-              {scenarios.map(s => <option key={s.id} value={s.id}>{s.label||s.id}</option>)}
+              {scenarios.map(s => <option key={s.id} value={s.id}>{s.label || s.id}</option>)}
             </select>
           </label>
-          <button
-            className="btn ghost"
-            onClick={async()=>{
-              setStatus('Reloading scenarios…');
-              try{
-                const r=await fetch('/scenarios.json?'+Date.now(),{cache:'no-store'});
-                const data=await r.json();
-                setScenarios(data||[]);
-                if(data?.length){ setCurrent(data[0]); setStatus('Scenarios loaded.'); }
-              }catch{ setStatus('Reload failed'); }
-            }}
-          >Reload</button>
+          <button className="btn ghost" onClick={async()=>{
+            setStatus('Reloading scenarios…');
+            try{
+              const r=await fetch('/scenarios.json?'+Date.now(),{cache:'no-store'});
+              const data=await r.json();
+              setScenarios(data||[]);
+              if(data?.length){ const scn = prepForGrading(data[0]); setCurrent(scn); setStatus('Scenarios loaded.'); }
+            }catch{ setStatus('Reload failed'); }
+          }}>Reload</button>
         </div>
-        <div className="status" style={{marginTop:6}}>
+        <div id="desc" className="status" style={{marginTop:6}}>
           {current?.desc || 'Select a scenario to begin.'}
         </div>
       </div>
 
       {/* live line */}
-      <div className="card" style={{border:'1px solid #1e2230',borderRadius:16,padding:18,background:'#101218'}}>
-        <div className="row" style={{display:'flex',justifyContent:'space-between'}}>
+      <div className="card" aria-live="polite" aria-label="Live microphone input">
+        <div className="row" style={{justifyContent:'space-between'}}>
           <strong>Live Input</strong>
           <span className="status">{status}</span>
         </div>
-        <div style={{
-          width:'100%',border:'1px solid #223259',borderRadius:10,padding:10,
-          background:'#141822',color:'#b7c7ff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'
-        }}>{live}</div>
+        <div className="live-inline">{live}</div>
       </div>
 
-      {/* step (optional preview of active) */}
-      {active && (
-        <div className="card" style={{border:'1px solid #1e2230',borderRadius:16,padding:18,background:'#101218'}}>
+      {/* step */}
+      {current && stepIndex >= 0 && stepIndex < (current.steps?.length||0) && (
+        <div className="card">
           <h2>Step</h2>
           <div className="status" id="stepsBox">
-            <div style={{padding:8,border:'1px solid #1f6feb',borderRadius:10,background:'#0f1424'}}>
-              <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center'}}>
-                <strong>Step {stepIndex+1} • {active.role}</strong>
-                <span className="status">{active.prompt || ''}</span>
+            <div style={{padding:8, border:'1px solid #1f6feb', borderRadius:10, background:'#0f1424'}}>
+              <div style={{display:'flex', justifyContent:'space-between', gap:8, alignItems:'center'}}>
+                <strong>Step {stepIndex+1} • {current.steps[stepIndex].role}</strong>
+                <span className="status">{current.steps[stepIndex].prompt || ''}</span>
               </div>
-              <div style={{marginTop:6}}>{active.text}</div>
+              <div style={{marginTop:6}}>{current.steps[stepIndex]._displayLine || current.steps[stepIndex].text}</div>
             </div>
           </div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:8}}>
+          <div className="scoreline">
             <div className="status">Score: <span>{score}%</span></div>
             <div style={{flex:1}} />
-            <div style={{height:12,background:'#1a2136',border:'1px solid #223259',borderRadius:999,overflow:'hidden',width:300}}>
-              <div style={{height:'100%',width:`${score}%`,background:'linear-gradient(90deg,#e5534b,#f89c2c,#f6e05e,#a4e786,#19c37d)'}} />
-            </div>
+            <div className="progress" style={{width:300}}><div className="bar" style={{width: `${score}%`}}/></div>
           </div>
         </div>
       )}
 
       {/* transcript */}
-      <div className="card" style={{border:'1px solid #1e2230',borderRadius:16,padding:18,background:'#101218'}}>
+      <div className="card">
         <h2>Transcript</h2>
         <div className="status">Expected</div>
-        <div>
-          {(results[0]?.expToks || []).map((t,i)=>
-            <span key={i} style={tokenStyle(t.cls)}>{t.w}</span>
-          )}
-        </div>
+        <div>{expTokens.map((t,i)=><span key={i} className={`tok ${t.cls}`}>{t.w}</span>)}</div>
         <div className="status" style={{marginTop:8}}>You said</div>
-        <div>
-          {(results[0]?.extras?.length ? results[0].extras : []).map((t,i)=>
-            <span key={i} style={tokenStyle(t.cls)}>{t.w}</span>
-          )}
-        </div>
-        <div className="status" style={{marginTop:6}}>{results[0]?.stats || ''}</div>
+        <div>{heardTokens.map((t,i)=><span key={i} className={`tok ${t.cls}`}>{t.w}</span>)}</div>
+        <div className="status" style={{marginTop:6}}>{wordStats}</div>
       </div>
 
-      {/* hidden audio tag if you later play captain lines */}
-      <audio ref={audioRef} id="captainAudio" preload="metadata" playsInline />
+      {/* captain audio element */}
+      <audio ref={audioRef} id="captainAudio" preload="metadata" playsInline muted />
     </div>
   );
 }
