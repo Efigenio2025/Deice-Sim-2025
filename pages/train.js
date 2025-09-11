@@ -17,7 +17,6 @@ const NATO = {
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 const tokenize = (s) => norm(s).split(" ").filter(Boolean);
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function toNatoTail(t) {
   return t.toUpperCase().split("").map((ch) => NATO[ch] || ch).join(" ");
@@ -103,40 +102,37 @@ export default function TrainPage() {
     return true;
   }
   function playCaptainAudio(file) {
-  const a = audioRef.current;
-  if (!a || !file) return Promise.resolve();
-  const candidates = [`/audio/${file}`, `/${file}`];
+    const a = audioRef.current;
+    if (!a || !file) return Promise.resolve();
+    const candidates = [`/audio/${file}`, `/${file}`];
 
-  return new Promise((resolve) => {
-    let i = 0;
+    return new Promise((resolve) => {
+      let i = 0;
+      const tryOne = () => {
+        if (i >= candidates.length) { setStatus("Audio not available"); resolve(); return; }
+        const url = candidates[i++];
+        const clean = () => { a.onended = a.onerror = a.oncanplay = a.onloadedmetadata = null; };
 
-    const tryOne = () => {
-      if (i >= candidates.length) { setStatus("Audio not available"); resolve(); return; }
+        try { a.pause(); a.currentTime = 0; } catch {}
+        a.src = url;
 
-      const url = candidates[i++];
-      const clean = () => { a.onended = a.onerror = a.oncanplay = a.onloadedmetadata = null; };
+        a.oncanplay = () => {
+          a.muted = false;
+          const p = a.play();
+          if (p && p.catch) {
+            p.catch(() => { clean(); tryOne(); }); // try next path on autoplay block
+          }
+          setStatus("Playing Captain line…");
+          setLive("(captain audio)");
+        };
 
-      try { a.pause(); a.currentTime = 0; } catch {}
-      a.src = url;
-
-      a.oncanplay = () => {
-        a.muted = false;
-        const p = a.play();
-        if (p && p.catch) {
-          p.catch(() => { clean(); tryOne(); }); // try next path on autoplay block
-        }
-        setStatus("Playing Captain line…");
-        setLive("(captain audio)");
+        a.onended = () => { clean(); resolve(); };
+        a.onerror = () => { clean(); tryOne(); };
+        a.onloadedmetadata = () => {};
       };
-
-      a.onended = () => { clean(); resolve(); };
-      a.onerror = () => { clean(); tryOne(); };
-      a.onloadedmetadata = () => {};
-    };
-
-    tryOne();
-  });
-}
+      tryOne();
+    });
+  }
 
   // permissions
   async function ensureMicPermission() {
@@ -167,6 +163,7 @@ export default function TrainPage() {
           prepScenarioForGrading(scn);
           setCurrent(scn);
           setStepIndex(-1);
+          setStatus(`Loaded scenario: ${scn.label || scn.id}`); // ← added feedback
         }
       } catch {
         setScenarios([]);
@@ -174,80 +171,93 @@ export default function TrainPage() {
     })();
   }, []);
 
-  // listening
- async function listenStep({ minMs = MIN_LISTEN_MS, maxMs = MAX_LISTEN_MS, silenceMs = SILENCE_MS } = {}) {
-  return new Promise((resolve) => {
-    const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!R) { resolve({ final: "", interim: "", ended: "nosr" }); return; }
+  // listening (patched: generation guard + explicit abort)
+  async function listenStep({ minMs = MIN_LISTEN_MS, maxMs = MAX_LISTEN_MS, silenceMs = SILENCE_MS } = {}) {
+    return new Promise((resolve) => {
+      const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!R) { resolve({ final: "", interim: "", ended: "nosr" }); return; }
 
-    let finalText = "";
-    let interimText = "";
-    let started = Date.now();
-    let lastAct = started;
-    let stopped = false;
-    let rec = null; // ← recreate each cycle
+      let finalText = "";
+      let interimText = "";
+      let started = Date.now();
+      let lastAct = started;
+      let stopped = false;
+      let rec = null;
 
-    const shouldStop = () => {
-      const now = Date.now();
-      const elapsed = now - started;
-      const idle = now - lastAct;
-      if (elapsed < minMs) return false;
-      if (idle >= silenceMs) return true;
-      if (elapsed >= maxMs) return true;
-      return false;
-    };
+      let gen = 0; // generation guard
 
-    const endAll = (reason = "end") => {
-      stopped = true;
-      try { rec && rec.stop(); recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
-      resolve({ final: finalText.trim(), interim: interimText.trim(), ended: reason });
-    };
-
-    const startOne = () => {
-      if (stopped || !runningRef.current || pausedRef.current) return;
-
-      rec = new R();
-      rec.lang = "en-US";
-      rec.continuous = false;
-      rec.interimResults = true;
-      rec.maxAlternatives = 1;
-      recRef.current = rec;
-
-      rec.onstart = () => { lastAct = Date.now(); setStatus("Listening…"); setLive("(listening…)"); };
-      rec.onsoundstart = () => { lastAct = Date.now(); };
-      rec.onspeechstart = () => { lastAct = Date.now(); };
-
-      rec.onresult = (ev) => {
-        let interim = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          const tr = ev.results[i][0]?.transcript || "";
-          if (tr) lastAct = Date.now();
-          if (ev.results[i].isFinal) finalText += (finalText ? " " : "") + tr;
-          else interim += (interim ? " " : "") + tr;
-        }
-        interimText = interim;
-        const combined = (finalText ? finalText + " " : "") + interimText;
-        setLive(combined || "(listening…)");
-
-        // optional: live “You said” tokens while speaking
+      const shouldStop = () => {
+        const now = Date.now();
+        const elapsed = now - started;
+        const idle = now - lastAct;
+        if (elapsed < minMs) return false;
+        if (idle >= silenceMs) return true;
+        if (elapsed >= maxMs) return true;
+        return false;
       };
 
-      rec.onerror = () => { if (shouldStop()) endAll("error"); else setTimeout(startOne, 140); };
-      rec.onend   = () => { if (shouldStop()) endAll("ended"); else setTimeout(startOne, 140); };
+      const endAll = (reason = "end") => {
+        if (stopped) return;
+        stopped = true;
+        try {
+          if (rec) rec.stop();
+          if (recRef.current?.abort) recRef.current.abort(); // explicit abort
+        } catch {}
+        resolve({ final: finalText.trim(), interim: interimText.trim(), ended: reason });
+      };
 
-      try { rec.start(); } catch { if (shouldStop()) endAll("start-failed"); else setTimeout(startOne, 200); }
-    };
+      const startOne = () => {
+        if (stopped || !runningRef.current || pausedRef.current) return;
+        const myGen = ++gen;
 
-    // safety guard
-    const guard = setInterval(() => {
-      if (stopped) { clearInterval(guard); return; }
-      if (!runningRef.current || pausedRef.current) { clearInterval(guard); endAll("paused"); return; }
-      if (shouldStop()) { clearInterval(guard); endAll("ok"); return; }
-    }, 120);
+        rec = new R();
+        rec.lang = "en-US";
+        rec.continuous = false;
+        rec.interimResults = true;
+        rec.maxAlternatives = 1;
+        recRef.current = rec;
 
-    startOne();
-  });
-}
+        rec.onstart = () => { lastAct = Date.now(); setStatus("Listening…"); setLive("(listening…)"); };
+        rec.onsoundstart = () => { lastAct = Date.now(); };
+        rec.onspeechstart = () => { lastAct = Date.now(); };
+
+        rec.onresult = (ev) => {
+          let interim = "";
+          for (let i = ev.resultIndex; i < ev.results.length; i++) {
+            const tr = ev.results[i][0]?.transcript || "";
+            if (tr) lastAct = Date.now();
+            if (ev.results[i].isFinal) finalText += (finalText ? " " : "") + tr;
+            else interim += (interim ? " " : "") + tr;
+          }
+          interimText = interim;
+          const combined = (finalText ? finalText + " " : "") + interimText;
+          setLive(combined || "(listening…)");
+        };
+
+        rec.onerror = () => {
+          if (myGen !== gen) return;
+          if (shouldStop()) endAll("error");
+          else setTimeout(startOne, 140);
+        };
+        rec.onend   = () => {
+          if (myGen !== gen) return;
+          if (shouldStop()) endAll("ended");
+          else setTimeout(startOne, 140);
+        };
+
+        try { rec.start(); } catch { if (shouldStop()) endAll("start-failed"); else setTimeout(startOne, 200); }
+      };
+
+      // safety guard
+      const guard = setInterval(() => {
+        if (stopped) { clearInterval(guard); return; }
+        if (!runningRef.current || pausedRef.current) { clearInterval(guard); endAll("paused"); return; }
+        if (shouldStop()) { clearInterval(guard); endAll("ok"); return; }
+      }, 120);
+
+      startOne();
+    });
+  }
 
   // simulator
   async function runSimulator() {
@@ -307,17 +317,17 @@ export default function TrainPage() {
   }
 
   async function onStart() {
-  setStatus("Unlocking audio…");
-  await unlockAudio();
-  try {
-    setStatus("Requesting microphone permission…");
-    await ensureMicPermission();
-    setStatus("Starting simulator…");
-  } catch (e) {
-    setStatus("Mic permission denied. You can still run, but speech won’t be captured.");
+    setStatus("Unlocking audio…");
+    await unlockAudio();
+    try {
+      setStatus("Requesting microphone permission…");
+      await ensureMicPermission();
+      setStatus("Starting simulator…");
+    } catch (e) {
+      setStatus("Mic permission denied. You can still run, but speech won’t be captured.");
+    }
+    runSimulator();
   }
-  runSimulator();
-}
   function onPause() {
     pausedRef.current = true; runningRef.current = false;
     try { recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
@@ -353,7 +363,16 @@ export default function TrainPage() {
             <select
               onChange={(e) => {
                 const scn = JSON.parse(JSON.stringify(scenarios.find((s) => s.id === e.target.value)));
-                if (scn) { prepScenarioForGrading(scn); setCurrent(scn); setStepIndex(-1); setScore(0); setResults([]); setStatus("Idle"); setLive("(waiting…)"); setStatus(`Loaded scenario: ${scn.label || scn.id}`); }
+                if (scn) {
+                  prepScenarioForGrading(scn);
+                  setCurrent(scn);
+                  setStepIndex(-1);
+                  setScore(0);
+                  setResults([]);
+                  setStatus("Idle");
+                  setLive("(waiting…)");
+                  setStatus(`Loaded scenario: ${scn.label || scn.id}`);
+                }
               }}
               value={current?.id || ""}
             >
