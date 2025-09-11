@@ -163,32 +163,43 @@ export default function TrainPage() {
   }, []);
 
   // listening
-  async function listenStep({ minMs = MIN_LISTEN_MS, maxMs = MAX_LISTEN_MS, silenceMs = SILENCE_MS } = {}) {
-    return new Promise((resolve) => {
-      const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!R) { resolve({ final: "", interim: "", ended: "nosr" }); return; }
+ async function listenStep({ minMs = MIN_LISTEN_MS, maxMs = MAX_LISTEN_MS, silenceMs = SILENCE_MS } = {}) {
+  return new Promise((resolve) => {
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!R) { resolve({ final: "", interim: "", ended: "nosr" }); return; }
 
-      let finalText = "";
-      let interimText = "";
-      let started = Date.now();
-      let lastAct = started;
-      let stopped = false;
+    let finalText = "";
+    let interimText = "";
+    let started = Date.now();
+    let lastAct = started;
+    let stopped = false;
+    let rec = null; // ← recreate each cycle
 
-      const shouldStop = () => {
-        const now = Date.now();
-        const elapsed = now - started;
-        const idle = now - lastAct;
-        if (elapsed < minMs) return false;
-        if (idle >= silenceMs) return true;
-        if (elapsed >= maxMs) return true;
-        return false;
-      };
+    const shouldStop = () => {
+      const now = Date.now();
+      const elapsed = now - started;
+      const idle = now - lastAct;
+      if (elapsed < minMs) return false;
+      if (idle >= silenceMs) return true;
+      if (elapsed >= maxMs) return true;
+      return false;
+    };
 
-      const rec = new R();
+    const endAll = (reason = "end") => {
+      stopped = true;
+      try { rec && rec.stop(); recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
+      resolve({ final: finalText.trim(), interim: interimText.trim(), ended: reason });
+    };
+
+    const startOne = () => {
+      if (stopped || !runningRef.current || pausedRef.current) return;
+
+      rec = new R();
       rec.lang = "en-US";
       rec.continuous = false;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
+      recRef.current = rec;
 
       rec.onstart = () => { lastAct = Date.now(); setStatus("Listening…"); setLive("(listening…)"); };
       rec.onsoundstart = () => { lastAct = Date.now(); };
@@ -199,41 +210,33 @@ export default function TrainPage() {
         for (let i = ev.resultIndex; i < ev.results.length; i++) {
           const tr = ev.results[i][0]?.transcript || "";
           if (tr) lastAct = Date.now();
-          if (ev.results[i].isFinal) {
-            finalText += (finalText ? " " : "") + tr;
-          } else {
-            interim += (interim ? " " : "") + tr;
-          }
+          if (ev.results[i].isFinal) finalText += (finalText ? " " : "") + tr;
+          else interim += (interim ? " " : "") + tr;
         }
         interimText = interim;
         const combined = (finalText ? finalText + " " : "") + interimText;
-        setLive(interimText || combined || "(listening…)");
+        setLive(combined || "(listening…)");
+
+        // optional: live “You said” tokens while speaking
+        // setHeardTokens(tokenize(combined).map(w => ({ w, cls: "ok" })));
       };
 
-      rec.onerror = () => { if (shouldStop()) endAll("error"); else restart(); };
-      rec.onend = () => { if (shouldStop()) endAll("ended"); else restart(); };
+      rec.onerror = () => { if (shouldStop()) endAll("error"); else setTimeout(startOne, 140); };
+      rec.onend   = () => { if (shouldStop()) endAll("ended"); else setTimeout(startOne, 140); };
 
-      const restart = () => {
-        if (stopped || !runningRef.current || pausedRef.current) return;
-        setTimeout(() => { try { if (!stopped && runningRef.current && !pausedRef.current) rec.start(); } catch {} }, 120);
-      };
+      try { rec.start(); } catch { if (shouldStop()) endAll("start-failed"); else setTimeout(startOne, 200); }
+    };
 
-      const endAll = (reason = "end") => {
-        stopped = true;
-        try { rec.stop(); recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
-        resolve({ final: finalText.trim(), interim: interimText.trim(), ended: reason });
-      };
+    // safety guard
+    const guard = setInterval(() => {
+      if (stopped) { clearInterval(guard); return; }
+      if (!runningRef.current || pausedRef.current) { clearInterval(guard); endAll("paused"); return; }
+      if (shouldStop()) { clearInterval(guard); endAll("ok"); return; }
+    }, 120);
 
-      recRef.current = rec;
-      try { rec.start(); } catch { endAll("start-failed"); }
-
-      const guard = setInterval(() => {
-        if (stopped) { clearInterval(guard); return; }
-        if (!runningRef.current || pausedRef.current) { clearInterval(guard); endAll("paused"); return; }
-        if (shouldStop()) { clearInterval(guard); endAll("ok"); return; }
-      }, 120);
-    });
-  }
+    startOne();
+  });
+}
 
   // simulator
   async function runSimulator() {
