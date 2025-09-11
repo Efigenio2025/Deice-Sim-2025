@@ -230,7 +230,6 @@ export default function TrainPage() {
         setLive(combined || "(listening…)");
 
         // optional: live “You said” tokens while speaking
-        // setHeardTokens(tokenize(combined).map(w => ({ w, cls: "ok" })));
       };
 
       rec.onerror = () => { if (shouldStop()) endAll("error"); else setTimeout(startOne, 140); };
