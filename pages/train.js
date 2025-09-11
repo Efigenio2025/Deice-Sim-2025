@@ -187,19 +187,21 @@ function onPause() {
     return { expToks, extras, expCount:E.length, hitCount:E.filter(w=>setH.has(w)).length };
   }
 
-  async function playCaptainAudio(name){
-    const a = audioRef.current;
-    if (!a || !name) return;
-    const url = `/audio/${name}`; // Next.js serves /public/audio/… at /audio/…
-    return new Promise((resolve)=>{
-      let to=null;
-      const clean=()=>{ a.onended=a.onerror=a.oncanplay=a.onloadedmetadata=null; if(to) clearTimeout(to); };
-      try { a.pause(); a.currentTime=0; }catch{}
+  async function playCaptainAudio(src) {
+  const a = audioRef.current;
+  if (!a || !src) return;
+  const candidates = [`/audio/${src}`, `/${src}`];
+  for (const url of candidates) {
+    try {
+      a.pause(); a.currentTime = 0;
       a.src = url;
-      a.onloadedmetadata = ()=>{
-        const dur = (isFinite(a.duration)&&a.duration>0) ? a.duration*1000+500 : 12000;
-        to = setTimeout(()=>{ clean(); resolve(); }, Math.min(dur,15000));
-      };
+      await a.play();
+      return; // success
+    } catch {
+      // try next
+    }
+  }
+};
       a.oncanplay = async ()=>{
         try{
           a.muted = false;
