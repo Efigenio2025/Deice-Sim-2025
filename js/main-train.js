@@ -409,17 +409,10 @@ async function listenStep({minMs=MIN_LISTEN_MS, maxMs=MAX_LISTEN_MS, silenceMs=S
   }
 
   // ---------- Expose inline fallbacks ----------
-  window.__start = async () => {
-    try { await unlockAudio(); } catch {}
-    try { await ensureMicPermission(); } catch { return; }  // prompt immediately
-    if (!current) {
-      setText($('status'), 'Select a scenario first.');
-      return;
-    }
-    $('resultsCard')?.classList.add('hidden');
-    runSimulator().catch(()=>{});
-  };
-  window.__pause = pauseSimulator;
+  window.__start = async () => { await unlockAudio(); await ensureMicPermission(); runSimulator(); };
+window.__pause = pauseSimulator;
+document.getElementById('startBtn')?.addEventListener('click', window.__start);
+document.getElementById('pauseBtn')?.addEventListener('click', window.__pause);
 
   // ---------- Boot ----------
   document.addEventListener('DOMContentLoaded', async () => {
