@@ -319,8 +319,8 @@ export default function TrainPage() {
   }
 
 async function onStart() {
-  pausedRef.current = false;
-  runningRef.current = true;
+  pausedRef.current = true;
+  runningRef.current = false;
   setStatus("Unlocking audio…");
   await unlockAudio();
   try {
