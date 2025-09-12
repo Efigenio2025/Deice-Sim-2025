@@ -1,56 +1,27 @@
 // pages/train.js
 import { useEffect, useMemo, useRef, useState } from "react";
 
-/* ---------- local responsive hook ---------- */
-function useResponsiveMode() {
-  const [mode, setMode] = useState(
-    typeof window !== "undefined" && window.innerWidth <= 860 ? "mobile" : "desktop"
-  );
-  useEffect(() => {
-    const h = () => setMode(window.innerWidth <= 860 ? "mobile" : "desktop");
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
-  }, []);
-  return mode;
-}
+/* ------------------------ Helpers: UI components ------------------------ */
 
-/* ---------- fallback scenario (used if /scenarios.json is missing) ---------- */
-const FALLBACK = [
-  {
-    id: "type1",
-    label: "Type I Only (Demo)",
-    steps: [
-      { role: "Captain", text: "Iceman, this is N443DF, do you copy?" },
-      { role: "Iceman", text: "N443DF, this is Iceman, go ahead." },
-      { role: "Captain", text: "Requesting full body Type I deicing today." },
-      { role: "Iceman", text: "Copy full body Type I. Prepare the aircraft for deicing." }
-    ]
-  }
-];
-
-/* ---------- similarity helper ---------- */
-function jaccard(a, b) {
-  const A = new Set(String(a).toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(Boolean));
-  const B = new Set(String(b).toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(Boolean));
-  const inter = [...A].filter((x) => B.has(x)).length;
-  const union = new Set([...A, ...B]).size || 1;
-  return inter / union;
-}
-
-/* ---------- small UI pieces ---------- */
-function Stepper({ total, currentIndex, results = [], onJump }) {
+function Stepper({ total, current, results = [], onJump }) {
   return (
-    <div className="stepper">
+    <div className="pm-stepper">
       {Array.from({ length: total }).map((_, i) => {
         const r = results[i];
-        const cls = i === currentIndex ? "cur" : r === true ? "ok" : r === false ? "miss" : "";
+        const cls =
+          i === current
+            ? "pm-step cur"
+            : r === true
+            ? "pm-step ok"
+            : r === false
+            ? "pm-step miss"
+            : "pm-step";
         return (
           <button
             key={i}
-            className={`step ${cls}`}
+            className={cls}
             onClick={() => onJump?.(i)}
             aria-label={`Step ${i + 1}`}
-            title={`Step ${i + 1}`}
           />
         );
       })}
@@ -61,138 +32,234 @@ function Stepper({ total, currentIndex, results = [], onJump }) {
 function ScoreRing({ pct = 0, size = 72 }) {
   const r = (size - 8) / 2,
     c = size / 2,
-    circ = 2 * Math.PI * r,
-    off = circ * (1 - pct / 100);
+    circ = 2 * Math.PI * r;
+  const off = circ * (1 - pct / 100);
   return (
-    <svg className="ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={c} cy={c} r={r} stroke="#223b66" strokeWidth="8" fill="none" />
+    <svg className="pm-ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={c} cy={c} r={r} stroke="#dfeaff" strokeWidth="8" fill="none" />
       <circle
         cx={c}
         cy={c}
         r={r}
-        stroke="var(--accent)"
+        stroke="#0e63ff"
         strokeWidth="8"
         fill="none"
         strokeDasharray={circ}
         strokeDashoffset={off}
         strokeLinecap="round"
       />
-      <text x="50%" y="54%" textAnchor="middle" fontSize="14" fill="var(--ink)">
+      <text x="50%" y="54%" textAnchor="middle" fontSize="14" fill="#0b1e39">
         {pct}%
       </text>
     </svg>
   );
 }
 
+function WordDiff({ expected = "", heard = "" }) {
+  const A = expected.trim().split(/\s+/);
+  const B = new Set(heard.trim().toLowerCase().split(/\s+/));
+  return (
+    <p className="pm-diff">
+      {A.map((w, i) => (
+        <span key={i} className={B.has(w.toLowerCase()) ? "pm-wok" : "pm-wmiss"}>
+          {w}{" "}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function MicWidget({ status = "idle", level = 0 }) {
   return (
-    <div className="mic">
-      <span className="pill">Mic: {status}</span>
-      <div className="meter">
-        <div className="fill" style={{ width: `${Math.min(100, Math.max(0, level))}%` }} />
+    <div className="pm-mic">
+      <span className="pm-pill">Mic: {status}</span>
+      <div className="pm-meter">
+        <div className="pm-fill" style={{ width: `${Math.min(100, level)}%` }} />
       </div>
     </div>
   );
 }
 
-/* ============================== PAGE ============================== */
-export default function TrainPage() {
-  // background
-  useEffect(() => {
-    document.body.classList.add("deice-bg");
-    return () => document.body.classList.remove("deice-bg");
-  }, []);
+/* ------------------------ Toasts ------------------------ */
 
-  // sim flags/refs
+const _toasts = [];
+function toast(msg, kind = "info", ms = 2200) {
+  _toasts.push({ id: Date.now(), msg, kind });
+  renderToasts();
+  setTimeout(() => {
+    _toasts.shift();
+    renderToasts();
+  }, ms);
+}
+function renderToasts() {
+  let host = document.getElementById("pm-toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "pm-toast-host";
+    host.className = "pm-toasts";
+    document.body.appendChild(host);
+  }
+  host.innerHTML = _toasts
+    .map((t) => `<div class="pm-toast ${t.kind}">${t.msg}</div>`)
+    .join("");
+}
+
+/* ------------------------ Responsive hook ------------------------ */
+
+function useResponsiveMode(forced = null) {
+  const pick = () => (window.innerWidth <= 860 ? "mobile" : "desktop");
+  const [mode, setMode] = useState(
+    typeof window === "undefined" ? "desktop" : forced || pick()
+  );
+  useEffect(() => {
+    if (forced) {
+      setMode(forced);
+      return;
+    }
+    const onResize = () => setMode(pick());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [forced]);
+  return mode;
+}
+
+/* ------------------------ CSV export ------------------------ */
+
+function downloadCSV(rows, filename = "deice-results.csv") {
+  const csv = rows
+    .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ------------------------ Page ------------------------ */
+
+export default function TrainPage() {
+  // scenarios
+  const [scenarios, setScenarios] = useState([]);
+  const [current, setCurrent] = useState(null);
+
+  // step state
+  const [stepIndex, setStepIndex] = useState(-1);
+  const steps = useMemo(() => current?.steps || [], [current]);
+  const total = steps.length;
+
+  // results
+  const resultsRef = useRef([]); // boolean per step
+  const [lastResultText, setLastResultText] = useState("—");
+  const [retryCount, setRetryCount] = useState(0);
+  const [avgRespSec, setAvgRespSec] = useState(null);
+
+  // controls/state
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
   const preparedRef = useRef(false);
   const recRef = useRef(null);
   const audioRef = useRef(null);
+  const micLevelRef = useRef(0);
 
+  // UI
   const [status, setStatus] = useState("Ready");
-  const [scenarios, setScenarios] = useState([]);
-  const [current, setCurrent] = useState(null);
-  const [stepIndex, setStepIndex] = useState(-1);
-
-  const resultsRef = useRef([]); // true/false/undefined
-  const [results, setResults] = useState([]); // mirrors ref for UI
-
-  // responsive
-  const autoMode = useResponsiveMode();
+  const [answer, setAnswer] = useState("");
   const [forcedMode, setForcedMode] = useState(null);
-  const mode = forcedMode ?? autoMode;
+  const mode = useResponsiveMode(forcedMode);
 
-  // mic meter
-  const [micLevel, setMicLevel] = useState(0);
-  const analyserRef = useRef(null);
-  const rafRef = useRef(null);
-  function startMicMeter(stream) {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      src.connect(analyser);
-      analyserRef.current = analyser;
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      const tick = () => {
-        analyser.getByteFrequencyData(data);
-        const lvl = Math.min(100, Math.round(data.reduce((a, b) => a + b, 0) / data.length / 2));
-        setMicLevel(lvl);
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      tick();
-    } catch {
-      // ignore
-    }
-  }
+  // derived
+  const correct = (resultsRef.current || []).filter(Boolean).length;
+  const pct = total ? Math.round((correct / total) * 100) : 0;
+  const micStatus = preparedRef.current
+    ? runningRef.current && !pausedRef.current
+      ? "listening"
+      : "ready"
+    : "idle";
+  const micLevel = micLevelRef.current || 0;
 
-  // load scenarios with fallback
+  /* -------- Load scenarios from /public/scenarios.json -------- */
   useEffect(() => {
-    let cancelled = false;
+    let live = true;
     (async () => {
       try {
         const res = await fetch("/scenarios.json");
-        if (!res.ok) throw new Error("no file");
-        const list = await res.json();
-        if (cancelled) return;
-        initScenarioList(list);
+        const data = await res.json();
+        if (!live) return;
+        setScenarios(data || []);
+        const first = (data && data[0]) || null;
+        if (first) {
+          setCurrent(first);
+          resultsRef.current = Array(first.steps.length).fill(undefined);
+          setStatus("Scenario loaded");
+        }
       } catch {
-        if (!cancelled) initScenarioList(FALLBACK);
+        // fallback demo
+        const demo = [
+          {
+            id: "demo",
+            label: "Full Body Type I Only",
+            steps: [
+              { role: "Captain", text: "Iceman, this is N443DF, do you copy?" },
+              { role: "Iceman", text: "N443DF, this is Iceman, go ahead." },
+              {
+                role: "Captain",
+                text: "Requesting full body Type I deicing today.",
+              },
+            ],
+          },
+        ];
+        if (!live) return;
+        setScenarios(demo);
+        setCurrent(demo[0]);
+        resultsRef.current = Array(demo[0].steps.length).fill(undefined);
+        setStatus("Demo scenario loaded");
       }
     })();
     return () => {
-      cancelled = true;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      live = false;
     };
   }, []);
 
-  function initScenarioList(list) {
-    setScenarios(list || []);
-    const first = (list && list[0]) || null;
-    if (first) {
-      setCurrent(first);
-      setStepIndex(-1);
-      resultsRef.current = new Array(first.steps.length).fill(undefined);
-      setResults(resultsRef.current.slice());
-      setStatus(`Loaded scenario: ${first.label || first.id}`);
-    }
+  /* -------- Mic level mock (replace with real analyser if you have one) -------- */
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (runningRef.current && !pausedRef.current) {
+        micLevelRef.current = 10 + Math.round(Math.random() * 80);
+      } else {
+        micLevelRef.current = 0;
+      }
+    }, 500);
+    return () => clearInterval(id);
+  }, []);
+
+  /* --------------------------- Controls --------------------------- */
+
+  async function unlockAudio() {
+    // If you have a real audio unlock (e.g., creating AudioContext), call it here.
+    return;
   }
 
-  const steps = useMemo(() => current?.steps || [], [current]);
+  async function ensureMicPermission() {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("no gUM");
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  }
 
-  // controls
   async function onPrepareMic() {
     setStatus("Unlocking audio…");
+    await unlockAudio();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setStatus("Requesting microphone permission…");
+      await ensureMicPermission();
       preparedRef.current = true;
       setStatus("Mic ready.");
-      startMicMeter(stream);
+      toast("Mic ready", "success");
     } catch {
       preparedRef.current = false;
-      setStatus("Mic permission denied. Running without voice.");
+      setStatus("Mic permission denied. Running without voice input.");
+      toast("Mic blocked. Will run without voice.", "error");
     }
   }
 
@@ -203,9 +270,8 @@ export default function TrainPage() {
       speechSynthesis.cancel();
     } catch {}
     setStatus(preparedRef.current ? "Starting simulator…" : "Starting without mic…");
-    // move to first step if needed
-    if (stepIndex < 0 && steps.length) setStepIndex(0);
-    runSimulatorSafe();
+    if (stepIndex < 0) setStepIndex(0);
+    runSimulator();
   }
 
   function onPause() {
@@ -218,315 +284,285 @@ export default function TrainPage() {
       audioRef.current?.pause?.();
     } catch {}
     setStatus("Paused");
+    toast("Paused");
   }
 
-  // nav
-  function onPrev() {
-    if (!current) return;
-    setStepIndex((i) => Math.max(0, i - 1));
-  }
-  function onNext() {
-    if (!current) return;
-    setStepIndex((i) => Math.min(steps.length - 1, i + 1));
-  }
-
-  // check response (demo scoring)
-  function checkResponse(heard) {
-    if (stepIndex < 0) return;
-    const expected = steps[stepIndex]?.text || "";
-    const score = jaccard(heard || "", expected);
-    const ok = score >= 0.6;
-    writeResult(stepIndex, ok);
-    setStatus(ok ? `Good (${Math.round(score * 100)}%)` : `Try again (${Math.round(score * 100)}%)`);
+  function speakLine(text) {
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US";
+      speechSynthesis.speak(u);
+    } catch {}
   }
 
-  function writeResult(idx, ok) {
-    if (idx < 0) return;
-    resultsRef.current[idx] = ok;
-    setResults(resultsRef.current.slice());
+  function normalize(s) {
+    return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  }
+  function quickScore(expected, heard) {
+    const A = new Set(normalize(expected).split(" "));
+    const B = new Set(normalize(heard).split(" "));
+    const inter = [...A].filter((x) => B.has(x)).length;
+    const pct = A.size ? Math.round((inter / A.size) * 100) : 0;
+    return pct;
   }
 
-  // score ring
-  const scorePct = useMemo(() => {
-    const arr = resultsRef.current || [];
-    const tot = arr.filter((v) => v !== undefined).length;
-    const oks = arr.filter(Boolean).length;
-    return tot ? Math.round((oks / tot) * 100) : 0;
-  }, [results]);
+  function onCheck() {
+    if (stepIndex < 0 || !steps[stepIndex]) return;
+    const exp = steps[stepIndex].text;
+    const pct = quickScore(exp, answer);
+    const ok = pct >= 60;
+    resultsRef.current[stepIndex] = ok;
+    setLastResultText(ok ? `✅ Good (${pct}%)` : `❌ Try again (${pct}%)`);
+    if (!ok) setRetryCount((n) => n + 1);
+  }
 
-  // placeholder sim loop (replace with your real runSimulator if you have it)
-  function runSimulatorSafe() {
-    if (typeof window.__DEICE_DEMO_LOOP__ !== "undefined") return;
-    window.__DEICE_DEMO_LOOP__ = true;
-    (function loop() {
+  function exportSession() {
+    const rows = [
+      ["Scenario", current?.label || ""],
+      [],
+      ["Step", "Role", "Expected", "Result"],
+      ...steps.map((s, i) => [i + 1, s.role, s.text, resultsRef.current[i] ? "OK" : "MISS"]),
+    ];
+    downloadCSV(rows, `deice_${current?.id || "scenario"}.csv`);
+    toast("CSV downloaded", "success");
+  }
+
+  /* --------------------------- Simulator loop (lightweight) --------------------------- */
+
+  function runSimulator() {
+    if (!current || !steps.length) {
+      setStatus("Select a scenario first.");
+      return;
+    }
+    const startedAt = performance.now();
+    setStatus("Running…");
+
+    // speak current line once on start
+    const s = steps[Math.max(0, stepIndex)];
+    if (s) speakLine(s.text);
+
+    const tick = () => {
       if (!runningRef.current || pausedRef.current) return;
-      // no-op; your real loop would do step logic here
-      setTimeout(loop, 400);
-    })();
+
+      // when user has checked, auto-advance to next step (demo logic)
+      const done = resultsRef.current[stepIndex];
+      if (done && stepIndex < steps.length - 1) {
+        setStepIndex((i) => i + 1);
+        const next = steps[stepIndex + 1];
+        if (next) {
+          setTimeout(() => speakLine(next.text), 120);
+        }
+      }
+
+      // average response mock timing
+      const dur = (performance.now() - startedAt) / 1000;
+      setAvgRespSec((prev) => (prev ? (prev + dur) / 2 : dur));
+
+      // finish condition
+      const allJudged =
+        resultsRef.current.length === steps.length &&
+        resultsRef.current.every((v) => v === true || v === false);
+
+      if (allJudged) {
+        runningRef.current = false;
+        setStatus(`Complete • ${correct}/${total} (${pct}%) • ${pct >= 80 ? "PASS" : "RETRY"}`);
+        toast("Session complete", pct >= 80 ? "success" : "info");
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
-  // render
+  /* --------------------------- Render --------------------------- */
+
   return (
-    <>
-      <div className="deice-card">
-        <div className="deice-header">
-          <h1 className="deice-title">
-            <img src="/branding/piedmont-logo.jpg" alt="Piedmont" />
-            Deice Verbiage Trainer
-          </h1>
-          <div className="row" style={{ gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <div className="row">
-              <label className="label" htmlFor="scenario">
-                Scenario
-              </label>
+    <div className="pm-app">
+      <div className="pm-card">
+        {/* Header */}
+        <div className="pm-header">
+          <div className="pm-title">
+            <img src="/images/piedmont-logo.svg" alt="Piedmont Airlines" />
+            <h1 className="pm-h1">Deice Verbiage Trainer</h1>
+            <span className="pm-badge">V1 • OMA • Training use only</span>
+          </div>
+          <div className="pm-row">
+            <div className="pm-row">
+              <span className="pm-label">Scenario</span>
               <select
-                id="scenario"
-                className="select"
-                value={current?.id || current?.label || ""}
+                className="pm-select"
+                value={current?.id || ""}
                 onChange={(e) => {
-                  const key = e.target.value;
-                  const scn =
-                    scenarios.find((s) => s.id === key) ||
-                    scenarios.find((s) => s.label === key);
+                  const id = e.target.value;
+                  const scn = scenarios.find((s) => s.id === id);
                   if (scn) {
                     setCurrent(scn);
+                    resultsRef.current = Array(scn.steps.length).fill(undefined);
                     setStepIndex(-1);
-                    resultsRef.current = new Array(scn.steps.length).fill(undefined);
-                    setResults(resultsRef.current.slice());
-                    setStatus(`Loaded scenario: ${scn.label || scn.id}`);
+                    setStatus("Scenario loaded");
                   }
                 }}
               >
                 {(scenarios || []).map((s) => (
-                  <option key={s.id || s.label} value={s.id || s.label}>
-                    {s.label || s.id}
+                  <option key={s.id} value={s.id}>
+                    {s.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="row">
-              <label className="label">View</label>
-              <button className="btn ghost" onClick={() => setForcedMode(null)}>
+            <div className="pm-row" style={{ marginLeft: 8 }}>
+              <span className="pm-label">View</span>
+              <button className="pm-btn ghost" onClick={() => setForcedMode(null)}>
                 Auto
               </button>
-              <button className="btn ghost" onClick={() => setForcedMode("desktop")}>
+              <button className="pm-btn ghost" onClick={() => setForcedMode("desktop")}>
                 Desktop
               </button>
-              <button className="btn ghost" onClick={() => setForcedMode("mobile")}>
+              <button className="pm-btn ghost" onClick={() => setForcedMode("mobile")}>
                 Mobile
               </button>
             </div>
 
-            <span className="pill">{status}</span>
+            <span className="pm-pill" style={{ marginLeft: 8 }}>
+              {status}
+            </span>
           </div>
         </div>
 
-        <div className={`deice-main ${mode}`}>
+        {/* Main */}
+        <div className={`pm-main ${mode}`}>
           {/* LEFT */}
-          <section className="panel">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <div className="row">
-                <button className="btn ghost" onClick={onPrepareMic}>
+          <section className="pm-panel">
+            <div className="pm-row" style={{ justifyContent: "space-between" }}>
+              <div className="pm-row">
+                <button className="pm-btn ghost" onClick={onPrepareMic}>
                   Prepare Mic
                 </button>
-                <button className="btn" onClick={onStart}>
+                <button className="pm-btn" onClick={onStart}>
                   Start
                 </button>
-                <button className="btn ghost" onClick={onPause}>
+                <button className="pm-btn ghost" onClick={onPause}>
                   Pause
                 </button>
               </div>
-              <MicWidget
-                status={
-                  preparedRef.current
-                    ? runningRef.current && !pausedRef.current
-                      ? "listening"
-                      : "ready"
-                    : "idle"
-                }
-                level={micLevel}
-              />
+              <MicWidget status={micStatus} level={micLevel} />
             </div>
 
             <div style={{ marginTop: 10 }}>
-              <div className="label">Current Line</div>
-              <div className="coach">
-                {stepIndex < 0 ? (
-                  "Press Start to begin the scenario."
-                ) : (
+              <div className="pm-label">Current Line</div>
+              <div className="pm-coach">
+                {stepIndex >= 0 && steps[stepIndex] ? (
                   <>
-                    <strong>{steps[stepIndex]?.role}:</strong> {steps[stepIndex]?.text}
+                    <strong>{steps[stepIndex].role}:</strong> {steps[stepIndex].text}
                   </>
+                ) : (
+                  "Select a step and press Start."
                 )}
               </div>
             </div>
 
-            <div className="row" style={{ marginTop: 8 }}>
-              <button className="btn" onClick={onPrev} disabled={stepIndex <= 0}>
+            <div className="pm-row" style={{ marginTop: 8 }}>
+              <button
+                className="pm-btn"
+                onClick={() => setStepIndex((i) => Math.max(0, (typeof i === "number" ? i : 0) - 1))}
+              >
                 ⟵ Prev
               </button>
               <button
-                className="btn primary"
-                onClick={onNext}
-                disabled={stepIndex >= steps.length - 1 || stepIndex < 0}
+                className="pm-btn primary"
+                onClick={() =>
+                  setStepIndex((i) => Math.min(total - 1, (typeof i === "number" ? i : -1) + 1))
+                }
               >
                 Next ⟶
               </button>
-              <button className="btn" onClick={() => {/* hook your TTS here */}}>▶︎ Play line</button>
+              <button
+                className="pm-btn"
+                onClick={() => {
+                  if (stepIndex >= 0 && steps[stepIndex]) speakLine(steps[stepIndex].text);
+                }}
+              >
+                ▶︎ Play line
+              </button>
             </div>
 
             <div style={{ marginTop: 10 }}>
-              <div className="label">Your Response</div>
-              <textarea rows={3} className="input" placeholder="Speak or type your line…" id="resp" />
-              <div className="row" style={{ marginTop: 6 }}>
-                <button
-                  className="btn"
-                  onClick={() => {
-                    const val = document.getElementById("resp").value;
-                    checkResponse(val);
-                  }}
-                  disabled={stepIndex < 0}
-                >
+              <div className="pm-label">Your Response</div>
+              <textarea
+                rows={3}
+                className="pm-input"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder="Speak or type your line…"
+              />
+              <div className="pm-row" style={{ marginTop: 6 }}>
+                <button className="pm-btn" onClick={onCheck}>
                   Check
                 </button>
-                <span className="pill">{scorePct ? `Session: ${scorePct}%` : "—"}</span>
+                <span className="pm-pill">{lastResultText}</span>
               </div>
             </div>
 
-            {stepIndex >= 0 && (
-              <div className="diff">
-                {/* simple example; replace with real diff if you have one */}
-                <span className="w-ok">Iceman,</span> <span className="w-miss">this</span>{" "}
-                <span className="w-ok">is</span> <span className="w-ok">N443DF,</span>{" "}
-                <span className="w-miss">do</span> <span className="w-ok">you copy?</span>
-              </div>
+            {stepIndex >= 0 && steps[stepIndex] && (
+              <WordDiff expected={steps[stepIndex].text} heard={answer} />
             )}
           </section>
 
           {/* RIGHT */}
-          <section className="panel">
-            <div className="row" style={{ justifyContent: "space-between" }}>
+          <section className="pm-panel">
+            <div className="pm-row" style={{ justifyContent: "space-between" }}>
               <div>
-                <div className="label">Progress</div>
+                <div className="pm-label">Progress</div>
                 <Stepper
-                  total={steps.length}
-                  currentIndex={Math.max(0, stepIndex)}
-                  results={resultsRef.current}
+                  total={total}
+                  current={Math.max(0, stepIndex)}
+                  results={resultsRef.current || []}
                   onJump={(i) => setStepIndex(i)}
                 />
               </div>
-              <div className="scoreRow">
-                <ScoreRing pct={scorePct} />
+              <div className="pm-scoreRow">
+                <ScoreRing pct={pct} />
                 <div>
-                  <div className="pill">
-                    WPM: <strong>—</strong>
+                  <div className="pm-pill">
+                    Correct: <strong>{correct}/{total}</strong>
                   </div>
-                  <div className="pill">
-                    Avg. Response: <strong>—</strong>
+                  <div className="pm-pill">
+                    Retries: <strong>{retryCount || 0}</strong>
                   </div>
-                  <div className="pill">
-                    Retries: <strong>—</strong>
+                  <div className="pm-pill">
+                    Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
                   </div>
                 </div>
               </div>
             </div>
 
             <div style={{ marginTop: 10 }}>
-              <div className="label">Session Log</div>
-              <div className="log" id="log">
-{`[Step 1]
-Expected: Iceman, this is N443DF, do you copy?
-Heard:    Iceman, this is N443DF, can you copy?
-Score:    82%`}
+              <div className="pm-label">Session Log</div>
+              <div className="pm-log" id="pm-log">
+                {/* If you have a real log string, replace below */}
+                {/* Example: {logText} */}
               </div>
             </div>
 
-            <div className="row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
-              <button className="btn ghost" onClick={exportSession}>Export CSV</button>
-              <button className="btn ghost" onClick={() => alert("Settings saved")}>Save Settings</button>
+            <div className="pm-row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+              <button className="pm-btn ghost" onClick={exportSession}>
+                Export CSV
+              </button>
+              <button className="pm-btn ghost" onClick={() => toast("Saved settings", "success")}>
+                Save Settings
+              </button>
             </div>
           </section>
         </div>
 
-        <div className="deice-footer">
-          <div>V1 • training purposes only • OMA station • Mic works in Safari on iOS</div>
-          <div className="pill">Tip: Use headphones to avoid feedback</div>
+        {/* Footer */}
+        <div className="pm-footer">
+          <div>V1 • for training purposes only • OMA station • Microphone works only in Safari on iOS</div>
+          <div className="pm-pill">Tip: Use headphones to avoid feedback.</div>
         </div>
       </div>
-
-      {/* ---------- global CSS (styled-jsx) ---------- */}
-      <style jsx global>{`
-        :root{
-          --bg-hi:#0f1f4a; --bg-mid:#1c3f8a; --bg-low:#0a1330;
-          --card:#10192b; --ink:#eef4ff; --muted:#b9c6e6;
-          --accent:#3da0ff; --accent-2:#e11d2e; --border:#2a3b66;
-          --chip:#152443; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
-        }
-        body.deice-bg{
-          background:
-            linear-gradient(180deg, rgba(15,31,74,.85), rgba(10,19,48,.9)),
-            url('/branding/deice-hero.jpg') center -80px / cover no-repeat fixed;
-          color:var(--ink);
-        }
-        .deice-card{background:rgba(16,25,43,.92);border:1px solid var(--border);border-radius:16px;box-shadow:0 16px 50px rgba(0,0,0,.45);max-width:1100px;margin:24px auto;padding:0 16px}
-        .deice-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
-        .deice-title{display:flex;align-items:center;gap:10px;margin:0;font:700 18px/1.2 system-ui}
-        .deice-title img{height:22px}
-        .deice-main{display:grid;gap:16px;padding:16px 0}
-        .deice-main.desktop{grid-template-columns:1.3fr .9fr}
-        .deice-main.mobile{grid-template-columns:1fr}
-        .panel{background:#0f1a33;border:1px solid var(--border);border-radius:12px;padding:12px}
-        .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-        .btn{cursor:pointer;border:1px solid var(--border);background:#0e1a34;color:var(--ink);border-radius:12px;padding:10px 14px;font-weight:650;min-height:40px}
-        .btn.primary{background:linear-gradient(180deg,#3aa4ff,#2b79d8);border-color:#2a6acc}
-        .btn.ghost{background:transparent}
-        .btn:disabled{opacity:.5;cursor:not-allowed}
-        .select,.input,textarea{width:100%;background:#0b162f;color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px}
-        .label{color:var(--muted);font-size:12px}
-        .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--chip);color:var(--muted);font-size:12px}
-        .coach{font-size:15px;background:#0e1f43;border-left:3px solid var(--accent);padding:12px;border-radius:8px}
-        .log{height:160px;overflow:auto;background:#07122a;border:1px dashed var(--border);border-radius:8px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap}
-        .stepper{display:flex;gap:6px;flex-wrap:wrap}
-        .step{width:14px;height:14px;border-radius:6px;border:1px solid var(--border);background:#1a2a50}
-        .step.cur{outline:2px solid var(--accent)}
-        .step.ok{background:var(--ok)}
-        .step.miss{background:var(--err)}
-        .scoreRow{display:flex;align-items:center;gap:12px}
-        .ring{width:72px;height:72px}
-        .diff{padding:8px;border-radius:8px;background:#0e1f43;margin:8px 0}
-        .w-ok{color:#a8f0c9}
-        .w-miss{color:#ffd1d1;text-decoration:underline dotted}
-        .mic{display:flex;align-items:center;gap:8px}
-        .meter{flex:1;height:8px;background:#0b162f;border:1px solid var(--border);border-radius:999px;overflow:hidden}
-        .fill{height:100%;background:var(--ok)}
-        .deice-footer{padding:12px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:8px}
-        @media (max-width:860px){.deice-main{padding:12px 0}.log{height:140px}}
-        @media (max-width:480px){.log{height:120px}}
-      `}</style>
-    </>
+    </div>
   );
-
-  // export CSV
-  function exportSession() {
-    if (!current) return;
-    const arr = resultsRef.current || [];
-    const rows = [
-      ["Scenario", current.label || current.id || ""],
-      [],
-      ["Step", "Role", "Expected", "Result"],
-      ...steps.map((s, i) => [i + 1, s.role, s.text, arr[i] ? "OK" : arr[i] === false ? "MISS" : ""])
-    ];
-    downloadCSV(rows, `deice_${current.id || "scenario"}.csv`);
-  }
-  function downloadCSV(rows, filename = "deice-results.csv") {
-    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 }
