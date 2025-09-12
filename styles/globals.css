@@ -91,7 +91,7 @@ body.piedmont {
 .pm-main.mobile  { grid-template-columns: 1fr; }
 
 /* panels */
-.pm-panel { background: #f0f4fa; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.pm-panel { background: #e2e8f0; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .pm-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .pm-label { color: var(--muted); font-size: 12px; }
 .pm-select, .pm-input, textarea { width:100%; background:#f6f9ff; border:1px solid var(--border); color:var(--ink);
