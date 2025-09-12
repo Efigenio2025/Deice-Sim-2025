@@ -318,18 +318,20 @@ export default function TrainPage() {
     }
   }
 
-  async function onStart() {
-    setStatus("Unlocking audio…");
-    await unlockAudio();
-    try {
-      setStatus("Requesting microphone permission…");
-      await ensureMicPermission();
-      setStatus("Starting simulator…");
-    } catch (e) {
-      setStatus("Mic permission denied. You can still run, but speech won’t be captured.");
-    }
-    runSimulator();
+async function onStart() {
+  pausedRef.current = false;
+  runningRef.current = true;
+  setStatus("Unlocking audio…");
+  await unlockAudio();
+  try {
+    setStatus("Requesting microphone permission…");
+    await ensureMicPermission();
+    setStatus("Starting simulator…");
+  } catch (e) {
+    setStatus("Mic permission denied. You can still run, but speech won’t be captured.");
   }
+  runSimulator();
+}
   function onPause() {
     pausedRef.current = true; runningRef.current = false;
     try { recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
