@@ -342,7 +342,6 @@ export default function TrainPage() {
 return (
   <div className={`wrap train-wrap ${mode}`}>
     {/* top bar */}
-    ...
       <div className="row" style={{ justifyContent: "space-between" }}>
         <a className="btn ghost" href="/">← Home</a>
         <div className="row" style={{ gap: 8, alignItems: "center" }}>
