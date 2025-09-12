@@ -333,7 +333,7 @@ async function onStart() {
   runSimulator();
 }
   function onPause() {
-    pausedRef.current = true; runningRef.current = false;
+    pausedRef.current = false; runningRef.current = false;
     try { recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
     try { audioRef.current && audioRef.current.pause && audioRef.current.pause(); } catch {}
     setStatus("Paused");
