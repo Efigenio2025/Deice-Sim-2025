@@ -28,3 +28,24 @@ body{
 .ok{background:#12291c;border:1px solid #1f5d38}
 .miss{background:#2a1616;border:1px solid #8a2c2c;text-decoration:underline}
 .extra{background:#1a1d2a;border:1px solid #2f375c;opacity:.9}
+/* --- Responsive layout for trainer --- */
+.train-wrap.desktop {
+  display: grid;
+  grid-template-columns: 1.25fr 0.85fr;
+  gap: 16px;
+}
+
+.train-wrap.mobile {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 860px) {
+  .log { height: 140px; }
+}
+
+@media (max-width: 480px) {
+  body { font-size: 15px; }
+  .log { height: 120px; }
+}
