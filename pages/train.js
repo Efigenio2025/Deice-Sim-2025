@@ -48,7 +48,8 @@ function diffWords(exp, heard) {
   return { expToks, extras, expCount: E.length, hitCount: E.filter((w) => setH.has(w)).length };
 }
 
-export default function TrainPage() {
+export default function TrainPage() {  
+  const mode = useResponsiveMode();   // 'desktop' or 'mobile'
   // UI state
   const [scenarios, setScenarios] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -338,9 +339,10 @@ export default function TrainPage() {
 
   const steps = useMemo(() => current?.steps || [], [current]);
 
-  return (
-    <div className="wrap">
-      {/* top bar */}
+return (
+  <div className={`wrap train-wrap ${mode}`}>
+    {/* top bar */}
+    ...
       <div className="row" style={{ justifyContent: "space-between" }}>
         <a className="btn ghost" href="/">← Home</a>
         <div className="row" style={{ gap: 8, alignItems: "center" }}>
