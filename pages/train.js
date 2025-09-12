@@ -317,27 +317,47 @@ export default function TrainPage() {
       runningRef.current = false;
     }
   }
-
-async function onStart() {
-  pausedRef.current = false;
-  runningRef.current = true;
+  
+async function onPrepareMic() {
   setStatus("Unlocking audio…");
   await unlockAudio();
   try {
     setStatus("Requesting microphone permission…");
     await ensureMicPermission();
-    setStatus("Starting simulator…");
+    preparedRef.current = true;
+    setStatus("Mic ready.");
   } catch (e) {
+    preparedRef.current = false;
     setStatus("Mic permission denied. You can still run, but speech won’t be captured.");
   }
-  runSimulator();
+}
+async function onStart() {
+  // Always reset flags first
+  pausedRef.current = false;
+  runningRef.current = true;
+
+  // If user forgot to prepare the mic, we still start — just warn.
+  if (!preparedRef.current) {
+    setStatus("Starting without mic (no voice will be captured)...");
+  } else {
+    setStatus("Starting simulator…");
+  }
+
+  // Cancel any lingering TTS
+  try { speechSynthesis.cancel(); } catch {}
+
+  // Kick off the main loop
+  runSimulator();  
 }
   function onPause() {
-    pausedRef.current = true; runningRef.current = false;
-    try { recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
-    try { audioRef.current && audioRef.current.pause && audioRef.current.pause(); } catch {}
-    setStatus("Paused");
-  }
+  pausedRef.current = true;
+  runningRef.current = false;
+
+  try { recRef.current?.abort?.(); } catch {}
+  try { audioRef.current?.pause?.(); } catch {}
+
+  setStatus("Paused");
+}
 
   const steps = useMemo(() => current?.steps || [], [current]);
 
@@ -354,9 +374,10 @@ return (
 
       {/* controls */}
       <div className="row">
-        <button className="btn" onClick={onStart}>Start Simulator</button>
-        <button className="btn ghost" onClick={onPause}>Pause Simulator</button>
-      </div>
+  <button className="btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
+  <button className="btn" onClick={onStart}>Start</button>
+  <button className="btn ghost" onClick={onPause}>Pause</button>
+</div>
 
       {/* scenario select */}
       <div className="card">
