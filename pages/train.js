@@ -319,8 +319,8 @@ export default function TrainPage() {
   }
 
 async function onStart() {
-  pausedRef.current = true;
-  runningRef.current = false;
+  pausedRef.current = false;
+  runningRef.current = true;
   setStatus("Unlocking audio…");
   await unlockAudio();
   try {
@@ -333,7 +333,7 @@ async function onStart() {
   runSimulator();
 }
   function onPause() {
-    pausedRef.current = false; runningRef.current = false;
+    pausedRef.current = true; runningRef.current = false;
     try { recRef.current && recRef.current.abort && recRef.current.abort(); } catch {}
     try { audioRef.current && audioRef.current.pause && audioRef.current.pause(); } catch {}
     setStatus("Paused");
