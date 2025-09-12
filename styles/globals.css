@@ -49,107 +49,102 @@ body{
   body { font-size: 15px; }
   .log { height: 120px; }
 }
-/* === Deice Trainer — Branded Bright Theme ================================= */
-
+/* ===== Piedmont Bright Theme ===== */
 :root{
-  --bg-hi:#0f1f4a;
-  --bg-mid:#1c3f8a;
-  --bg-low:#0a1330;
-  --card:#10192b;
-  --ink:#eef4ff;
-  --muted:#b9c6e6;
-  --accent:#3da0ff;   /* Piedmont blue-ish */
-  --accent-2:#e11d2e; /* Piedmont red */
-  --border:#2a3b66;
-  --chip:#152443;
-  --ok:#22c55e;
-  --warn:#f59e0b;
-  --err:#ef4444;
+  --bg-start:#e9f3ff;        /* brighter sky gradient */
+  --bg-mid:#cfe6ff;
+  --bg-end:#9fc9ff;
+  --card:#ffffff;            /* bright cards */
+  --ink:#0b1e39;             /* dark ink */
+  --muted:#47608a;
+  --accent:#0e63ff;
+  --border:#d8e6ff;
+  --chip:#f1f6ff;
+  --ok:#19b56b;
+  --err:#ff5c6c;
 }
 
-body.deice-bg {
-  /* brighter gradient + hero image (plane spray) */
+body.piedmont {
   background:
-    linear-gradient(180deg, rgba(15,31,74,.85), rgba(10,19,48,.9)),
-    url('/branding/deice-hero.jpg') center -80px / cover no-repeat fixed;
+    linear-gradient(180deg, var(--bg-start), var(--bg-mid) 40%, var(--bg-end)) fixed,
+    url("/images/plane-spray.jpg") right -60px / 800px auto no-repeat fixed;
   color: var(--ink);
 }
 
-.deice-card {
-  background: rgba(16,25,43, .92);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 16px 50px rgba(0,0,0,.45);
-}
+/* container + card */
+.pm-app { max-width: 1120px; margin: 24px auto; padding: 0 16px; }
+.pm-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 12px 36px rgba(5,30,74,.12); overflow: hidden; }
 
 /* header */
-.deice-header {
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 14px 16px; border-bottom: 1px solid var(--border);
-  backdrop-filter: saturate(1.2);
-}
-.deice-title { display:flex; align-items:center; gap:10px; margin:0; font: 700 18px/1.2 system-ui; }
-.deice-title img { height:22px; }
+.pm-header { display:flex; justify-content:space-between; align-items:center; gap:16px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border); background: linear-gradient(#fff, #f8fbff); }
+.pm-title { display:flex; align-items:center; gap:12px; }
+.pm-title img { height: 26px; }
+.pm-title h1 { margin:0; font: 700 18px/1 system-ui, -apple-system, Segoe UI, Roboto; }
+.pm-badge { background: var(--chip); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 999px; padding: 6px 10px; font-size: 12px; }
 
-/* main layout */
-.deice-main { display:grid; gap:16px; padding:16px; }
-.deice-main.desktop { grid-template-columns: 1.3fr .9fr; }
-.deice-main.mobile  { grid-template-columns: 1fr; }
+/* main grid */
+.pm-main { display:grid; gap:16px; padding:16px; }
+.pm-main.desktop { grid-template-columns: 1.25fr .9fr; }
+.pm-main.mobile  { grid-template-columns: 1fr; }
 
-.panel {
-  background: #0f1a33;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-}
+/* panels */
+.pm-panel { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.pm-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.pm-label { color: var(--muted); font-size: 12px; }
+.pm-select, .pm-input, textarea { width:100%; background:#f6f9ff; border:1px solid var(--border); color:var(--ink);
+  border-radius:10px; padding:10px 12px; font-size:14px; }
+.pm-btn { cursor:pointer; border:1px solid var(--border); background:#f2f7ff; color:var(--ink);
+  border-radius:12px; padding:10px 14px; font-weight:600; }
+.pm-btn.primary { background: linear-gradient(180deg, #2f78ff, #0e63ff); color:#fff; border-color:#0e63ff; }
+.pm-btn.ghost { background:transparent; }
+.pm-btn:disabled { opacity:.5; cursor:not-allowed; }
 
-/* ui atoms */
-.btn { cursor:pointer; border:1px solid var(--border); background:#0e1a34; color:var(--ink);
-  border-radius:12px; padding:10px 14px; font-weight:650; min-height:40px }
-.btn.primary { background: linear-gradient(180deg, #3aa4ff, #2b79d8); border-color:#2a6acc }
-.btn.ghost { background: transparent }
-.btn:disabled { opacity:.5; cursor:not-allowed }
-.select,.input,textarea { width:100%; background:#0b162f; color:var(--ink); border:1px solid var(--border);
-  border-radius:10px; padding:10px 12px; font-size:14px }
-.label { color:var(--muted); font-size:12px }
-.pill { display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border:1px solid var(--border);
-  border-radius:999px; background:var(--chip); color:var(--muted); font-size:12px }
+/* mic widget */
+.pm-mic { display:flex; align-items:center; gap:8px; }
+.pm-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border);
+  border-radius:999px; background:#f6f9ff; color:#34507a; font-size:12px; }
+.pm-meter { flex:1; height:8px; background:#eef5ff; border:1px solid var(--border);
+  border-radius:999px; overflow:hidden; }
+.pm-fill { height:100%; background:#19b56b; }
 
-/* coach + log */
-.coach { font-size:15px; background:#0e1f43; border-left:3px solid var(--accent); padding:12px; border-radius:8px }
-.log { height:160px; overflow:auto; background:#07122a; border:1px dashed var(--border); border-radius:8px;
-  padding:10px; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; white-space:pre-wrap }
+/* “coach” bubble */
+.pm-coach { font-size:15px; background:#f6f9ff; border-left:3px solid var(--accent); padding:12px; border-radius:8px; }
+
+/* log */
+.pm-log { height: 170px; overflow:auto; background:#fbfdff; border:1px dashed var(--border);
+  border-radius:8px; padding:10px; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; white-space:pre-wrap; }
 
 /* stepper */
-.stepper{display:flex;gap:6px;flex-wrap:wrap}
-.step{width:14px;height:14px;border-radius:6px;border:1px solid var(--border);background:#1a2a50}
-.step.cur{outline:2px solid var(--accent)}
-.step.ok{background:var(--ok)}
-.step.miss{background:var(--err)}
-
-/* score ring */
-.scoreRow{display:flex; align-items:center; gap:12px}
-.ring{width:72px;height:72px}
+.pm-stepper { display:flex; gap:6px; flex-wrap:wrap; }
+.pm-step { width:14px; height:14px; border-radius:6px; border:1px solid var(--border); background:#eaf2ff; }
+.pm-step.cur  { outline:2px solid var(--accent); }
+.pm-step.ok   { background:#d6f7e9; }
+.pm-step.miss { background:#ffe3e6; }
 
 /* diff */
-.diff{padding:8px;border-radius:8px;background:#0e1f43;margin:8px 0}
-.w-ok{color:#a8f0c9}
-.w-miss{color:#ffd1d1;text-decoration:underline dotted}
+.pm-diff { padding:8px; border-radius:8px; background:#f6f9ff; margin:8px 0; }
+.pm-wok { color:#0f7a4a; }
+.pm-wmiss { color:#b00d2d; text-decoration: underline dotted; }
 
-/* mic */
-.mic{display:flex;align-items:center;gap:8px}
-.meter{flex:1;height:8px;background:#0b162f;border:1px solid var(--border);border-radius:999px;overflow:hidden}
-.fill{height:100%;background:var(--ok)}
+/* score ring */
+.pm-scoreRow { display:flex; align-items:center; gap:12px; }
+.pm-ring { width:72px; height:72px; }
 
 /* footer */
-.deice-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;
-  color:var(--muted);font-size:12px}
+.pm-footer { padding:12px 16px; border-top:1px solid var(--border); display:flex; justify-content:space-between;
+  color:#47608a; font-size:12px; background:linear-gradient(#f8fbff,#fff); }
 
 /* toasts */
-.toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:9999}
-.toast{background:#0e1a34;border:1px solid var(--border);color:var(--ink);padding:10px 12px;border-radius:10px}
-.toast.success{border-color:var(--ok)} .toast.error{border-color:var(--err)}
+.pm-toasts { position:fixed; right:16px; bottom:16px; display:flex; flex-direction:column; gap:8px; z-index:9999; }
+.pm-toast { background:#ffffff; border:1px solid var(--border); color:#0b1e39; padding:10px 12px; border-radius:10px;
+  box-shadow:0 6px 20px rgba(5,30,74,.12); }
+.pm-toast.success{ border-color:#19b56b }
+.pm-toast.error{ border-color:#ff5c6c }
 
-/* responsive tweaks */
-@media (max-width:860px){ .deice-main{padding:12px} .log{height:140px} }
-@media (max-width:480px){ .log{height:120px} }
+/* responsive */
+@media (hover:none) and (pointer:coarse){ .pm-btn, .pm-select, .pm-input, textarea { min-height:44px } }
+@media (max-width: 860px){ .pm-main{ padding:12px } .pm-log{ height:140px } body.piedmont{ background-size: 600px auto } }
+@media (max-width: 480px){ .pm-log{ height:120px } body.piedmont{ background-position: right -10px top -10px } }
