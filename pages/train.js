@@ -318,6 +318,8 @@ export default function TrainPage() {
     }
   }
   
+const preparedRef = useRef(false);
+
 async function onPrepareMic() {
   setStatus("Unlocking audio…");
   await unlockAudio();
@@ -331,31 +333,24 @@ async function onPrepareMic() {
     setStatus("Mic permission denied. You can still run, but speech won’t be captured.");
   }
 }
+
 async function onStart() {
-  // Always reset flags first
   pausedRef.current = false;
   runningRef.current = true;
-
-  // If user forgot to prepare the mic, we still start — just warn.
   if (!preparedRef.current) {
     setStatus("Starting without mic (no voice will be captured)...");
   } else {
     setStatus("Starting simulator…");
   }
-
-  // Cancel any lingering TTS
   try { speechSynthesis.cancel(); } catch {}
-
-  // Kick off the main loop
-  runSimulator();  
+  runSimulator();
 }
-  function onPause() {
+
+function onPause() {
   pausedRef.current = true;
   runningRef.current = false;
-
   try { recRef.current?.abort?.(); } catch {}
   try { audioRef.current?.pause?.(); } catch {}
-
   setStatus("Paused");
 }
 
@@ -373,7 +368,7 @@ return (
       </div>
 
       {/* controls */}
-      <div className="row">
+     <div className="row">
   <button className="btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
   <button className="btn" onClick={onStart}>Start</button>
   <button className="btn ghost" onClick={onPause}>Pause</button>
