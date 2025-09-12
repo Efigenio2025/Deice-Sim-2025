@@ -1,5 +1,6 @@
 // pages/train.js
 import { useEffect, useMemo, useRef, useState } from "react";
+import useResponsiveMode from "../lib/useResponsiveMode";
 
 const MIN_LISTEN_MS = 1500;
 const MAX_LISTEN_MS = 25000;
