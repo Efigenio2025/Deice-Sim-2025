@@ -383,7 +383,7 @@ export default function TrainPage() {
         {/* Header */}
         <div className="pm-header">
           <div className="pm-title">
-            <img src="/images/piedmont-logo.jpg" alt="Piedmont Airlines" />
+            <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
             <h1 className="pm-h1">Deice Verbiage Trainer</h1>
             <span className="pm-badge">V1 • OMA • Training use only</span>
           </div>
