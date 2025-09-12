@@ -80,7 +80,7 @@ body.piedmont {
 .pm-header { display:flex; justify-content:space-between; align-items:center; gap:16px;
   padding: 14px 16px; border-bottom: 1px solid var(--border); background: linear-gradient(#fff, #f8fbff); }
 .pm-title { display:flex; align-items:center; gap:12px; }
-.pm-title img { height: 26px; }
+.pm-title img { height: 100px; }
 .pm-title h1 { margin:0; font: 700 18px/1 system-ui, -apple-system, Segoe UI, Roboto; }
 .pm-badge { background: var(--chip); border: 1px solid var(--border); color: var(--muted);
   border-radius: 999px; padding: 6px 10px; font-size: 12px; }
