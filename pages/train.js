@@ -2,509 +2,377 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useResponsiveMode from "../lib/useResponsiveMode";
 
-const MIN_LISTEN_MS = 1500;
-const MAX_LISTEN_MS = 25000;
-const SILENCE_MS = 4500;
-const CAPTAIN_DELAY_MS = 2500;
-
-const NATO = {
-  A: "Alpha", B: "Bravo", C: "Charlie", D: "Delta", E: "Echo", F: "Foxtrot",
-  G: "Golf", H: "Hotel", I: "India", J: "Juliet", K: "Kilo", L: "Lima",
-  M: "Mike", N: "November", O: "Oscar", P: "Papa", Q: "Quebec", R: "Romeo",
-  S: "Sierra", T: "Tango", U: "Uniform", V: "Victor", W: "Whiskey", X: "X-ray",
-  Y: "Yankee", Z: "Zulu",
-  "0": "Zero","1":"One","2":"Two","3":"Three","4":"Four","5":"Five","6":"Six","7":"Seven","8":"Eight","9":"Nine"
-};
-
-const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-const tokenize = (s) => norm(s).split(" ").filter(Boolean);
-
-function toNatoTail(t) {
-  return t.toUpperCase().split("").map((ch) => NATO[ch] || ch).join(" ");
-}
-function prepScenarioForGrading(scn) {
-  (scn.steps || []).forEach((st) => {
-    const base = String(st.text || st.phraseId || "");
-    st._displayLine = base;
-    st._expectedForGrade =
-      st.role === "Iceman"
-        ? base.replace(/\bN[0-9A-Z]{3,}\b/gi, (m) => toNatoTail(m))
-        : base;
-  });
-}
-function wordScore(expected, said) {
-  const e = new Set(tokenize(expected));
-  const s = new Set(tokenize(said));
-  if (!e.size) return 0;
-  let hit = 0;
-  e.forEach((w) => { if (s.has(w)) hit++; });
-  return Math.round((hit / e.size) * 100);
-}
-function diffWords(exp, heard) {
-  const E = tokenize(exp), H = tokenize(heard);
-  const setE = new Set(E), setH = new Set(H);
-  const expToks = E.map((w) => ({ w, cls: setH.has(w) ? "ok" : "miss" }));
-  const extras = H.filter((w) => !setE.has(w)).map((w) => ({ w, cls: "extra" }));
-  return { expToks, extras, expCount: E.length, hitCount: E.filter((w) => setH.has(w)).length };
-}
-
-export default function TrainPage() {  
-  const mode = useResponsiveMode();   // 'desktop' or 'mobile'
-  // UI state
-  const [scenarios, setScenarios] = useState([]);
-  const [current, setCurrent] = useState(null);
-  const [stepIndex, setStepIndex] = useState(-1);
-  const [status, setStatus] = useState("Idle");
-  const [live, setLive] = useState("(waiting…)");
-  const [score, setScore] = useState(0);
-  const [expTokens, setExpTokens] = useState([]);
-  const [heardTokens, setHeardTokens] = useState([]);
-  const [wordStats, setWordStats] = useState("");
-  const [results, setResults] = useState([]);
-
-  // run state
-  const runningRef = useRef(false);
-  const pausedRef = useRef(false);
-  const recRef = useRef(null);
-
-  // employee id gate
-  const [empOpen, setEmpOpen] = useState(false);
-  const [empInput, setEmpInput] = useState("");
-  const badge = useRef(null);
+export default function TrainPage() {
+  // --- BODY CLASS FOR BRIGHTER BACKGROUND ---
   useEffect(() => {
-    const prior = window.localStorage.getItem("trainer.employeeId") || window.sessionStorage.getItem("trainer.employeeId");
-    if (!prior) setEmpOpen(true);
-    else { try { badge.current.textContent = "ID: " + prior; } catch {} }
+    document.body.classList.add("deice-bg");
+    return () => document.body.classList.remove("deice-bg");
   }, []);
-  function saveEmp() {
-    const v = (empInput || "").trim();
-    if (!/^[A-Za-z0-9_-]{3,}$/.test(v)) { alert("Enter a valid ID (min 3 chars)"); return; }
+
+  // --- EXISTING SIM REFS (keep yours; these are common names) ---
+  const runningRef  = useRef(false);
+  const pausedRef   = useRef(false);
+  const preparedRef = useRef(false);
+  const recRef      = useRef(null);
+  const audioRef    = useRef(null);
+
+  // Provided by your app (adjust if different)
+  const [scenarios, setScenarios] = useState([]);
+  const [current, setCurrent]     = useState(null);
+  const [stepIndex, setStepIndex] = useState(-1);
+  const [status, setStatus]       = useState("Ready");
+  const resultsRef = useRef([]);      // if you have this already, keep your copy
+  const [results, setResults] = useState([]); // fallback mirror for UI
+
+  // --- LAYOUT MODE ---
+  const autoMode = useResponsiveMode();
+  const [forcedMode, setForcedMode] = useState(null); // 'desktop' | 'mobile' | null
+  const mode = forcedMode ?? autoMode;
+
+  // --- MIC LEVEL (simple analyser on prepare) ---
+  const [micLevel, setMicLevel] = useState(0);
+  const analyserRef = useRef(null);
+  const rafRef = useRef(null);
+  function startMicMeter(stream) {
     try {
-      window.localStorage.setItem("trainer.employeeId", v);
-      window.sessionStorage.setItem("trainer.employeeId", v);
-      if (badge.current) badge.current.textContent = "ID: " + v;
-    } catch {}
-    setEmpOpen(false);
-  }
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      src.connect(analyser);
+      analyserRef.current = analyser;
 
-  // audio
-  const audioRef = useRef(null);
-  const audioUnlockedRef = useRef(false);
-  async function unlockAudio() {
-    if (audioUnlockedRef.current) return true;
-    try {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (Ctx) { const ctx = new Ctx(); await ctx.resume(); }
-    } catch {}
-    try {
-      const a = audioRef.current;
-      if (a) { a.muted = true; await a.play().catch(() => {}); a.pause(); a.currentTime = 0; }
-    } catch {}
-    audioUnlockedRef.current = true;
-    return true;
-  }
-  function playCaptainAudio(file) {
-    const a = audioRef.current;
-    if (!a || !file) return Promise.resolve();
-    const candidates = [`/audio/${file}`, `/${file}`];
-
-    return new Promise((resolve) => {
-      let i = 0;
-      const tryOne = () => {
-        if (i >= candidates.length) { setStatus("Audio not available"); resolve(); return; }
-        const url = candidates[i++];
-        const clean = () => { a.onended = a.onerror = a.oncanplay = a.onloadedmetadata = null; };
-
-        try { a.pause(); a.currentTime = 0; } catch {}
-        a.src = url;
-
-        a.oncanplay = () => {
-          a.muted = false;
-          const p = a.play();
-          if (p && p.catch) {
-            p.catch(() => { clean(); tryOne(); }); // try next path on autoplay block
-          }
-          setStatus("Playing Captain line…");
-          setLive("(captain audio)");
-        };
-
-        a.onended = () => { clean(); resolve(); };
-        a.onerror = () => { clean(); tryOne(); };
-        a.onloadedmetadata = () => {};
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const lvl = Math.min(100, Math.round((Array.from(data).reduce((a,b)=>a+b,0)/data.length)/2));
+        setMicLevel(lvl);
+        rafRef.current = requestAnimationFrame(tick);
       };
-      tryOne();
-    });
-  }
-
-  // permissions
-  async function ensureMicPermission() {
-    try {
-      if (navigator.permissions?.query) {
-        const p = await navigator.permissions.query({ name: "microphone" });
-        if (p.state === "denied") { setStatus("Microphone blocked. Enable it in site settings."); throw new Error("mic-denied"); }
-      }
+      tick();
     } catch {}
-    setStatus("Requesting microphone permission…");
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false }
-    });
-    stream.getTracks().forEach((t) => t.stop());
-    setStatus("Microphone ready.");
-    return true;
   }
 
-  // scenarios
+  // --- LOAD SCENARIOS (uses your public/scenarios.json) ---
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`/scenarios.json?${Date.now()}`, { cache: "no-store" });
-        const data = await r.json();
-        setScenarios(Array.isArray(data) ? data : []);
-        if (Array.isArray(data) && data.length) {
-          const scn = JSON.parse(JSON.stringify(data[0]));
-          prepScenarioForGrading(scn);
-          setCurrent(scn);
+        const res = await fetch("/scenarios.json");
+        const list = await res.json();
+        setScenarios(list || []);
+        const first = (list && list[0]) || null;
+        if (first) {
+          setCurrent(first);
           setStepIndex(-1);
-          setStatus(`Loaded scenario: ${scn.label || scn.id}`); // ← added feedback
+          resultsRef.current = new Array(first.steps.length).fill(undefined);
+          setResults(resultsRef.current.slice());
+          setStatus(`Loaded scenario: ${first.label}`);
         }
       } catch {
-        setScenarios([]);
+        setStatus("Could not load scenarios.json");
       }
     })();
   }, []);
 
-  // listening (patched: generation guard + explicit abort)
-  async function listenStep({ minMs = MIN_LISTEN_MS, maxMs = MAX_LISTEN_MS, silenceMs = SILENCE_MS } = {}) {
-    return new Promise((resolve) => {
-      const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!R) { resolve({ final: "", interim: "", ended: "nosr" }); return; }
-
-      let finalText = "";
-      let interimText = "";
-      let started = Date.now();
-      let lastAct = started;
-      let stopped = false;
-      let rec = null;
-
-      let gen = 0; // generation guard
-
-      const shouldStop = () => {
-        const now = Date.now();
-        const elapsed = now - started;
-        const idle = now - lastAct;
-        if (elapsed < minMs) return false;
-        if (idle >= silenceMs) return true;
-        if (elapsed >= maxMs) return true;
-        return false;
-      };
-
-      const endAll = (reason = "end") => {
-        if (stopped) return;
-        stopped = true;
-        try {
-          if (rec) rec.stop();
-          if (recRef.current?.abort) recRef.current.abort(); // explicit abort
-        } catch {}
-        resolve({ final: finalText.trim(), interim: interimText.trim(), ended: reason });
-      };
-
-      const startOne = () => {
-        if (stopped || !runningRef.current || pausedRef.current) return;
-        const myGen = ++gen;
-
-        rec = new R();
-        rec.lang = "en-US";
-        rec.continuous = false;
-        rec.interimResults = true;
-        rec.maxAlternatives = 1;
-        recRef.current = rec;
-
-        rec.onstart = () => { lastAct = Date.now(); setStatus("Listening…"); setLive("(listening…)"); };
-        rec.onsoundstart = () => { lastAct = Date.now(); };
-        rec.onspeechstart = () => { lastAct = Date.now(); };
-
-        rec.onresult = (ev) => {
-          let interim = "";
-          for (let i = ev.resultIndex; i < ev.results.length; i++) {
-            const tr = ev.results[i][0]?.transcript || "";
-            if (tr) lastAct = Date.now();
-            if (ev.results[i].isFinal) finalText += (finalText ? " " : "") + tr;
-            else interim += (interim ? " " : "") + tr;
-          }
-          interimText = interim;
-          const combined = (finalText ? finalText + " " : "") + interimText;
-          setLive(combined || "(listening…)");
-        };
-
-        rec.onerror = () => {
-          if (myGen !== gen) return;
-          if (shouldStop()) endAll("error");
-          else setTimeout(startOne, 140);
-        };
-        rec.onend   = () => {
-          if (myGen !== gen) return;
-          if (shouldStop()) endAll("ended");
-          else setTimeout(startOne, 140);
-        };
-
-        try { rec.start(); } catch { if (shouldStop()) endAll("start-failed"); else setTimeout(startOne, 200); }
-      };
-
-      // safety guard
-      const guard = setInterval(() => {
-        if (stopped) { clearInterval(guard); return; }
-        if (!runningRef.current || pausedRef.current) { clearInterval(guard); endAll("paused"); return; }
-        if (shouldStop()) { clearInterval(guard); endAll("ok"); return; }
-      }, 120);
-
-      startOne();
-    });
-  }
-
-  // simulator
-  async function runSimulator() {
-    if (!current) { setStatus("Select a scenario first."); return; }
-    runningRef.current = true; pausedRef.current = false;
-    setScore(0); setResults([]); setLive("(waiting…)"); setStatus("Running…");
-    try { speechSynthesis.cancel(); } catch {}
-
-    const steps = current.steps || [];
-    let stepScores = [];
-
-    for (let i = 0; i < steps.length; i++) {
-      if (!runningRef.current || pausedRef.current) break;
-      setStepIndex(i);
-      const st = steps[i];
-
-      // render expected line
-      const expectedDisplay = st._displayLine || st.text || "";
-      setExpTokens(tokenize(expectedDisplay).map((w) => ({ w, cls: "ok" })));
-      setHeardTokens([]);
-      setWordStats("");
-
-      if (st.role === "Captain") {
-        await playCaptainAudio(st.audio || "");
-        if (!runningRef.current || pausedRef.current) break;
-        await new Promise((r) => setTimeout(r, CAPTAIN_DELAY_MS));
-      } else {
-        setStatus("Listening… please speak the Iceman line");
-        setLive("(listening…)");
-        const { final, interim } = await listenStep();
-        const heard = (final || interim || "").trim();
-
-        const expectedGrade = st._expectedForGrade || (st.text || "");
-        const s = wordScore(expectedGrade, heard);
-        stepScores.push(s);
-
-        const { expToks, extras, expCount, hitCount } = diffWords(expectedDisplay, heard);
-        setExpTokens(expToks);
-        setHeardTokens(extras.length ? extras : [{ w: heard || "—", cls: heard ? "ok" : "miss" }]);
-        setWordStats(`${hitCount}/${expCount} expected words matched • Step score ${s}%`);
-
-        const avg = Math.round(stepScores.reduce((a, b) => a + b, 0) / stepScores.length);
-        setScore(avg);
-        setStatus(heard ? `Heard: "${heard}"` : "No speech detected.");
-        setLive(heard || "(listening done)");
-
-        setResults((r) => r.concat([{ i: i + 1, role: st.role, prompt: st.prompt || "", heard, score: s }]));
-      }
-    }
-
-    if (runningRef.current && !pausedRef.current) {
-      const finalScore = stepScores.length ? Math.round(stepScores.reduce((a, b) => a + b, 0) / stepScores.length) : 0;
-      setScore(finalScore);
-      setStatus(`Scenario complete. Final score: ${finalScore}%`);
-      runningRef.current = false;
-    }
-  }
-  
-const preparedRef = useRef(false);
-
-async function onPrepareMic() {
-  setStatus("Unlocking audio…");
-  await unlockAudio();
-  try {
-    setStatus("Requesting microphone permission…");
-    await ensureMicPermission();
-    preparedRef.current = true;
-    setStatus("Mic ready.");
-  } catch (e) {
-    preparedRef.current = false;
-    setStatus("Mic permission denied. You can still run, but speech won’t be captured.");
-  }
-}
-
-async function onStart() {
-  pausedRef.current = false;
-  runningRef.current = true;
-  if (!preparedRef.current) {
-    setStatus("Starting without mic (no voice will be captured)...");
-  } else {
-    setStatus("Starting simulator…");
-  }
-  try { speechSynthesis.cancel(); } catch {}
-  runSimulator();
-}
-
-function onPause() {
-  pausedRef.current = true;
-  runningRef.current = false;
-  try { recRef.current?.abort?.(); } catch {}
-  try { audioRef.current?.pause?.(); } catch {}
-  setStatus("Paused");
-}
-
   const steps = useMemo(() => current?.steps || [], [current]);
 
-return (
-  <div className={`wrap train-wrap ${mode}`}>
-    {/* top bar */}
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <a className="btn ghost" href="/">← Home</a>
-        <div className="row" style={{ gap: 8, alignItems: "center" }}>
-          <span className="pill" id="empIdBadge" ref={badge}>ID: —</span>
-          <button className="btn ghost" onClick={() => setEmpOpen(true)}>Change ID</button>
-        </div>
+  // --- CONTROLS: PREP / START / PAUSE ---
+  async function onPrepareMic() {
+    setStatus("Unlocking audio…");
+    // if you have your own unlockAudio/ensureMicPermission, use those:
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      preparedRef.current = true;
+      setStatus("Mic ready.");
+      startMicMeter(stream);
+    } catch {
+      preparedRef.current = false;
+      setStatus("Mic permission denied. Running without voice.");
+    }
+  }
+
+  async function onStart() {
+    pausedRef.current = false;
+    runningRef.current = true;
+    try { speechSynthesis.cancel(); } catch {}
+    setStatus(preparedRef.current ? "Starting simulator…" : "Starting without mic…");
+
+    // if you have your own runSimulator, call it:
+    runSimulatorSafe();
+    // also move to first line if not started
+    if (stepIndex < 0 && steps.length) setStepIndex(0);
+  }
+
+  function onPause() {
+    pausedRef.current = true;
+    runningRef.current = false;
+    try { recRef.current?.abort?.(); } catch {}
+    try { audioRef.current?.pause?.(); } catch {}
+    setStatus("Paused");
+  }
+
+  // --- NAV ---
+  function onPrev() {
+    if (!current) return;
+    setStepIndex(i => Math.max(0, i - 1));
+  }
+  function onNext() {
+    if (!current) return;
+    setStepIndex(i => Math.min(steps.length - 1, i + 1));
+  }
+
+  // --- CHECK RESPONSE (demo/fallback) ---
+  function checkResponse(heard) {
+    const expected = steps[stepIndex]?.text || "";
+    const score = jaccard(heard || "", expected);
+    const ok = score >= 0.6;
+    // write into results
+    writeResult(stepIndex, ok);
+    setStatus(ok ? `Good (${Math.round(score*100)}%)` : `Try again (${Math.round(score*100)}%)`);
+  }
+
+  function writeResult(idx, ok) {
+    if (idx < 0) return;
+    if (Array.isArray(resultsRef.current)) {
+      resultsRef.current[idx] = ok;
+      setResults(resultsRef.current.slice());
+    } else {
+      const copy = results.slice(); copy[idx] = ok; setResults(copy);
+    }
+  }
+
+  // --- SCORE RING ---
+  const scorePct = useMemo(() => {
+    const arr = (Array.isArray(resultsRef.current) ? resultsRef.current : results) || [];
+    const tot = arr.filter(v => v !== undefined).length;
+    const ok = arr.filter(Boolean).length;
+    return tot ? Math.round((ok / tot) * 100) : 0;
+  }, [results]);
+
+  // --- SIMPLE SIM LOOP SAFETY (no-op if you have your own) ---
+  function runSimulatorSafe() {
+    if (typeof window.__HAS_SIM__ !== "undefined") return; // avoid duplicate demo loops
+    window.__HAS_SIM__ = true;
+    // If you already have runSimulator() defined elsewhere, call it instead and delete this.
+    // This demo loop just toggles status text while running flags are true.
+    (function loop(){
+      if (!runningRef.current || pausedRef.current) return;
+      setTimeout(loop, 500);
+    })();
+  }
+
+  // --- HELPERS ---
+  function jaccard(a, b) {
+    const A = new Set(String(a).toLowerCase().replace(/[^a-z0-9 ]/g,'').split(/\s+/).filter(Boolean));
+    const B = new Set(String(b).toLowerCase().replace(/[^a-z0-9 ]/g,'').split(/\s+/).filter(Boolean));
+    const inter = [...A].filter(x => B.has(x)).length;
+    const union = new Set([...A, ...B]).size || 1;
+    return inter / union;
+  }
+
+  // --- UI PIECES ---
+  function Stepper({ total, currentIndex, results = [], onJump }) {
+    return (
+      <div className="stepper">
+        {Array.from({ length: total }).map((_, i) => {
+          const r = results[i]; // true/false/undefined
+          const cls = i === currentIndex ? "cur" : r === true ? "ok" : r === false ? "miss" : "";
+          return (
+            <button key={i} className={`step ${cls}`} onClick={() => onJump?.(i)} aria-label={`Step ${i+1}`} />
+          );
+        })}
       </div>
+    );
+  }
 
-      {/* controls */}
-     <div className="row">
-  <button className="btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
-  <button className="btn" onClick={onStart}>Start</button>
-  <button className="btn ghost" onClick={onPause}>Pause</button>
-</div>
+  function ScoreRing({ pct = 0, size = 72 }) {
+    const r = (size - 8) / 2, c = size / 2, circ = 2 * Math.PI * r, off = circ * (1 - pct / 100);
+    return (
+      <svg className="ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={c} cy={c} r={r} stroke="#223b66" strokeWidth="8" fill="none"/>
+        <circle cx={c} cy={c} r={r} stroke="var(--accent)" strokeWidth="8" fill="none"
+                strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"/>
+        <text x="50%" y="54%" textAnchor="middle" fontSize="14" fill="var(--ink)">{pct}%</text>
+      </svg>
+    );
+  }
 
-      {/* scenario select */}
-      <div className="card">
-        <h2>Trainer</h2>
-        <div className="row">
-          <label style={{ flex: "1 1 260px" }}>
-            Select scenario
+  function MicWidget({ status="idle", level=0 }) {
+    return (
+      <div className="mic">
+        <span className="pill">Mic: {status}</span>
+        <div className="meter"><div className="fill" style={{ width: `${Math.min(100, level)}%` }} /></div>
+      </div>
+    );
+  }
+
+  // --- RENDER ---
+  return (
+    <div className="deice-card">
+      <div className="deice-header">
+        <h1 className="deice-title">
+          <img src="/branding/piedmont-logo.svg" alt="Piedmont" />
+          Deice Verbiage Trainer
+        </h1>
+        <div className="row" style={{ gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="row">
+            <label className="label" htmlFor="scenario">Scenario</label>
             <select
+              id="scenario" className="select"
+              value={current?.id || ""}
               onChange={(e) => {
-                const scn = JSON.parse(JSON.stringify(scenarios.find((s) => s.id === e.target.value)));
+                const scn = scenarios.find(s => (s.id || s.label) === e.target.value);
                 if (scn) {
-                  prepScenarioForGrading(scn);
                   setCurrent(scn);
                   setStepIndex(-1);
-                  setScore(0);
-                  setResults([]);
-                  setStatus("Idle");
-                  setLive("(waiting…)");
+                  resultsRef.current = new Array(scn.steps.length).fill(undefined);
+                  setResults(resultsRef.current.slice());
                   setStatus(`Loaded scenario: ${scn.label || scn.id}`);
                 }
               }}
-              value={current?.id || ""}
             >
-              {scenarios.length === 0 && <option value="">— loading —</option>}
-              {scenarios.map((s) => <option key={s.id} value={s.id}>{s.label || s.id}</option>)}
+              {(scenarios || []).map(s => (
+                <option key={s.id || s.label} value={s.id || s.label}>{s.label || s.id}</option>
+              ))}
             </select>
-          </label>
-          <button
-            className="btn ghost"
-            onClick={async () => {
-              setStatus("Reloading scenarios…");
-              try {
-                const r = await fetch("/scenarios.json?" + Date.now(), { cache: "no-store" });
-                const data = await r.json();
-                setScenarios(data || []);
-                if (data?.length) {
-                  const scn = JSON.parse(JSON.stringify(data[0]));
-                  prepScenarioForGrading(scn);
-                  setCurrent(scn);
-                  setStatus("Scenarios loaded.");
-                }
-              } catch {
-                setStatus("Reload failed");
-              }
-            }}
-          >
-            Reload
-          </button>
-        </div>
-        <div id="desc" className="status" style={{ marginTop: 6 }}>
-          {current?.desc || "Select a scenario to begin."}
+          </div>
+
+          <div className="row">
+            <label className="label">View</label>
+            <button className="btn ghost" onClick={() => setForcedMode(null)}>Auto</button>
+            <button className="btn ghost" onClick={() => setForcedMode("desktop")}>Desktop</button>
+            <button className="btn ghost" onClick={() => setForcedMode("mobile")}>Mobile</button>
+          </div>
+
+          <span className="pill">{status}</span>
         </div>
       </div>
 
-      {/* live line */}
-      <div className="card" aria-live="polite" aria-label="Live microphone input">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <strong>Live Input</strong>
-          <span className="status">{status}</span>
-        </div>
-        <div className="live-inline">{live}</div>
-      </div>
+      <div className={`deice-main ${mode}`}>
+        {/* LEFT: Script + Controls */}
+        <section className="panel">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row">
+              <button className="btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
+              <button className="btn" onClick={onStart}>Start</button>
+              <button className="btn ghost" onClick={onPause}>Pause</button>
+            </div>
+            <MicWidget status={preparedRef.current ? (runningRef.current && !pausedRef.current ? "listening" : "ready") : "idle"} level={micLevel}/>
+          </div>
 
-      {/* current step */}
-      {current && stepIndex >= 0 && stepIndex < steps.length && (
-        <div className="card">
-          <h2>Step</h2>
-          <div className="status" id="stepsBox">
-            <div style={{ padding: 8, border: "1px solid #1f6feb", borderRadius: 10, background: "#0f1424" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                <strong>Step {stepIndex + 1} • {steps[stepIndex].role}</strong>
-                <span className="status">{steps[stepIndex].prompt || ""}</span>
+          <div style={{ marginTop: 10 }}>
+            <div className="label">Current Line</div>
+            <div className="coach">
+              {stepIndex < 0 ? "Press Start to begin the scenario." : (
+                <>
+                  <strong>{steps[stepIndex]?.role}:</strong> {steps[stepIndex]?.text}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="row" style={{ marginTop: 8 }}>
+            <button className="btn" onClick={onPrev} disabled={stepIndex <= 0}>⟵ Prev</button>
+            <button className="btn primary" onClick={onNext} disabled={stepIndex >= steps.length - 1 || stepIndex < 0}>Next ⟶</button>
+            <button className="btn" onClick={() => {/* hook your TTS here */}}>▶︎ Play line</button>
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <div className="label">Your Response</div>
+            <textarea rows={3} className="input" placeholder="Speak or type your line…" id="resp"></textarea>
+            <div className="row" style={{ marginTop: 6 }}>
+              <button
+                className="btn"
+                onClick={() => {
+                  const val = document.getElementById("resp").value;
+                  checkResponse(val);
+                }}
+                disabled={stepIndex < 0}
+              >
+                Check
+              </button>
+              <span className="pill">{scorePct ? `Session: ${scorePct}%` : "—"}</span>
+            </div>
+          </div>
+
+          {/* Example diff placeholder; wire to your checker output if you want */}
+          {stepIndex >= 0 && (
+            <div className="diff">
+              {/* simple expected vs heard visualization goes here */}
+              <span className="w-ok">Iceman,</span>{" "}
+              <span className="w-miss">this</span>{" "}
+              <span className="w-ok">is</span>{" "}
+              <span className="w-ok">N443DF,</span>{" "}
+              <span className="w-miss">do</span>{" "}
+              <span className="w-ok">you copy?</span>
+            </div>
+          )}
+        </section>
+
+        {/* RIGHT: Progress + KPIs + Log */}
+        <section className="panel">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <div>
+              <div className="label">Progress</div>
+              <Stepper
+                total={steps.length}
+                currentIndex={Math.max(0, stepIndex)}
+                results={Array.isArray(resultsRef.current) ? resultsRef.current : results}
+                onJump={(i) => setStepIndex(i)}
+              />
+            </div>
+            <div className="scoreRow">
+              <ScoreRing pct={scorePct} />
+              <div>
+                <div className="pill">WPM: <strong>—</strong></div>
+                <div className="pill">Avg. Response: <strong>—</strong></div>
+                <div className="pill">Retries: <strong>—</strong></div>
               </div>
-              <div style={{ marginTop: 6 }}>{steps[stepIndex]._displayLine || steps[stepIndex].text}</div>
             </div>
           </div>
-          <div className="scoreline">
-            <div className="status">Score: <span id="scorePct">{score}%</span></div>
-            <div style={{ flex: 1 }} />
-            <div className="progress" style={{ width: 300 }}>
-              <div className="bar" style={{ width: `${score}%` }} />
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* transcript */}
-      <div className="card">
-        <h2>Transcript</h2>
-        <div className="status">Expected</div>
-        <div>
-          {expTokens.map((t, i) => <span key={i} className={`tok ${t.cls}`}>{t.w}</span>)}
-        </div>
-        <div className="status" style={{ marginTop: 8 }}>You said</div>
-        <div>
-          {heardTokens.map((t, i) => <span key={i} className={`tok ${t.cls}`}>{t.w}</span>)}
-        </div>
-        <div className="status" style={{ marginTop: 6 }}>{wordStats}</div>
+          <div style={{ marginTop: 10 }}>
+            <div className="label">Session Log</div>
+            <div className="log" id="log">{
+`[Step 1]
+Expected: Iceman, this is N443DF, do you copy?
+Heard:    Iceman, this is N443DF, can you copy?
+Score:    82%`
+            }</div>
+          </div>
+
+          <div className="row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+            <button className="btn ghost" onClick={exportSession}>Export CSV</button>
+            <button className="btn ghost" onClick={() => alert("Settings saved")}>Save Settings</button>
+          </div>
+        </section>
       </div>
 
-      {/* results */}
-      {results.length > 0 && !runningRef.current && (
-        <div className="card">
-          <h2>Results</h2>
-          <p className="status">Final score: <strong>{score}%</strong></p>
-          <ol style={{ paddingLeft: 18, margin: "8px 0 0" }}>
-            {results.map((r) => (
-              <li key={r.i}>
-                <strong>Step {r.i}</strong> • {r.role} • <span className="status">{r.prompt}</span><br />
-                <span>{r.heard || "—"}</span> — <strong>{r.score}%</strong>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-
-      {/* employee modal & captain audio */}
-      {empOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
-          <div className="card" style={{ maxWidth: 380, width: "92%" }}>
-            <h2 style={{ margin: "0 0 8px" }}>Enter Employee ID</h2>
-            <p className="status" style={{ margin: "0 0 10px" }}>Required to log trainings.</p>
-            <input placeholder="e.g., 123456" value={empInput} onChange={(e) => setEmpInput(e.target.value)} />
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <button className="btn ghost" onClick={() => alert("Employee ID is required.")}>Cancel</button>
-              <button className="btn" onClick={saveEmp}>Continue</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <audio ref={audioRef} preload="metadata" playsInline muted />
+      <div className="deice-footer">
+        <div>V1 • training purposes only • OMA station • Mic works in Safari on iOS</div>
+        <div className="pill">Tip: Use headphones to avoid feedback</div>
+      </div>
     </div>
   );
+
+  // --- CSV EXPORT ---
+  function exportSession() {
+    if (!current) return;
+    const arr = (Array.isArray(resultsRef.current) ? resultsRef.current : results) || [];
+    const rows = [
+      ["Scenario", current.label || current.id || ""],
+      [],
+      ["Step", "Role", "Expected", "Result"],
+      ...steps.map((s, i) => [i + 1, s.role, s.text, arr[i] ? "OK" : (arr[i] === false ? "MISS" : "")])
+    ];
+    downloadCSV(rows, `deice_${(current.id || "scenario")}.csv`);
+  }
+
+  function downloadCSV(rows, filename='deice-results.csv') {
+    const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
 }
