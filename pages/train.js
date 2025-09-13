@@ -1,7 +1,14 @@
 // pages/train.js
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  unlockAudio,
+  playCaptainCue,
+  preloadCaptainCues,
+  onAudio,
+  stopAudio,
+} from "../lib/audio";
 
-/* ------------------------ Helpers: UI components ------------------------ */
+/* ================= UI Bits ================= */
 
 function Stepper({ total, current, results = [], onJump }) {
   return (
@@ -80,8 +87,7 @@ function MicWidget({ status = "idle", level = 0 }) {
   );
 }
 
-/* ------------------------ Toasts ------------------------ */
-
+/* ================ Toasts (imperative) ================ */
 const _toasts = [];
 function toast(msg, kind = "info", ms = 2200) {
   _toasts.push({ id: Date.now(), msg, kind });
@@ -104,8 +110,7 @@ function renderToasts() {
     .join("");
 }
 
-/* ------------------------ Responsive hook ------------------------ */
-
+/* ================ Responsive hook ================ */
 function useResponsiveMode(forced = null) {
   const pick = () => (window.innerWidth <= 860 ? "mobile" : "desktop");
   const [mode, setMode] = useState(
@@ -123,8 +128,7 @@ function useResponsiveMode(forced = null) {
   return mode;
 }
 
-/* ------------------------ CSV export ------------------------ */
-
+/* ================ CSV export ================ */
 function downloadCSV(rows, filename = "deice-results.csv") {
   const csv = rows
     .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
@@ -138,37 +142,41 @@ function downloadCSV(rows, filename = "deice-results.csv") {
   URL.revokeObjectURL(url);
 }
 
-/* ------------------------ Page ------------------------ */
+/* ================ Page ================ */
 
 export default function TrainPage() {
   // scenarios
   const [scenarios, setScenarios] = useState([]);
   const [current, setCurrent] = useState(null);
 
-  // step state
+  // steps / results
   const [stepIndex, setStepIndex] = useState(-1);
   const steps = useMemo(() => current?.steps || [], [current]);
   const total = steps.length;
-
-  // results
   const resultsRef = useRef([]); // boolean per step
+
+  // UI state
+  const [status, setStatus] = useState("Ready");
+  const [answer, setAnswer] = useState("");
   const [lastResultText, setLastResultText] = useState("—");
   const [retryCount, setRetryCount] = useState(0);
   const [avgRespSec, setAvgRespSec] = useState(null);
+  const [logText, setLogText] = useState("");
 
-  // controls/state
+  // mode
+  const [forcedMode, setForcedMode] = useState(null);
+  const mode = useResponsiveMode(forcedMode);
+
+  // run/mic flags
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
   const preparedRef = useRef(false);
-  const recRef = useRef(null);
-  const audioRef = useRef(null);
+
+  // mic visuals
   const micLevelRef = useRef(0);
 
-  // UI
-  const [status, setStatus] = useState("Ready");
-  const [answer, setAnswer] = useState("");
-  const [forcedMode, setForcedMode] = useState(null);
-  const mode = useResponsiveMode(forcedMode);
+  // captain audio status (from lib/audio bus)
+  const [captainStatus, setCaptainStatus] = useState("idle");
 
   // derived
   const correct = (resultsRef.current || []).filter(Boolean).length;
@@ -180,7 +188,12 @@ export default function TrainPage() {
     : "idle";
   const micLevel = micLevelRef.current || 0;
 
-  /* -------- Load scenarios from /public/scenarios.json -------- */
+  /* ---------- logging helper ---------- */
+  function log(msg) {
+    setLogText((t) => (t ? t + "\n" : "") + msg);
+  }
+
+  /* ---------- load scenarios (with demo fallback) ---------- */
   useEffect(() => {
     let live = true;
     (async () => {
@@ -196,18 +209,21 @@ export default function TrainPage() {
           setStatus("Scenario loaded");
         }
       } catch {
-        // fallback demo
+        // demo fallback (has Captain/Iceman alternation; add cue if you want)
         const demo = [
           {
-            id: "demo",
+            id: "scn1",
             label: "Full Body Type I Only",
             steps: [
-              { role: "Captain", text: "Iceman, this is N443DF, do you copy?" },
+              { role: "Captain", cue: "init", text: "Iceman, this is N443DF, do you copy?" },
               { role: "Iceman", text: "N443DF, this is Iceman, go ahead." },
-              {
-                role: "Captain",
-                text: "Requesting full body Type I deicing today.",
-              },
+              { role: "Captain", cue: "ready", text: "Aircraft N443DF ready for deicing." },
+              { role: "Iceman", text: "Copy, starting Type I application now." },
+              { role: "Captain", cue: "hail", text: "Be advised—hail reported in the area." },
+              { role: "Iceman", text: "Acknowledged, monitoring conditions." },
+              { role: "Captain", cue: "ack_update", text: "Copy your update, continue as briefed." },
+              { role: "Iceman", text: "Deicing complete and equipment clear." },
+              { role: "Captain", cue: "final", text: "Thanks Iceman, stay warm out there!" },
             ],
           },
         ];
@@ -223,71 +239,25 @@ export default function TrainPage() {
     };
   }, []);
 
-  /* -------- Mic level mock (replace with real analyser if you have one) -------- */
+  /* ---------- subscribe to audio status ---------- */
+  useEffect(() => {
+    const off = onAudio("status", (e) => {
+      setCaptainStatus(e.detail?.status || "idle");
+    });
+    return () => off && off();
+  }, []);
+
+  /* ---------- mock mic level (replace with analyser if you have one) ---------- */
   useEffect(() => {
     const id = setInterval(() => {
-      if (runningRef.current && !pausedRef.current) {
-        micLevelRef.current = 10 + Math.round(Math.random() * 80);
-      } else {
-        micLevelRef.current = 0;
-      }
+      micLevelRef.current =
+        runningRef.current && !pausedRef.current ? 10 + Math.round(Math.random() * 80) : 0;
     }, 500);
     return () => clearInterval(id);
   }, []);
 
-  /* --------------------------- Controls --------------------------- */
-
-  async function unlockAudio() {
-    // If you have a real audio unlock (e.g., creating AudioContext), call it here.
-    return;
-  }
-
-  async function ensureMicPermission() {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("no gUM");
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-  }
-
-  async function onPrepareMic() {
-    setStatus("Unlocking audio…");
-    await unlockAudio();
-    try {
-      setStatus("Requesting microphone permission…");
-      await ensureMicPermission();
-      preparedRef.current = true;
-      setStatus("Mic ready.");
-      toast("Mic ready", "success");
-    } catch {
-      preparedRef.current = false;
-      setStatus("Mic permission denied. Running without voice input.");
-      toast("Mic blocked. Will run without voice.", "error");
-    }
-  }
-
-  async function onStart() {
-    pausedRef.current = false;
-    runningRef.current = true;
-    try {
-      speechSynthesis.cancel();
-    } catch {}
-    setStatus(preparedRef.current ? "Starting simulator…" : "Starting without mic…");
-    if (stepIndex < 0) setStepIndex(0);
-    runSimulator();
-  }
-
-  function onPause() {
-    pausedRef.current = true;
-    runningRef.current = false;
-    try {
-      recRef.current?.abort?.();
-    } catch {}
-    try {
-      audioRef.current?.pause?.();
-    } catch {}
-    setStatus("Paused");
-    toast("Paused");
-  }
-
-  function speakLine(text) {
+  /* ---------- utilities ---------- */
+  function speakLineTTS(text) {
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
@@ -296,15 +266,69 @@ export default function TrainPage() {
     } catch {}
   }
 
-  function normalize(s) {
-    return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
-  }
+  const normalize = (s) =>
+    s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+
   function quickScore(expected, heard) {
     const A = new Set(normalize(expected).split(" "));
     const B = new Set(normalize(heard).split(" "));
     const inter = [...A].filter((x) => B.has(x)).length;
-    const pct = A.size ? Math.round((inter / A.size) * 100) : 0;
-    return pct;
+    return A.size ? Math.round((inter / A.size) * 100) : 0;
+  }
+
+  // If a step lacks cue, map by index for scn1
+  const CAPTAIN_INDEX_MAP = { 0: "init", 2: "ready", 4: "hail", 6: "ack_update", 8: "final" };
+  async function playForStep(step, idx) {
+    if (!step) return;
+    if (step.role === "Captain") {
+      const scnId = current?.id || "scn1";
+      const cue = step.cue || CAPTAIN_INDEX_MAP[idx];
+      if (cue) {
+        const ok = await playCaptainCue(scnId, cue);
+        if (!ok) speakLineTTS(step.text); // fallback to TTS if file missing
+        return;
+      }
+    }
+    // Non-captain: use TTS
+    speakLineTTS(step.text);
+  }
+
+  /* ---------- controls ---------- */
+  async function onPrepareMic() {
+    await unlockAudio(); // primes iOS/Safari
+    preloadCaptainCues(current?.id || "scn1", ["init", "ready", "hail", "ack_update", "final"]);
+    preparedRef.current = true;
+    setStatus("Mic ready.");
+    log("Mic ready.");
+    toast("Mic ready", "success");
+  }
+
+  async function onStart() {
+    pausedRef.current = false;
+    runningRef.current = true;
+    setStatus(preparedRef.current ? "Starting simulator…" : "Starting without mic…");
+    log("Session started.");
+    if (stepIndex < 0) {
+      setStepIndex(0);
+      // play first line after state applies
+      setTimeout(() => {
+        const s = steps[0];
+        s && playForStep(s, 0);
+      }, 50);
+    } else {
+      const s = steps[stepIndex];
+      s && playForStep(s, stepIndex);
+    }
+    runSimulator();
+  }
+
+  function onPause() {
+    pausedRef.current = true;
+    runningRef.current = false;
+    stopAudio();
+    setStatus("Paused");
+    log("Paused.");
+    toast("Paused");
   }
 
   function onCheck() {
@@ -315,6 +339,7 @@ export default function TrainPage() {
     resultsRef.current[stepIndex] = ok;
     setLastResultText(ok ? `✅ Good (${pct}%)` : `❌ Try again (${pct}%)`);
     if (!ok) setRetryCount((n) => n + 1);
+    log(`[Step ${stepIndex + 1}] Score ${pct}% → ${ok ? "OK" : "MISS"}`);
   }
 
   function exportSession() {
@@ -328,8 +353,7 @@ export default function TrainPage() {
     toast("CSV downloaded", "success");
   }
 
-  /* --------------------------- Simulator loop (lightweight) --------------------------- */
-
+  /* ---------- simulator loop (lightweight) ---------- */
   function runSimulator() {
     if (!current || !steps.length) {
       setStatus("Select a scenario first.");
@@ -338,53 +362,57 @@ export default function TrainPage() {
     const startedAt = performance.now();
     setStatus("Running…");
 
-    // speak current line once on start
-    const s = steps[Math.max(0, stepIndex)];
-    if (s) speakLine(s.text);
-
     const tick = () => {
       if (!runningRef.current || pausedRef.current) return;
 
-      // when user has checked, auto-advance to next step (demo logic)
-      const done = resultsRef.current[stepIndex];
-      if (done && stepIndex < steps.length - 1) {
-        setStepIndex((i) => i + 1);
-        const next = steps[stepIndex + 1];
-        if (next) {
-          setTimeout(() => speakLine(next.text), 120);
-        }
+      // auto-advance demo: if current judged OK, move next
+      const judged = resultsRef.current[stepIndex];
+      if (judged && stepIndex < steps.length - 1) {
+        const next = stepIndex + 1;
+        setStepIndex(next);
+        const s = steps[next];
+        s && playForStep(s, next);
       }
 
-      // average response mock timing
       const dur = (performance.now() - startedAt) / 1000;
       setAvgRespSec((prev) => (prev ? (prev + dur) / 2 : dur));
 
-      // finish condition
       const allJudged =
         resultsRef.current.length === steps.length &&
         resultsRef.current.every((v) => v === true || v === false);
 
       if (allJudged) {
         runningRef.current = false;
-        setStatus(`Complete • ${correct}/${total} (${pct}%) • ${pct >= 80 ? "PASS" : "RETRY"}`);
-        toast("Session complete", pct >= 80 ? "success" : "info");
+        const finalPct =
+          steps.length > 0
+            ? Math.round(
+                (resultsRef.current.filter(Boolean).length / steps.length) * 100
+              )
+            : 0;
+        setStatus(
+          `Complete • ${resultsRef.current.filter(Boolean).length}/${steps.length} (${finalPct}%) • ${
+            finalPct >= 80 ? "PASS" : "RETRY"
+          }`
+        );
+        toast("Session complete", finalPct >= 80 ? "success" : "info");
         return;
       }
+
       requestAnimationFrame(tick);
     };
+
     requestAnimationFrame(tick);
   }
 
-  /* --------------------------- Render --------------------------- */
-
+  /* ---------- render ---------- */
   return (
     <div className="pm-app">
       <div className="pm-card">
         {/* Header */}
         <div className="pm-header">
           <div className="pm-title">
-            <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
-            <h1 className="pm-h1">Deice Verbiage Trainer</h1>
+            <img src="/images/piedmont-logo.jpg" alt="Piedmont Airlines" />
+            <h1>Deice Verbiage Trainer</h1>
             <span className="pm-badge">V1 • OMA • Training use only</span>
           </div>
           <div className="pm-row">
@@ -401,6 +429,8 @@ export default function TrainPage() {
                     resultsRef.current = Array(scn.steps.length).fill(undefined);
                     setStepIndex(-1);
                     setStatus("Scenario loaded");
+                    log(`Scenario loaded: ${scn.label}`);
+                    preloadCaptainCues(scn.id || "scn1", ["init", "ready", "hail", "ack_update", "final"]);
                   }
                 }}
               >
@@ -427,6 +457,9 @@ export default function TrainPage() {
 
             <span className="pm-pill" style={{ marginLeft: 8 }}>
               {status}
+            </span>
+            <span className="pm-pill" style={{ marginLeft: 8 }}>
+              Captain: {captainStatus}
             </span>
           </div>
         </div>
@@ -466,14 +499,24 @@ export default function TrainPage() {
             <div className="pm-row" style={{ marginTop: 8 }}>
               <button
                 className="pm-btn"
-                onClick={() => setStepIndex((i) => Math.max(0, (typeof i === "number" ? i : 0) - 1))}
+                onClick={() =>
+                  setStepIndex((i) => {
+                    const n = Math.max(0, (typeof i === "number" ? i : 0) - 1);
+                    steps[n] && playForStep(steps[n], n);
+                    return n;
+                  })
+                }
               >
                 ⟵ Prev
               </button>
               <button
                 className="pm-btn primary"
                 onClick={() =>
-                  setStepIndex((i) => Math.min(total - 1, (typeof i === "number" ? i : -1) + 1))
+                  setStepIndex((i) => {
+                    const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
+                    steps[n] && playForStep(steps[n], n);
+                    return n;
+                  })
                 }
               >
                 Next ⟶
@@ -481,7 +524,7 @@ export default function TrainPage() {
               <button
                 className="pm-btn"
                 onClick={() => {
-                  if (stepIndex >= 0 && steps[stepIndex]) speakLine(steps[stepIndex].text);
+                  if (stepIndex >= 0 && steps[stepIndex]) playForStep(steps[stepIndex], stepIndex);
                 }}
               >
                 ▶︎ Play line
@@ -519,7 +562,10 @@ export default function TrainPage() {
                   total={total}
                   current={Math.max(0, stepIndex)}
                   results={resultsRef.current || []}
-                  onJump={(i) => setStepIndex(i)}
+                  onJump={(i) => {
+                    setStepIndex(i);
+                    steps[i] && playForStep(steps[i], i);
+                  }}
                 />
               </div>
               <div className="pm-scoreRow">
@@ -540,10 +586,7 @@ export default function TrainPage() {
 
             <div style={{ marginTop: 10 }}>
               <div className="pm-label">Session Log</div>
-              <div className="pm-log" id="pm-log">
-                {/* If you have a real log string, replace below */}
-                {/* Example: {logText} */}
-              </div>
+              <div className="pm-log" id="pm-log">{logText}</div>
             </div>
 
             <div className="pm-row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
