@@ -105,7 +105,7 @@ body.piedmont {
   border-radius:12px; padding:10px 14px; font-weight:600; }
 .pm-btn.primary { background: linear-gradient(180deg, #2f78ff, #0e63ff); color:#fff; border-color:#0e63ff; }
 .pm-btn.ghost { background:transparent; }
-.pm-btn:disabled { opacity:.5; cursor:not-allowed; }
+
 
 /* mic widget */
 .pm-mic { display:flex; align-items:center; gap:8px; }
