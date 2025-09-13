@@ -333,7 +333,7 @@ function onPause() {
             <div className="pm-row" style={{ justifyContent: "space-between" }}>
               <div className="pm-row">
                 <button className="pm-btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
-                <button className="pm-btn" onClick={onStart}>Start</button>
+                <button className="pm-btn" onClick={onStart} disabled={!preparedRef.current}>Start</button>
                 <button className="pm-btn ghost" onClick={onPause}>Pause</button>
 
               </div>
