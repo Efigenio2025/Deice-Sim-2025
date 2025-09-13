@@ -70,7 +70,7 @@ body.piedmont {
     url("/images/plane-spray.jpg");
   background-repeat: no-repeat;
   background-position: right -60px top;
-  background-size: 800px auto;
+  background-size: 1920px auto;
   background-attachment: fixed;
   color: var(--ink);
 }
