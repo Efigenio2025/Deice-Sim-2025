@@ -65,11 +65,16 @@ body{
 }
 
 body.piedmont {
-  background:
-    linear-gradient(180deg, var(--bg-start), var(--bg-mid) 40%, var(--bg-end)) fixed,
-    url("/images/plane-spray.jpg") right -60px / 800px auto no-repeat fixed;
+  background-image:
+    linear-gradient(180deg, var(--bg-start), var(--bg-mid) 40%, var(--bg-end)),
+    url("/images/plane-spray.jpg");
+  background-repeat: no-repeat;
+  background-position: right -60px top;
+  background-size: 800px auto;
+  background-attachment: fixed;
   color: var(--ink);
 }
+
 
 /* container + card */
 .pm-app { max-width: 1120px; margin: 24px auto; padding: 0 16px; }
