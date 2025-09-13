@@ -1,51 +1,51 @@
 {
   "id": "full_body_type_1",
-  "label": "Full Body Type I Only – Phonetic",
+  "label": "Full Body Type I Only",
   "steps": [
     {
       "role": "Captain",
       "cue": "hail",
-      "text": "Iceman, this is November Four Four Three Delta Foxtrot, do you copy?"
+      "text": "Iceman, this is N443DF, do you copy?"
     },
     {
       "role": "Iceman",
-      "text": "November Four Four Three Delta Foxtrot, this is Iceman, go ahead."
+      "text": "N443DF, this is Iceman, go ahead."
     },
     {
       "role": "Captain",
       "cue": "init",
-      "text": "Iceman, November Four Four Three Delta Foxtrot, looks like we’ll need a full body Type I deicing today."
+      "text": "Iceman, N443DF, we’ll need a full body Type I deicing today."
     },
     {
       "role": "Iceman",
-      "text": "Copy that November Four Four Three Delta Foxtrot, you are requesting full body Type I. Please prepare the aircraft for deicing."
+      "text": "Copy that N443DF, you are requesting full body Type I. Please prepare the aircraft for deicing."
     },
     {
       "role": "Captain",
       "cue": "ready",
-      "text": "Iceman, aircraft November Four Four Three Delta Foxtrot ready for deicing. We are configured for Type I. Engines are running, APU is off."
+      "text": "Iceman, aircraft N443DF ready for deicing. Engines running, APU is off."
     },
     {
       "role": "Iceman",
-      "text": "Aircraft November Four Four Three Delta Foxtrot, copy that, engines running and APU off, full body Type I requested. Starting Type I application now."
+      "text": "Aircraft N443DF, copy that. Engines running and APU off, full body Type I requested. Starting application now."
     },
     {
       "role": "Iceman",
-      "text": "Aircraft November Four Four Three Delta Foxtrot, do you copy?"
+      "text": "Aircraft N443DF, do you copy?"
     },
     {
       "role": "Captain",
       "cue": "ack_update",
-      "text": "Go ahead, Iceman, for aircraft November Four Four Three Delta Foxtrot."
+      "text": "Go ahead, Iceman, for aircraft N443DF."
     },
     {
       "role": "Iceman",
-      "text": "Yes, November Four Four Three Delta Foxtrot, deicing complete. Post-deicing check complete, deicing personnel and equipment are safely away."
+      "text": "Yes, N443DF, deicing complete. Post-deicing check complete, personnel and equipment are clear."
     },
     {
       "role": "Captain",
       "cue": "final",
-      "text": "Iceman, aircraft November Four Four Three Delta Foxtrot copies. Thank you for your help and stay warm out there!"
+      "text": "Iceman, aircraft N443DF copies. Thank you for your help and stay warm out there!"
     }
   ]
 }
