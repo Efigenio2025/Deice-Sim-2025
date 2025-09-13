@@ -169,18 +169,49 @@ export default function TrainPage() {
 
   // Prepare microphone and preload Captain audio
 async function onPrepareMic() {
+  // Visual “working” state immediately
+  setStatus("Preparing mic…");
+  log("Prepare Mic clicked.");
+
   try {
+    // Safety: time how long it takes
+    const t0 = performance.now();
+
+    // 1) Unlock audio (iOS/Safari)
     await unlockAudio();
+    log("Audio unlocked via unlockAudio().");
+
+    // 2) (Optional) Request mic permission if you capture speech later
+    // Comment out if you don't need mic input capture:
+    if (navigator.mediaDevices?.getUserMedia) {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      log("Mic permission granted by getUserMedia().");
+    } else {
+      log("getUserMedia() not available on this browser.");
+    }
+
+    // 3) Preload captain cues present in this scenario
+    const cues = (current?.steps || [])
+      .filter(s => s.role === "Captain" && s.cue)
+      .map(s => s.cue);
+    if (cues.length) {
+      preloadCaptainCues(current?.id || "default", cues);
+      log(`Preloaded Captain cues: ${cues.join(", ")}`);
+    } else {
+      log("No Captain cues found to preload.");
+    }
+
+    // 4) Flip ready flags + UI
     preparedRef.current = true;
-    const cues = (current?.steps || []).filter(s => s.role === "Captain" && s.cue).map(s => s.cue);
-    preloadCaptainCues(current?.id || "default", cues);
+    const ms = Math.round(performance.now() - t0);
     setStatus("Mic ready");
-    log("Mic ready.");
     toast("Mic ready", "success");
-  } catch (e) {
-    console.error("Prepare Mic failed:", e);
+    log(`Mic ready in ${ms} ms.`);
+  } catch (err) {
+    preparedRef.current = false;
     setStatus("Mic prepare failed");
     toast("Mic prepare failed", "error");
+    log(`Prepare Mic ERROR: ${err?.message || err}`);
   }
 }
 
