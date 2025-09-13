@@ -14,11 +14,11 @@
     {
       "role": "Captain",
       "cue": "init",
-      "text": "Iceman, N443DF, we’ll need a full body Type I deicing today."
+      "text": "Iceman, N443DF, we’ll need a full body Type 1 deicing today."
     },
     {
       "role": "Iceman",
-      "text": "Copy that N443DF, you are requesting full body Type I. Please prepare the aircraft for deicing."
+      "text": "Copy that N443DF, you are requesting full body Type 1. Please prepare the aircraft for deicing."
     },
     {
       "role": "Captain",
@@ -27,7 +27,7 @@
     },
     {
       "role": "Iceman",
-      "text": "Aircraft N443DF, copy that. Engines running and APU off, full body Type I requested. Starting application now."
+      "text": "Aircraft N443DF, copy that. Engines running and APU off, full body Type 1 requested. Starting application now."
     },
     {
       "role": "Iceman",
