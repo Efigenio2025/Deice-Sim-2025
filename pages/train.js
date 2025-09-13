@@ -167,29 +167,68 @@ export default function TrainPage() {
     preloadCaptainCues(scnId, cues);
   }
 
-  async function onPrepareMic() {
+  // Prepare microphone and preload Captain audio
+async function onPrepareMic() {
+  try {
     await unlockAudio();
     preparedRef.current = true;
-    setStatus("Mic ready."); log("Mic ready."); preloadCaptainForScenario(current);
+    // Preload only Captain cues present in this scenario
+    const cues = (current?.steps || [])
+      .filter(s => s.role === "Captain" && s.cue)
+      .map(s => s.cue);
+    preloadCaptainCues(current?.id || "default", cues);
+    setStatus("Mic ready");
+    log("Mic ready.");
+    toast("Mic ready", "success");
+  } catch (e) {
+    console.error("Prepare Mic failed:", e);
+    setStatus("Mic prepare failed");
+    toast("Mic prepare failed", "error");
   }
+}
 
-  async function onStart() {
-    pausedRef.current = false; runningRef.current = true;
-    setStatus(preparedRef.current ? "Starting simulator…" : "Starting without mic…");
-    log("Session started.");
+// Start or resume the simulator
+async function onStart() {
+  try {
+    pausedRef.current = false;
+    runningRef.current = true;
+    setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
+    log("Simulation started.");
+
+    // First start: jump to step 0 and play first Captain line if any
     if (stepIndex < 0 && steps.length) {
       setStepIndex(0);
-      setTimeout(() => { const s = steps[0]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue); }, 50);
-    } else {
-      const s = steps[stepIndex]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
+      const s = steps[0];
+      if (s?.role === "Captain" && s.cue) {
+        await playCaptainCue(current.id, s.cue);
+      }
+    } else if (steps[stepIndex]?.role === "Captain" && steps[stepIndex].cue) {
+      // Resume: replay current Captain line if paused mid-step
+      await playCaptainCue(current.id, steps[stepIndex].cue);
     }
-    runSimulator();
-  }
 
-  function onPause() {
-    pausedRef.current = true; runningRef.current = false;
-    stopAudio(); setStatus("Paused"); log("Paused.");
+    runSimulator();
+  } catch (e) {
+    console.error("Start failed:", e);
+    setStatus("Start failed");
+    toast("Start failed", "error");
   }
+}
+
+// Pause simulator and all audio cleanly
+function onPause() {
+  try {
+    pausedRef.current = true;
+    runningRef.current = false;
+    stopAudio(); // stops any Captain MP3
+    setStatus("Paused");
+    log("Simulation paused.");
+    toast("Paused", "info");
+  } catch (e) {
+    console.error("Pause failed:", e);
+    toast("Pause failed", "error");
+  }
+}
 
   function onCheck() {
     if (stepIndex < 0 || !steps[stepIndex]) return;
@@ -296,6 +335,7 @@ export default function TrainPage() {
                 <button className="pm-btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
                 <button className="pm-btn" onClick={onStart}>Start</button>
                 <button className="pm-btn ghost" onClick={onPause}>Pause</button>
+
               </div>
               <MicWidget status={micStatus} level={micLevel} />
             </div>
