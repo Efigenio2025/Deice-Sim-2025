@@ -366,9 +366,16 @@ function onPause() {
           <section className="pm-panel">
             <div className="pm-row" style={{ justifyContent: "space-between" }}>
               <div className="pm-row">
-                <button className="pm-btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
-                <button className="pm-btn" onClick={onStart}>Start</button>
-                <button className="pm-btn ghost" onClick={onPause}>Pause</button>
+               <button type="button" className="pm-btn ghost" onClick={() => { console.log("CLICK Prepare"); onPrepareMic(); }}>
+  Prepare Mic
+</button>
+<button type="button" className="pm-btn" onClick={() => { console.log("CLICK Start"); onStart(); }}>
+  Start
+</button>
+<button type="button" className="pm-btn ghost" onClick={() => { console.log("CLICK Pause"); onPause(); }}>
+  Pause
+</button>
+
 
 
               </div>
