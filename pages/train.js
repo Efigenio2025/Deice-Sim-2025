@@ -169,44 +169,27 @@ export default function TrainPage() {
 
   // Prepare microphone and preload Captain audio
 async function onPrepareMic() {
-  // Visual “working” state immediately
   setStatus("Preparing mic…");
   log("Prepare Mic clicked.");
-
   try {
-    // Safety: time how long it takes
-    const t0 = performance.now();
-
-    // 1) Unlock audio (iOS/Safari)
     await unlockAudio();
     log("Audio unlocked via unlockAudio().");
 
-    // 2) (Optional) Request mic permission if you capture speech later
-    // Comment out if you don't need mic input capture:
+    // Optional mic permission (keep if you plan to record speech)
     if (navigator.mediaDevices?.getUserMedia) {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       log("Mic permission granted by getUserMedia().");
-    } else {
-      log("getUserMedia() not available on this browser.");
     }
 
-    // 3) Preload captain cues present in this scenario
-    const cues = (current?.steps || [])
-      .filter(s => s.role === "Captain" && s.cue)
-      .map(s => s.cue);
+    const cues = (current?.steps || []).filter(s => s.role === "Captain" && s.cue).map(s => s.cue);
     if (cues.length) {
       preloadCaptainCues(current?.id || "default", cues);
       log(`Preloaded Captain cues: ${cues.join(", ")}`);
-    } else {
-      log("No Captain cues found to preload.");
     }
 
-    // 4) Flip ready flags + UI
     preparedRef.current = true;
-    const ms = Math.round(performance.now() - t0);
     setStatus("Mic ready");
     toast("Mic ready", "success");
-    log(`Mic ready in ${ms} ms.`);
   } catch (err) {
     preparedRef.current = false;
     setStatus("Mic prepare failed");
@@ -216,10 +199,9 @@ async function onPrepareMic() {
 }
 
 
-// Start or resume the simulator
 async function onStart() {
   try {
-    // Fallback: unlock if user skipped Prepare
+    // Fallback unlock if user skipped Prepare
     if (!preparedRef.current) {
       await unlockAudio();
       preparedRef.current = true;
@@ -231,15 +213,24 @@ async function onStart() {
     setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
     log("Simulation started.");
 
+    // First start: move to step 0 if needed
     if (stepIndex < 0 && steps.length) {
       setStepIndex(0);
-      const s0 = steps[0];
-      if (s0?.role === "Captain" && s0.cue) await playCaptainCue(current.id, s0.cue);
+      setTimeout(() => {
+        const s0 = steps[0];
+        if (s0?.role === "Captain" && s0.cue && current?.id) {
+          // Do NOT await here
+          void playCaptainCue(current.id, s0.cue);
+        }
+      }, 30);
     } else {
       const s = steps[stepIndex];
-      if (s?.role === "Captain" && s.cue) await playCaptainCue(current.id, s.cue);
+      if (s?.role === "Captain" && s.cue && current?.id) {
+        void playCaptainCue(current.id, s.cue);
+      }
     }
 
+    // Always start the loop
     runSimulator();
   } catch (e) {
     console.error("Start failed:", e);
@@ -264,6 +255,7 @@ function onPause() {
   }
 }
 
+
   function onCheck() {
     if (stepIndex < 0 || !steps[stepIndex]) return;
     const exp = steps[stepIndex].text;
@@ -286,36 +278,42 @@ function onPause() {
     toast("CSV downloaded", "success");
   }
 
-  function runSimulator() {
-    if (!current || !steps.length) { setStatus("Select a scenario first."); return; }
-    const startedAt = performance.now();
-    setStatus("Running…");
-    const tick = () => {
-      if (!runningRef.current || pausedRef.current) return;
-      const judged = resultsRef.current[stepIndex];
-      if (judged && stepIndex < steps.length - 1) {
-        const next = stepIndex + 1;
-        setStepIndex(next);
-        const s = steps[next];
-        if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
-      }
-      const dur = (performance.now() - startedAt) / 1000;
-      setAvgRespSec(prev => (prev ? (prev + dur) / 2 : dur));
+ function runSimulator() {
+  if (!current || !steps.length) { setStatus("Select a scenario first."); return; }
+  if (stepIndex < 0) { setStepIndex(0); } // safety
 
-      const allJudged = resultsRef.current.length === steps.length &&
-        resultsRef.current.every(v => v === true || v === false);
+  const startedAt = performance.now();
+  setStatus("Running…");
+  const tick = () => {
+    if (!runningRef.current || pausedRef.current) return;
 
-      if (allJudged) {
-        runningRef.current = false;
-        const finalPct = steps.length ? Math.round((resultsRef.current.filter(Boolean).length / steps.length) * 100) : 0;
-        setStatus(`Complete • ${resultsRef.current.filter(Boolean).length}/${steps.length} (${finalPct}%) • ${finalPct >= 80 ? "PASS" : "RETRY"}`);
-        toast("Session complete", finalPct >= 80 ? "success" : "info");
-        return;
+    const judged = resultsRef.current[stepIndex];
+    if (judged && stepIndex < steps.length - 1) {
+      const next = stepIndex + 1;
+      setStepIndex(next);
+      const s = steps[next];
+      if (s?.role === "Captain" && s.cue && current?.id) {
+        void playCaptainCue(current.id, s.cue);
       }
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
+    }
+
+    const dur = (performance.now() - startedAt) / 1000;
+    setAvgRespSec(prev => (prev ? (prev + dur) / 2 : dur));
+
+    const allJudged = resultsRef.current.length === steps.length &&
+      resultsRef.current.every(v => v === true || v === false);
+
+    if (!allJudged) requestAnimationFrame(tick);
+    else {
+      runningRef.current = false;
+      const finalPct = steps.length ? Math.round((resultsRef.current.filter(Boolean).length / steps.length) * 100) : 0;
+      setStatus(`Complete • ${resultsRef.current.filter(Boolean).length}/${steps.length} (${finalPct}%) • ${finalPct >= 80 ? "PASS" : "RETRY"}`);
+      toast("Session complete", finalPct >= 80 ? "success" : "info");
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
 
   return (
     <div className="pm-app">
