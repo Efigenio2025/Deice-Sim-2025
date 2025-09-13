@@ -172,10 +172,7 @@ async function onPrepareMic() {
   try {
     await unlockAudio();
     preparedRef.current = true;
-    // Preload only Captain cues present in this scenario
-    const cues = (current?.steps || [])
-      .filter(s => s.role === "Captain" && s.cue)
-      .map(s => s.cue);
+    const cues = (current?.steps || []).filter(s => s.role === "Captain" && s.cue).map(s => s.cue);
     preloadCaptainCues(current?.id || "default", cues);
     setStatus("Mic ready");
     log("Mic ready.");
@@ -187,24 +184,29 @@ async function onPrepareMic() {
   }
 }
 
+
 // Start or resume the simulator
 async function onStart() {
   try {
+    // Fallback: unlock if user skipped Prepare
+    if (!preparedRef.current) {
+      await unlockAudio();
+      preparedRef.current = true;
+      log("Mic auto-prepared by Start.");
+    }
+
     pausedRef.current = false;
     runningRef.current = true;
     setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
     log("Simulation started.");
 
-    // First start: jump to step 0 and play first Captain line if any
     if (stepIndex < 0 && steps.length) {
       setStepIndex(0);
-      const s = steps[0];
-      if (s?.role === "Captain" && s.cue) {
-        await playCaptainCue(current.id, s.cue);
-      }
-    } else if (steps[stepIndex]?.role === "Captain" && steps[stepIndex].cue) {
-      // Resume: replay current Captain line if paused mid-step
-      await playCaptainCue(current.id, steps[stepIndex].cue);
+      const s0 = steps[0];
+      if (s0?.role === "Captain" && s0.cue) await playCaptainCue(current.id, s0.cue);
+    } else {
+      const s = steps[stepIndex];
+      if (s?.role === "Captain" && s.cue) await playCaptainCue(current.id, s.cue);
     }
 
     runSimulator();
@@ -215,12 +217,13 @@ async function onStart() {
   }
 }
 
+
 // Pause simulator and all audio cleanly
 function onPause() {
   try {
     pausedRef.current = true;
     runningRef.current = false;
-    stopAudio(); // stops any Captain MP3
+    stopAudio();
     setStatus("Paused");
     log("Simulation paused.");
     toast("Paused", "info");
@@ -333,8 +336,9 @@ function onPause() {
             <div className="pm-row" style={{ justifyContent: "space-between" }}>
               <div className="pm-row">
                 <button className="pm-btn ghost" onClick={onPrepareMic}>Prepare Mic</button>
-                <button className="pm-btn" onClick={onStart} disabled={!preparedRef.current}>Start</button>
+                <button className="pm-btn" onClick={onStart}>Start</button>
                 <button className="pm-btn ghost" onClick={onPause}>Pause</button>
+
 
               </div>
               <MicWidget status={micStatus} level={micLevel} />
