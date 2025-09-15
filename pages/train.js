@@ -199,45 +199,80 @@ async function onPrepareMic() {
 }
 
 
+// Outside the function (module scope or component scope)
+const startingRef = { current: false };          // reentrancy guard
+const startTokenRef = { current: 0 };            // race-cancel token
+const pendingTimerRef = { current: null };       // track the s0 timeout
+
 async function onStart() {
+  // Reentrancy guard: ignore if we're already starting or running
+  if (startingRef.current || runningRef.current) {
+    log("Start ignored (already starting/running).");
+    return;
+  }
+
+  startingRef.current = true;
+  const token = ++startTokenRef.current; // capture token; later steps must match
   try {
-    // Fallback unlock if user skipped Prepare
+    // 1) Mic prep fallback (but cancel if a Pause happens mid-await)
     if (!preparedRef.current) {
-      await unlockAudio();
+      log("Attempting mic auto-prepare via Start…");
+      await unlockAudio(); // must be user-gesture initiated; Start button qualifies
+      if (token !== startTokenRef.current) return log("Start aborted (token mismatch).");
       preparedRef.current = true;
       log("Mic auto-prepared by Start.");
     }
 
+    // 2) Flip run flags atomically
     pausedRef.current = false;
     runningRef.current = true;
     setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
     log("Simulation started.");
 
-    // First start: move to step 0 if needed
-    if (stepIndex < 0 && steps.length) {
-      setStepIndex(0);
-      setTimeout(() => {
-        const s0 = steps[0];
-        if (s0?.role === "Captain" && s0.cue && current?.id) {
-          // Do NOT await here
-          void playCaptainCue(current.id, s0.cue);
-        }
-      }, 30);
-    } else {
-      const s = steps[stepIndex];
-      if (s?.role === "Captain" && s.cue && current?.id) {
-        void playCaptainCue(current.id, s.cue);
-      }
+    // 3) Play captain cue for the current/first step (non-blocking),
+    //    but avoid overlaps and stale timers.
+    //    Clear any previous pending timer (e.g., from a prior Start attempt)
+    if (pendingTimerRef.current) {
+      clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
     }
 
-    // Always start the loop
+    const safePlay = () => {
+      // Bail if we were paused/stopped after scheduling
+      if (!runningRef.current || token !== startTokenRef.current) return;
+
+      const idx = stepIndex < 0 ? 0 : stepIndex;
+      const s = steps[idx];
+      if (s?.role === "Captain" && s.cue && current?.id) {
+        // Fire-and-forget; internal function should self-throttle/queue
+        void playCaptainCue(current.id, s.cue);
+      }
+    };
+
+    if (stepIndex < 0 && steps.length) {
+      setStepIndex(0);
+      // Use rAF for next tick; if you prefer slight delay, keep setTimeout(30)
+      pendingTimerRef.current = setTimeout(() => {
+        pendingTimerRef.current = null;
+        safePlay();
+      }, 30);
+    } else {
+      safePlay();
+    }
+
+    // 4) Kick the main loop (make sure it can be stopped by Pause)
+    //    If runSimulator is async, we intentionally do not await it here.
     runSimulator();
   } catch (e) {
     console.error("Start failed:", e);
     setStatus("Start failed");
-    toast("Start failed", "error");
+    toast(`Start failed: ${e?.message ?? "unknown error"}`, "error");
+  } finally {
+    // If Pause happened during awaits, runningRef may already be false.
+    startingRef.current = false;
   }
 }
+
 
 
 // Pause simulator and all audio cleanly
