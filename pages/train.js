@@ -8,7 +8,6 @@ import {
   stopAudio,
 } from "../lib/audio";
 
-/* ===================== UI widgets ===================== */
 function Stepper({ total, current, results = [], onJump }) {
   return (
     <div className="pm-stepper">
@@ -87,7 +86,6 @@ function MicWidget({ status = "idle", level = 0 }) {
   );
 }
 
-/* ===================== Toasts ===================== */
 const _toasts = [];
 function toast(msg, kind = "info", ms = 2200) {
   _toasts.push({ id: Date.now(), msg, kind });
@@ -105,12 +103,9 @@ function renderToasts() {
     host.className = "pm-toasts";
     document.body.appendChild(host);
   }
-  host.innerHTML = _toasts
-    .map((t) => `<div class="pm-toast ${t.kind}">${t.msg}</div>`)
-    .join("");
+  host.innerHTML = _toasts.map((t) => `<div class="pm-toast ${t.kind}">${t.msg}</div>`).join("");
 }
 
-/* ===================== Helpers ===================== */
 function useResponsiveMode(forced = null) {
   const pick = () => (window.innerWidth <= 860 ? "mobile" : "desktop");
   const [mode, setMode] = useState(
@@ -129,9 +124,7 @@ function useResponsiveMode(forced = null) {
 }
 
 function downloadCSV(rows, filename = "deice-results.csv") {
-  const csv = rows
-    .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
-    .join("\n");
+  const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -142,11 +135,7 @@ function downloadCSV(rows, filename = "deice-results.csv") {
 }
 
 function normalize(s) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 }
 function quickScore(expected, heard) {
   const A = new Set(normalize(expected).split(" "));
@@ -155,19 +144,14 @@ function quickScore(expected, heard) {
   return A.size ? Math.round((inter / A.size) * 100) : 0;
 }
 
-/* ===================== Page ===================== */
 export default function TrainPage() {
-  // scenario list + current
   const [scenarioList, setScenarioList] = useState([]);
   const [current, setCurrent] = useState(null);
-
-  // steps / results
   const [stepIndex, setStepIndex] = useState(-1);
   const steps = useMemo(() => current?.steps || [], [current]);
   const total = steps.length;
   const resultsRef = useRef([]);
 
-  // UI & control state
   const [status, setStatus] = useState("Ready");
   const [answer, setAnswer] = useState("");
   const [lastResultText, setLastResultText] = useState("—");
@@ -187,17 +171,11 @@ export default function TrainPage() {
 
   const correct = (resultsRef.current || []).filter(Boolean).length;
   const pct = total ? Math.round((correct / total) * 100) : 0;
-  const micStatus = preparedRef.current
-    ? runningRef.current && !pausedRef.current
-      ? "listening"
-      : "ready"
-    : "idle";
+  const micStatus = preparedRef.current ? (runningRef.current && !pausedRef.current ? "listening" : "ready") : "idle";
   const micLevel = micLevelRef.current || 0;
 
   const log = (msg) => setLogText((t) => (t ? t + "\n" : "") + msg);
 
-  /* ------------ lifecycle ------------ */
-  // 1) Load scenario list and auto-load first scenario
   useEffect(() => {
     let live = true;
     (async () => {
@@ -224,13 +202,11 @@ export default function TrainPage() {
     };
   }, []);
 
-  // 2) subscribe to captain audio status
   useEffect(() => {
     const off = onAudio("status", (e) => setCaptainStatus(e.detail?.status || "idle"));
     return () => off && off();
   }, []);
 
-  // 3) mic level mock (or wire to real level meter)
   useEffect(() => {
     const id = setInterval(() => {
       micLevelRef.current = runningRef.current && !pausedRef.current ? 10 + Math.round(Math.random() * 80) : 0;
@@ -238,55 +214,17 @@ export default function TrainPage() {
     return () => clearInterval(id);
   }, []);
 
-  /* ------------ audio preloading ------------ */
   function preloadCaptainForScenario(scn) {
     const scnId = scn?.id;
     if (!scnId) return;
-    const cues = Array.from(
-      new Set((scn.steps || []).filter((s) => s.role === "Captain" && s.cue).map((s) => s.cue))
-    );
+    const cues = Array.from(new Set((scn.steps || []).filter((s) => s.role === "Captain" && s.cue).map((s) => s.cue)));
     preloadCaptainCues(scnId, cues);
   }
 
-  /* ------------ prepare mic ------------ */
-  async function onPrepareMic() {
-    setStatus("Preparing mic…");
-    log("Prepare Mic clicked.");
-    try {
-      await unlockAudio();
-      log("Audio unlocked via unlockAudio().");
-
-      // Optional mic permission for recording speech
-      if (navigator.mediaDevices?.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        log("Mic permission granted by getUserMedia().");
-      }
-
-      const cues = (current?.steps || [])
-        .filter((s) => s.role === "Captain" && s.cue)
-        .map((s) => s.cue);
-      if (cues.length) {
-        preloadCaptainCues(current?.id || "default", cues);
-        log(`Preloaded Captain cues: ${cues.join(", ")}`);
-      }
-
-      preparedRef.current = true;
-      setStatus("Mic ready");
-      toast("Mic ready", "success");
-    } catch (err) {
-      preparedRef.current = false;
-      setStatus("Mic prepare failed");
-      toast("Mic prepare failed", "error");
-      log(`Prepare Mic ERROR: ${err?.message || err}`);
-    }
-  }
-
-  /* ------------ run/start/pause guards ------------ */
-  // Reentrancy & race-cancel
   const startingRef = useRef(false);
   const startTokenRef = useRef(0);
-  const pendingTimerRef = useRef(null); // first-step timeout handle
-  const loopIdRef = useRef(null); // rAF id
+  const pendingTimerRef = useRef(null);
+  const loopIdRef = useRef(null);
 
   function cancelAllTimersAndLoops() {
     if (pendingTimerRef.current) {
@@ -308,31 +246,26 @@ export default function TrainPage() {
   };
 
   async function onStart() {
-    // ignore if already in start path or running
     if (startingRef.current || runningRef.current) {
       log("Start ignored (already starting/running).");
       return;
     }
 
     startingRef.current = true;
-    const token = ++startTokenRef.current; // capture
+    const token = ++startTokenRef.current;
     try {
-      // mic fallback
       if (!preparedRef.current) {
-        log("Attempting mic auto-prepare via Start…");
         await unlockAudio();
         if (token !== startTokenRef.current) return log("Start aborted (token mismatch).");
         preparedRef.current = true;
         log("Mic auto-prepared by Start.");
       }
 
-      // set flags
       pausedRef.current = false;
       runningRef.current = true;
       setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
       log("Simulation started.");
 
-      // clear possible stale timeout
       if (pendingTimerRef.current) {
         clearTimeout(pendingTimerRef.current);
         pendingTimerRef.current = null;
@@ -349,7 +282,6 @@ export default function TrainPage() {
 
       if (stepIndex < 0 && steps.length) {
         setStepIndex(0);
-        // small defer for state to settle
         pendingTimerRef.current = setTimeout(() => {
           pendingTimerRef.current = null;
           safePlay();
@@ -358,7 +290,7 @@ export default function TrainPage() {
         safePlay();
       }
 
-      runSimulator(); // non-blocking
+      runSimulator();
     } catch (e) {
       console.error("Start failed:", e);
       setStatus("Start failed");
@@ -373,7 +305,7 @@ export default function TrainPage() {
       pausedRef.current = true;
       runningRef.current = false;
       bumpStartToken();
-      cancelAllTimersAndLoops(); // cancel first-cue + rAF
+      cancelAllTimersAndLoops();
       stopAudio();
       setStatus("Paused");
       log("Simulation paused.");
@@ -384,7 +316,6 @@ export default function TrainPage() {
     }
   }
 
-  /* ------------ scoring & export ------------ */
   function onCheck() {
     if (stepIndex < 0 || !steps[stepIndex]) return;
     const exp = steps[stepIndex].text;
@@ -407,7 +338,6 @@ export default function TrainPage() {
     toast("CSV downloaded", "success");
   }
 
-  /* ------------ simulator loop ------------ */
   function runSimulator() {
     if (!current || !steps.length) {
       setStatus("Select a scenario first.");
@@ -439,23 +369,15 @@ export default function TrainPage() {
       const dur = (performance.now() - startedAt) / 1000;
       setAvgRespSec((prev) => (prev ? (prev + dur) / 2 : dur));
 
-      const allJudged =
-        resultsRef.current.length === steps.length &&
-        resultsRef.current.every((v) => v === true || v === false);
+      const allJudged = resultsRef.current.length === steps.length && resultsRef.current.every((v) => v === true || v === false);
 
       if (!allJudged) {
         loopIdRef.current = requestAnimationFrame(tick);
       } else {
         runningRef.current = false;
         loopIdRef.current = null;
-        const finalPct = steps.length
-          ? Math.round((resultsRef.current.filter(Boolean).length / steps.length) * 100)
-          : 0;
-        setStatus(
-          `Complete • ${resultsRef.current.filter(Boolean).length}/${steps.length} (${finalPct}%) • ${
-            finalPct >= 80 ? "PASS" : "RETRY"
-          }`
-        );
+        const finalPct = steps.length ? Math.round((resultsRef.current.filter(Boolean).length / steps.length) * 100) : 0;
+        setStatus(`Complete • ${resultsRef.current.filter(Boolean).length}/${steps.length} (${finalPct}%) • ${finalPct >= 80 ? "PASS" : "RETRY"}`);
         toast("Session complete", finalPct >= 80 ? "success" : "info");
       }
     };
@@ -463,13 +385,11 @@ export default function TrainPage() {
     loopIdRef.current = requestAnimationFrame(tick);
   }
 
-  /* ===================== Render ===================== */
   const correctCount = (resultsRef.current || []).filter(Boolean).length;
 
   return (
     <div className="pm-app">
       <div className="pm-card">
-        {/* Header */}
         <div className="pm-header">
           <div className="pm-title">
             <img src="/images/piedmont-logo.jpg" alt="Piedmont Airlines" />
@@ -502,200 +422,4 @@ export default function TrainPage() {
               </select>
             </div>
 
-            <div className="pm-row" style={{ marginLeft: 8 }}>
-              <span className="pm-label">View</span>
-              <button type="button" className="pm-btn ghost" onClick={() => setForcedMode(null)}>
-                Auto
-              </button>
-              <button type="button" className="pm-btn ghost" onClick={() => setForcedMode("desktop")}>
-                Desktop
-              </button>
-              <button type="button" className="pm-btn ghost" onClick={() => setForcedMode("mobile")}>
-                Mobile
-              </button>
-            </div>
-
-            <span className="pm-pill" style={{ marginLeft: 8 }}>{status}</span>
-            <span className="pm-pill" style={{ marginLeft: 8 }}>Captain: {captainStatus}</span>
-          </div>
-        </div>
-
-        {/* Main */}
-        <div className={`pm-main ${mode}`}>
-          {/* LEFT */}
-          <section className="pm-panel">
-            <div className="pm-row" style={{ justifyContent: "space-between" }}>
-              <div className="pm-row">
-                <button
-                  type="button"
-                  className="pm-btn ghost"
-                  onClick={() => {
-                    console.log("CLICK Prepare");
-                    onPrepareMic();
-                  }}
-                >
-                  Prepare Mic
-                </button>
-                <button
-                  type="button"
-                  className="pm-btn"
-                  onClick={() => {
-                    console.log("CLICK Start");
-                    onStart();
-                  }}
-                >
-                  Start
-                </button>
-                <button
-                  type="button"
-                  className="pm-btn ghost"
-                  onClick={() => {
-                    console.log("CLICK Pause");
-                    onPause();
-                  }}
-                >
-                  Pause
-                </button>
-              </div>
-              <MicWidget status={micStatus} level={micLevel} />
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <div className="pm-label">Current Line</div>
-              <div className="pm-coach">
-                {stepIndex >= 0 && steps[stepIndex] ? (
-                  <>
-                    <strong>{steps[stepIndex].role}:</strong> {steps[stepIndex].text}
-                  </>
-                ) : (
-                  "Select a step and press Start."
-                )}
-              </div>
-            </div>
-
-            <div className="pm-row" style={{ marginTop: 8 }}>
-              <button
-                type="button"
-                className="pm-btn"
-                onClick={() =>
-                  setStepIndex((i) => {
-                    const n = Math.max(0, (typeof i === "number" ? i : 0) - 1);
-                    const s = steps[n];
-                    if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
-                    return n;
-                  })
-                }
-              >
-                ⟵ Prev
-              </button>
-              <button
-                type="button"
-                className="pm-btn primary"
-                onClick={() =>
-                  setStepIndex((i) => {
-                    const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
-                    const s = steps[n];
-                    if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
-                    return n;
-                  })
-                }
-              >
-                Next ⟶
-              </button>
-              <button
-                type="button"
-                className="pm-btn"
-                onClick={() => {
-                  const s = steps[stepIndex];
-                  if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
-                }}
-              >
-                ▶︎ Play line
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <div className="pm-label">Your Response</div>
-              <textarea
-                rows={3}
-                className="pm-input"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Speak or type your line…"
-              />
-              <div className="pm-row" style={{ marginTop: 6 }}>
-                <button type="button" className="pm-btn" onClick={onCheck}>
-                  Check
-                </button>
-                <span className="pm-pill">{lastResultText}</span>
-              </div>
-            </div>
-
-            {stepIndex >= 0 && steps[stepIndex] && (
-              <WordDiff expected={steps[stepIndex].text} heard={answer} />
-            )}
-          </section>
-
-          {/* RIGHT */}
-          <section className="pm-panel">
-            <div className="pm-row" style={{ justifyContent: "space-between" }}>
-              <div>
-                <div className="pm-label">Progress</div>
-                <Stepper
-                  total={total}
-                  current={Math.max(0, stepIndex)}
-                  results={resultsRef.current || []}
-                  onJump={(i) => {
-                    setStepIndex(i);
-                    const s = steps[i];
-                    if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
-                  }}
-                />
-              </div>
-              <div className="pm-scoreRow">
-                <ScoreRing pct={pct} />
-                <div>
-                  <div className="pm-pill">
-                    Correct: <strong>{correctCount}/{total}</strong>
-                  </div>
-                  <div className="pm-pill">
-                    Retries: <strong>{retryCount || 0}</strong>
-                  </div>
-                  <div className="pm-pill">
-                    Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <div className="pm-label">Session Log</div>
-              <div className="pm-log">{logText}</div>
-            </div>
-
-            <div className="pm-row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
-              <button type="button" className="pm-btn ghost" onClick={exportSession}>
-                Export CSV
-              </button>
-              <button
-                type="button"
-                className="pm-btn ghost"
-                onClick={() => toast("Saved settings", "success")}
-              >
-                Save Settings
-              </button>
-            </div>
-          </section>
-        </div>
-
-        {/* Footer */}
-        <div className="pm-footer">
-          <div>
-            V1 • for training purposes only • OMA station • Microphone works only in Safari on iOS
-          </div>
-          <div className="pm-pill">Tip: Use headphones to avoid feedback.</div>
-        </div>
-      </div>
-    </div>
-  );
-}
+            <div className
