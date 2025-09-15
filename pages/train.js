@@ -182,6 +182,9 @@ export default function TrainPage() {
   const pausedRef = useRef(false);
   const preparedRef = useRef(false);
 
+  const stepIndexRef = useRef(-1);
+  useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
+
   const micLevelRef = useRef(0);
   const [captainStatus, setCaptainStatus] = useState("idle");
 
@@ -197,6 +200,12 @@ export default function TrainPage() {
   const log = (msg) => setLogText((t) => (t ? t + "\n" : "") + msg);
 
   /* ------------ lifecycle ------------ */
+  // 0) Apply Piedmont bright theme class to body
+  useEffect(() => {
+    document.body.classList.add("piedmont");
+    return () => document.body.classList.remove("piedmont");
+  }, []);
+
   // 1) Load scenario list and auto-load first scenario
   useEffect(() => {
     let live = true;
@@ -233,8 +242,10 @@ export default function TrainPage() {
 
   // 3) mic level mock (or wire to real level meter)
   useEffect(() => {
-    const id = setInterval(()n => {
-      micLevelRef.current = runningRef.current && !pausedRef.current ? 10 + Math.round(Math.random() * 80) : 0;
+    const id = setInterval(() => {
+      micLevelRef.current = runningRef.current && !pausedRef.current
+        ? 10 + Math.round(Math.random() * 80)
+        : 0;
     }, 500);
     return () => clearInterval(id);
   }, []);
@@ -307,14 +318,14 @@ export default function TrainPage() {
 
       const safePlay = () => {
         if (!runningRef.current || token !== startTokenRef.current) return;
-        const idx = stepIndex < 0 ? 0 : stepIndex;
+        const idx = stepIndexRef.current < 0 ? 0 : stepIndexRef.current;
         const s = steps[idx];
         if (s?.role === "Captain" && s.cue && current?.id) {
           void playCaptainCue(current.id, s.cue);
         }
       };
 
-      if (stepIndex < 0 && steps.length) {
+      if (stepIndexRef.current < 0 && steps.length) {
         setStepIndex(0);
         // small defer for state to settle
         pendingTimerRef.current = setTimeout(() => {
@@ -353,14 +364,15 @@ export default function TrainPage() {
 
   /* ------------ scoring & export ------------ */
   function onCheck() {
-    if (stepIndex < 0 || !steps[stepIndex]) return;
-    const exp = steps[stepIndex].text;
+    const idx = stepIndexRef.current;
+    if (idx < 0 || !steps[idx]) return;
+    const exp = steps[idx].text;
     const p = quickScore(exp, answer);
     const ok = p >= 60;
-    resultsRef.current[stepIndex] = ok;
+    resultsRef.current[idx] = ok;
     setLastResultText(ok ? `✅ Good (${p}%)` : `❌ Try again (${p}%)`);
     if (!ok) setRetryCount((n) => n + 1);
-    log(`[Step ${stepIndex + 1}] Score ${p}% → ${ok ? "OK" : "MISS"}`);
+    log(`[Step ${idx + 1}] Score ${p}% → ${ok ? "OK" : "MISS"}`);
   }
 
   function exportSession() {
@@ -380,8 +392,9 @@ export default function TrainPage() {
       setStatus("Select a scenario first.");
       return;
     }
-    if (stepIndex < 0) {
+    if (stepIndexRef.current < 0) {
       setStepIndex(0);
+      stepIndexRef.current = 0;
     }
 
     const startedAt = performance.now();
@@ -393,10 +406,12 @@ export default function TrainPage() {
         return;
       }
 
-      const judged = resultsRef.current[stepIndex];
-      if (judged && stepIndex < steps.length - 1) {
-        const next = stepIndex + 1;
+      const i = stepIndexRef.current;
+      const judged = resultsRef.current[i];
+      if (judged && i < steps.length - 1) {
+        const next = i + 1;
         setStepIndex(next);
+        stepIndexRef.current = next;
         const s = steps[next];
         if (s?.role === "Captain" && s.cue && current?.id) {
           void playCaptainCue(current.id, s.cue);
@@ -456,6 +471,7 @@ export default function TrainPage() {
                   setCurrent(scn);
                   resultsRef.current = Array(scn.steps.length).fill(undefined);
                   setStepIndex(-1);
+                  stepIndexRef.current = -1;
                   setStatus("Scenario loaded");
                   log(`Scenario loaded: ${scn.label}`);
                   preloadCaptainForScenario(scn);
@@ -537,6 +553,7 @@ export default function TrainPage() {
                 onClick={() =>
                   setStepIndex((i) => {
                     const n = Math.max(0, (typeof i === "number" ? i : 0) - 1);
+                    stepIndexRef.current = n;
                     const s = steps[n];
                     if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
                     return n;
@@ -551,6 +568,7 @@ export default function TrainPage() {
                 onClick={() =>
                   setStepIndex((i) => {
                     const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
+                    stepIndexRef.current = n;
                     const s = steps[n];
                     if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
                     return n;
@@ -563,7 +581,7 @@ export default function TrainPage() {
                 type="button"
                 className="pm-btn"
                 onClick={() => {
-                  const s = steps[stepIndex];
+                  const s = steps[stepIndexRef.current];
                   if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
                 }}
               >
@@ -588,8 +606,8 @@ export default function TrainPage() {
               </div>
             </div>
 
-            {stepIndex >= 0 && steps[stepIndex] && (
-              <WordDiff expected={steps[stepIndex].text} heard={answer} />
+            {stepIndexRef.current >= 0 && steps[stepIndexRef.current] && (
+              <WordDiff expected={steps[stepIndexRef.current].text} heard={answer} />
             )}
           </section>
 
@@ -604,6 +622,7 @@ export default function TrainPage() {
                   results={resultsRef.current || []}
                   onJump={(i) => {
                     setStepIndex(i);
+                    stepIndexRef.current = i;
                     const s = steps[i];
                     if (s?.role === "Captain" && s.cue) tryPlayCue(s.cue);
                   }}
