@@ -20,7 +20,7 @@ export default function Home() {
         <a className="btn" href="/train">Start Training</a>
       </div>
 
-      <div className="status">V2 • For training purposes only • Joshua Efigenio </div>
+      <div className="status">V2 • For training purposes only • OMA Station • 2025 </div>
     </div>
   );
 }
