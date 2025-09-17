@@ -479,8 +479,41 @@ function TrainApp({ forcedMode }) {
     }
   }
 
+  const progressSummary = (
+    <div className="pm-row pm-progressRow">
+      <div>
+        <div className="pm-label">Progress</div>
+        <Stepper
+          total={total}
+          current={Math.max(0, stepIndex)}
+          results={resultsRef.current || []}
+          onJump={(i) => {
+            resolvePrompt({ silent: true });
+            setStepIndex(i);
+            const s = steps[i];
+            if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+          }}
+        />
+      </div>
+      <div className="pm-scoreRow">
+        <ScoreRing pct={pct} />
+        <div>
+          <div className="pm-pill">
+            Correct: <strong>{correct}/{gradedTotal}</strong>
+          </div>
+          <div className="pm-pill">
+            Retries: <strong>{retryCount || 0}</strong>
+          </div>
+          <div className="pm-pill">
+            Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="pm-app">
+    <div className={`pm-app ${mode}`}>
       <div className="pm-card">
         {/* Header */}
         <div className="pm-header">
@@ -533,6 +566,7 @@ function TrainApp({ forcedMode }) {
         <div className={`pm-main ${mode}`}>
           {/* LEFT */}
           <section className="pm-panel">
+            {isMobile && <div className="pm-progressTop">{progressSummary}</div>}
             <div className="pm-runRow">
               <div className="pm-row pm-startControls">
                 <button
@@ -593,9 +627,12 @@ function TrainApp({ forcedMode }) {
               </div>
             </div>
 
-            <div className="pm-row pm-navRow" style={{ marginTop: 8 }}>
+            <div
+              className={`pm-row pm-navRow${isMobile ? " pm-navRowCompact" : ""}`}
+              style={{ marginTop: 8 }}
+            >
               <button
-                className={`pm-btn${isMobile ? " pm-mobileControl" : ""}`}
+                className={`pm-btn${isMobile ? " pm-mobileNavBtn" : ""}`}
                 onClick={() => {
                   resolvePrompt({ silent: true });
                   setStepIndex((i) => {
@@ -609,7 +646,7 @@ function TrainApp({ forcedMode }) {
                 ⟵ Prev
               </button>
               <button
-                className={`pm-btn primary${isMobile ? " pm-mobileControl" : ""}`}
+                className={`pm-btn primary${isMobile ? " pm-mobileNavBtn" : ""}`}
                 onClick={() => {
                   if (awaitingAdvanceRef.current) {
                     log("Advance confirmed via Next button.");
@@ -627,7 +664,7 @@ function TrainApp({ forcedMode }) {
                 Next ⟶
               </button>
               <button
-                className={`pm-btn${isMobile ? " pm-mobileControl" : ""}`}
+                className={`pm-btn${isMobile ? " pm-mobileNavBtn" : ""}`}
                 onClick={() => {
                   const s = steps[stepIndex];
                   if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
@@ -674,36 +711,7 @@ function TrainApp({ forcedMode }) {
 
           {/* RIGHT */}
           <section className="pm-panel">
-            <div className="pm-row pm-progressRow">
-              <div>
-                <div className="pm-label">Progress</div>
-                <Stepper
-                  total={total}
-                  current={Math.max(0, stepIndex)}
-                  results={resultsRef.current || []}
-                  onJump={(i) => {
-                    resolvePrompt({ silent: true });
-                    setStepIndex(i);
-                    const s = steps[i];
-                    if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
-                  }}
-                />
-              </div>
-              <div className="pm-scoreRow">
-                <ScoreRing pct={pct} />
-                <div>
-                  <div className="pm-pill">
-                    Correct: <strong>{correct}/{gradedTotal}</strong>
-                  </div>
-                  <div className="pm-pill">
-                    Retries: <strong>{retryCount || 0}</strong>
-                  </div>
-                  <div className="pm-pill">
-                    Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {!isMobile && progressSummary}
 
             {!isMobile && (
               <div style={{ marginTop: 10 }}>

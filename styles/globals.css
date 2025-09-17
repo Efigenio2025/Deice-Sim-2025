@@ -125,6 +125,8 @@ body.piedmont {
 .pm-btn { cursor:pointer; border:1px solid var(--border); background:#f2f7ff; color:var(--ink);
   border-radius:12px; padding:10px 14px; font-weight:600; }
 .pm-btn.pm-mobileControl { flex:1 1 0; min-width:0; }
+.pm-btn.pm-mobileNavBtn { flex:1 1 0; min-width:0; padding:8px 10px; font-size:13px; white-space:nowrap; }
+.pm-btn.primary.pm-mobileNavBtn { padding:8px 10px; }
 .pm-btn.primary { background: linear-gradient(180deg, #2f78ff, #0e63ff); color:#fff; border-color:#0e63ff; }
 .pm-btn.ghost { background:transparent; }
 
@@ -159,6 +161,11 @@ body.piedmont {
 /* score ring */
 .pm-scoreRow { display:flex; align-items:center; gap:12px; }
 .pm-ring { width:72px; height:72px; }
+
+.pm-progressTop { margin-bottom: 12px; }
+.pm-progressTop .pm-progressRow { margin-top: 0; }
+.pm-navRow.pm-navRowCompact { flex-direction: row; flex-wrap: nowrap; gap:6px; }
+.pm-navRow.pm-navRowCompact .pm-btn { width:auto; }
 
 /* footer */
 .pm-footer { padding:12px 16px; border-top:1px solid var(--border); display:flex; justify-content:space-between;
