@@ -663,57 +663,62 @@ function TrainApp({ forcedMode }) {
     <div className={`pm-app ${mode}`}>
       <div className="pm-card">
         {/* Header */}
-        <div className="pm-header">
-          <div className={`pm-title${isMobile ? " pm-titleMobile" : ""}`}>
-            <div className="pm-titleBrand">
-              <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
-              <h1>Deice Verbiage Trainer</h1>
-            </div>
-            {isMobile ? (
-              <div className="pm-titleScore" aria-label={`Score ${pct}%`}>
-                <ScoreRing pct={pct} size={mobileScoreSize} />
+        <div className={`pm-header ${isMobile ? "mobile" : "desktop"}`}>
+          <div className="pm-headerLeft">
+            <div className="pm-title">
+              <div className="pm-titleBrand">
+                <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
+                <div className="pm-titleText">
+                  <h1>Deice Verbiage Trainer</h1>
+                  <span className="pm-badge pm-titleBadge">V2 • For training purposes only • OMA Station • 2025</span>
+                </div>
               </div>
-            ) : (
-              <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>
-            )}
-          </div>
-          <div className="pm-headerControls">
-            <div className="pm-row pm-scenarioControl">
-              <span className="pm-label">Scenario</span>
-              <select
-                className="pm-select"
-                value={current?.id || ""}
-                onChange={async (e) => {
-                  const id = e.target.value;
-                  const res = await fetch(`/scenarios/${id}.json`);
-                  const scn = await res.json();
-                  setCurrent(scn);
-                  resultsRef.current = Array(scn.steps.length).fill(undefined);
-                  setResultsVersion((v) => v + 1);
-                  setStepIndex(-1);
-                  setStatus("Scenario loaded");
-                  log(`Scenario loaded: ${scn.label}`);
-                  setAnswer("");
-                  setLastResultText("—");
-                  setRetryCount(0);
-                  setAvgRespSec(null);
-                  setAwaitingAdvance(false);
-                  awaitingAdvanceRef.current = false;
-                  proceedResolverRef.current = null;
-                  preloadCaptainForScenario(scn);
-                }}
-              >
-                {(scenarioList || []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
             </div>
+            <div className="pm-headerScore" aria-label={`Score ${pct}%`}>
+              <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 72} />
+            </div>
+          </div>
+          <div className="pm-headerRight">
             <div className={`pm-statusGroup${isMobile ? " pm-statusGroupCompact" : ""}`}>
               <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>{status}</span>
               <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>Captain: {captainStatus}</span>
             </div>
+            <MicWidget status={micStatus} level={micLevel} />
+          </div>
+        </div>
+
+        <div className="pm-panel pm-scenarioPanel">
+          <div className="pm-row pm-scenarioControl">
+            <span className="pm-label">Scenario</span>
+            <select
+              className="pm-select"
+              value={current?.id || ""}
+              onChange={async (e) => {
+                const id = e.target.value;
+                const res = await fetch(`/scenarios/${id}.json`);
+                const scn = await res.json();
+                setCurrent(scn);
+                resultsRef.current = Array(scn.steps.length).fill(undefined);
+                setResultsVersion((v) => v + 1);
+                setStepIndex(-1);
+                setStatus("Scenario loaded");
+                log(`Scenario loaded: ${scn.label}`);
+                setAnswer("");
+                setLastResultText("—");
+                setRetryCount(0);
+                setAvgRespSec(null);
+                setAwaitingAdvance(false);
+                awaitingAdvanceRef.current = false;
+                proceedResolverRef.current = null;
+                preloadCaptainForScenario(scn);
+              }}
+            >
+              {(scenarioList || []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -768,7 +773,6 @@ function TrainApp({ forcedMode }) {
                   </span>
                 </div>
               </div>
-              <MicWidget status={micStatus} level={micLevel} />
             </div>
 
             {captureMode !== "speech" && (
