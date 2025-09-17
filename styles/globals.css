@@ -161,7 +161,7 @@ body.piedmont {
 .pm-panel.pm-scenarioPanel { padding: 6px 10px; }
 .pm-scenarioPanel .pm-row { gap:4px; }
 .pm-scenarioPanel .pm-label { flex:0 0 auto; font-size: 10px; }
-.pm-scenarioPanel .pm-select { flex:1 1 200px; min-width:0; padding:6px 8px; font-size:12px; }
+.pm-scenarioPanel .pm-select { flex:1 1 50px; min-width:0; padding:6px 8px; font-size:12px; }
 .pm-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .pm-label { color: var(--muted); font-size: 11px; }
 .pm-select, .pm-input, textarea { width:100%; background:#f6f9ff; border:1px solid var(--border); color:var(--ink);
