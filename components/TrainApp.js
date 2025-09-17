@@ -21,7 +21,7 @@ function Stepper({ total, current, results = [], onJump }) {
   );
 }
 
-function ScoreRing({ pct = 0, size = 72 }) {
+function ScoreRing({ pct = 0, size = 60 }) {
   const r = (size - 8) / 2, c = size / 2, circ = 2 * Math.PI * r;
   const off = circ * (1 - pct / 100);
   return (
@@ -221,9 +221,9 @@ function TrainApp({ forcedMode }) {
   const isMobile = mode === "mobile";
   const mobileScoreSize = useMemo(() => {
     if (!isMobile) return 72;
-    const min = 48;
-    const max = 68;
-    const computed = Math.round((viewportWidth || 0) * 0.18);
+    const min = 44;
+    const max = 56;
+    const computed = Math.round((viewportWidth || 0) * 0.15);
     const withinRange = Math.max(min, Math.min(max, computed || min));
     return withinRange;
   }, [isMobile, viewportWidth]);
@@ -675,7 +675,7 @@ function TrainApp({ forcedMode }) {
               </div>
             </div>
             <div className="pm-headerScore" aria-label={`Score ${pct}%`}>
-              <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 72} />
+              <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 60} />
             </div>
           </div>
           <div className="pm-headerRight">
