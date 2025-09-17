@@ -64,18 +64,6 @@ body{
   --err:#ff5c6c;
 }
 
-body.piedmont {
-  background-image:
-    linear-gradient(180deg, var(--bg-start), var(--bg-mid) 40%, var(--bg-end)),
-    url("/images/plane-spray.jpg");
-  background-repeat: no-repeat;
-  background-position: center top;   /* keep it centered */
-  background-size: cover;            /* key change */
-  background-attachment: fixed;      /* still gives parallax */
-  color: var(--ink);
-}
-
-
 
 /* container + card */
 .pm-app { max-width: 1120px; margin: 24px auto; padding: 0 16px; }
