@@ -7,6 +7,7 @@ import {
   onAudio,
   stopAudio,
 } from "../lib/audio";
+import { listenOnce } from "../lib/speech";
 
 function Stepper({ total, current, results = [], onJump }) {
   return (
@@ -95,6 +96,9 @@ export default function TrainPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [avgRespSec, setAvgRespSec] = useState(null);
   const [logText, setLogText] = useState("");
+  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [awaitingAdvance, setAwaitingAdvance] = useState(false);
+  const [resultsVersion, setResultsVersion] = useState(0);
 
   const [forcedMode, setForcedMode] = useState(null);
   const mode = useResponsiveMode(forcedMode);
@@ -102,12 +106,28 @@ export default function TrainPage() {
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
   const preparedRef = useRef(false);
+  const autoAdvanceRef = useRef(autoAdvance);
+  const awaitingAdvanceRef = useRef(awaitingAdvance);
+  const runIdRef = useRef(0);
+  const proceedResolverRef = useRef(null);
 
   const micLevelRef = useRef(0);
   const [captainStatus, setCaptainStatus] = useState("idle");
+  useEffect(() => {
+    autoAdvanceRef.current = autoAdvance;
+    if (autoAdvance && awaitingAdvanceRef.current && proceedResolverRef.current) {
+      resolvePrompt();
+    }
+  }, [autoAdvance]);
+  useEffect(() => { awaitingAdvanceRef.current = awaitingAdvance; }, [awaitingAdvance]);
 
-  const correct = (resultsRef.current || []).filter(Boolean).length;
-  const pct = total ? Math.round((correct / total) * 100) : 0;
+  const gradedTotal = useMemo(() => (steps || []).filter(s => s.role === "Iceman").length, [steps]);
+  const correct = useMemo(() => {
+    return (resultsRef.current || []).reduce((acc, val, idx) => {
+      return acc + (steps[idx]?.role === "Iceman" && val === true ? 1 : 0);
+    }, 0);
+  }, [steps, resultsVersion]);
+  const pct = gradedTotal ? Math.round((correct / gradedTotal) * 100) : 0;
   const micStatus = preparedRef.current ? (runningRef.current && !pausedRef.current ? "listening" : "ready") : "idle";
   const micLevel = micLevelRef.current || 0;
 
@@ -128,7 +148,16 @@ export default function TrainPage() {
           const data = await res2.json();
           setCurrent(data);
           resultsRef.current = Array(data.steps.length).fill(undefined);
+          setResultsVersion(v => v + 1);
           setStatus("Scenario loaded");
+          setStepIndex(-1);
+          setAnswer("");
+          setLastResultText("—");
+          setRetryCount(0);
+          setAvgRespSec(null);
+          setAwaitingAdvance(false);
+          awaitingAdvanceRef.current = false;
+          proceedResolverRef.current = null;
           preloadCaptainForScenario(data);
         }
       } catch (e) {
@@ -167,46 +196,47 @@ export default function TrainPage() {
     preloadCaptainCues(scnId, cues);
   }
 
-  // Prepare microphone and preload Captain audio
-async function onPrepareMic() {
-  setStatus("Preparing mic…");
-  log("Prepare Mic clicked.");
-  try {
-    await unlockAudio();
-    log("Audio unlocked via unlockAudio().");
-
-    // Optional mic permission (keep if you plan to record speech)
-    if (navigator.mediaDevices?.getUserMedia) {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      log("Mic permission granted by getUserMedia().");
+  async function prepareMic() {
+    if (preparedRef.current) {
+      log("Microphone already prepared.");
+      return true;
     }
 
-    const cues = (current?.steps || []).filter(s => s.role === "Captain" && s.cue).map(s => s.cue);
-    if (cues.length) {
-      preloadCaptainCues(current?.id || "default", cues);
-      log(`Preloaded Captain cues: ${cues.join(", ")}`);
-    }
+    setStatus("Preparing mic…");
+    log("Preparing microphone.");
+    try {
+      await unlockAudio();
+      log("Audio unlocked via unlockAudio().");
 
-    preparedRef.current = true;
-    setStatus("Mic ready");
-    toast("Mic ready", "success");
-  } catch (err) {
-    preparedRef.current = false;
-    setStatus("Mic prepare failed");
-    toast("Mic prepare failed", "error");
-    log(`Prepare Mic ERROR: ${err?.message || err}`);
+      if (navigator.mediaDevices?.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        log("Mic permission granted by getUserMedia().");
+      }
+
+      const cues = (current?.steps || []).filter(s => s.role === "Captain" && s.cue).map(s => s.cue);
+      if (cues.length) {
+        preloadCaptainCues(current?.id || "default", cues);
+        log(`Preloaded Captain cues: ${cues.join(", ")}`);
+      }
+
+      preparedRef.current = true;
+      setStatus("Mic ready");
+      toast("Mic ready", "success");
+      return true;
+    } catch (err) {
+      preparedRef.current = false;
+      setStatus("Mic prepare failed");
+      toast("Mic prepare failed", "error");
+      log(`Prepare Mic ERROR: ${err?.message || err}`);
+      return false;
+    }
   }
-}
 
 
 async function onStart() {
   try {
-    // Fallback unlock if user skipped Prepare
-    if (!preparedRef.current) {
-      await unlockAudio();
-      preparedRef.current = true;
-      log("Mic auto-prepared by Start.");
-    }
+    const ok = await prepareMic();
+    if (!ok) return;
 
     pausedRef.current = false;
     runningRef.current = true;
@@ -216,21 +246,8 @@ async function onStart() {
     // First start: move to step 0 if needed
     if (stepIndex < 0 && steps.length) {
       setStepIndex(0);
-      setTimeout(() => {
-        const s0 = steps[0];
-        if (s0?.role === "Captain" && s0.cue && current?.id) {
-          // Do NOT await here
-          void playCaptainCue(current.id, s0.cue);
-        }
-      }, 30);
-    } else {
-      const s = steps[stepIndex];
-      if (s?.role === "Captain" && s.cue && current?.id) {
-        void playCaptainCue(current.id, s.cue);
-      }
     }
 
-    // Always start the loop
     runSimulator();
   } catch (e) {
     console.error("Start failed:", e);
@@ -246,6 +263,7 @@ function onPause() {
     pausedRef.current = true;
     runningRef.current = false;
     stopAudio();
+    resolvePrompt({ silent: true });
     setStatus("Paused");
     log("Simulation paused.");
     toast("Paused", "info");
@@ -262,6 +280,7 @@ function onPause() {
     const p = quickScore(exp, answer);
     const ok = p >= 60;
     resultsRef.current[stepIndex] = ok;
+    setResultsVersion(v => v + 1);
     setLastResultText(ok ? `✅ Good (${p}%)` : `❌ Try again (${p}%)`);
     if (!ok) setRetryCount(n => n + 1);
     log(`[Step ${stepIndex + 1}] Score ${p}% → ${ok ? "OK" : "MISS"}`);
@@ -278,41 +297,135 @@ function onPause() {
     toast("CSV downloaded", "success");
   }
 
- function runSimulator() {
-  if (!current || !steps.length) { setStatus("Select a scenario first."); return; }
-  if (stepIndex < 0) { setStepIndex(0); } // safety
+  function resolvePrompt({ silent = false } = {}) {
+    const hadPending = Boolean(proceedResolverRef.current) || awaitingAdvanceRef.current;
+    if (proceedResolverRef.current) {
+      const resolve = proceedResolverRef.current;
+      proceedResolverRef.current = null;
+      resolve();
+    }
+    awaitingAdvanceRef.current = false;
+    setAwaitingAdvance(false);
+    if (hadPending && !silent && runningRef.current && !pausedRef.current) setStatus("Running…");
+  }
 
-  const startedAt = performance.now();
-  setStatus("Running…");
-  const tick = () => {
-    if (!runningRef.current || pausedRef.current) return;
+  async function runSimulator() {
+    if (!current || !steps.length) { setStatus("Select a scenario first."); return; }
 
-    const judged = resultsRef.current[stepIndex];
-    if (judged && stepIndex < steps.length - 1) {
-      const next = stepIndex + 1;
-      setStepIndex(next);
-      const s = steps[next];
-      if (s?.role === "Captain" && s.cue && current?.id) {
-        void playCaptainCue(current.id, s.cue);
+    const runId = Date.now();
+    runIdRef.current = runId;
+
+    let idx = stepIndex >= 0 ? stepIndex : 0;
+    if (idx !== stepIndex) setStepIndex(idx);
+
+    let responseCount = 0;
+    let responseTotal = 0;
+
+    while (runningRef.current && !pausedRef.current && runIdRef.current === runId && idx < steps.length) {
+      const step = steps[idx];
+      if (!step) break;
+
+      setStepIndex(idx);
+
+      if (step.role === "Captain") {
+        if (step.cue && current?.id) {
+          try {
+            await playCaptainCue(current.id, step.cue);
+          } catch (err) {
+            console.error("Captain cue failed", err);
+          }
+        }
+        if (resultsRef.current[idx] !== true) {
+          resultsRef.current[idx] = true;
+          setResultsVersion(v => v + 1);
+        }
+      } else if (step.role === "Iceman") {
+        setAnswer("");
+        setStatus("Listening…");
+        log(`[Step ${idx + 1}] Listening for response.`);
+
+        const started = performance.now();
+        let speech;
+        try {
+          speech = await listenOnce({
+            onInterim: (txt) => setAnswer(txt),
+            onStatus: (msg) => setStatus(msg),
+          });
+        } catch (err) {
+          console.error("listenOnce failed", err);
+          toast("Speech capture failed", "error");
+          setStatus("Speech capture failed");
+          runningRef.current = false;
+          break;
+        }
+
+        if (!runningRef.current || pausedRef.current || runIdRef.current !== runId) break;
+
+        if (speech?.ended === "nosr") {
+          log("Speech recognition unavailable; stopping simulator.");
+          toast("Speech recognition not supported in this browser.", "error");
+          setStatus("Speech recognition unavailable");
+          runningRef.current = false;
+          break;
+        }
+
+        const heard = (speech?.final || speech?.interim || "").trim();
+        setAnswer(heard);
+
+        const took = (performance.now() - started) / 1000;
+        responseCount += 1;
+        responseTotal += took;
+        setAvgRespSec(responseCount ? responseTotal / responseCount : null);
+
+        const expected = step.text || "";
+        const score = quickScore(expected, heard);
+        const ok = score >= 60;
+        resultsRef.current[idx] = ok;
+        setResultsVersion(v => v + 1);
+        setLastResultText(ok ? `✅ Good (${score}%)` : `❌ Try again (${score}%)`);
+        if (!ok) {
+          setRetryCount(n => n + 1);
+          toast("Let's try that line again.", "info");
+        }
+        log(`[Step ${idx + 1}] Auto score ${score}% → ${ok ? "OK" : "MISS"}`);
+
+        if (!autoAdvanceRef.current && idx < steps.length - 1) {
+          setStatus("Awaiting proceed…");
+          awaitingAdvanceRef.current = true;
+          setAwaitingAdvance(true);
+          log("Awaiting confirmation to proceed.");
+          await new Promise(resolve => { proceedResolverRef.current = resolve; });
+          proceedResolverRef.current = null;
+          awaitingAdvanceRef.current = false;
+          setAwaitingAdvance(false);
+          if (!runningRef.current || pausedRef.current || runIdRef.current !== runId) break;
+          setStatus("Running…");
+        }
+      } else {
+        if (resultsRef.current[idx] === undefined) {
+          resultsRef.current[idx] = true;
+          setResultsVersion(v => v + 1);
+        }
       }
+
+      if (!runningRef.current || pausedRef.current || runIdRef.current !== runId) break;
+
+      if (runningRef.current && !pausedRef.current) setStatus("Running…");
+      idx += 1;
     }
 
-    const dur = (performance.now() - startedAt) / 1000;
-    setAvgRespSec(prev => (prev ? (prev + dur) / 2 : dur));
+    if (runIdRef.current !== runId) return;
 
-    const allJudged = resultsRef.current.length === steps.length &&
-      resultsRef.current.every(v => v === true || v === false);
-
-    if (!allJudged) requestAnimationFrame(tick);
-    else {
+    if (idx >= steps.length) {
       runningRef.current = false;
-      const finalPct = steps.length ? Math.round((resultsRef.current.filter(Boolean).length / steps.length) * 100) : 0;
-      setStatus(`Complete • ${resultsRef.current.filter(Boolean).length}/${steps.length} (${finalPct}%) • ${finalPct >= 80 ? "PASS" : "RETRY"}`);
+      const okCount = (resultsRef.current || []).reduce((acc, val, i) => {
+        return acc + (steps[i]?.role === "Iceman" && val === true ? 1 : 0);
+      }, 0);
+      const finalPct = gradedTotal ? Math.round((okCount / gradedTotal) * 100) : 0;
+      setStatus(`Complete • ${okCount}/${gradedTotal} (${finalPct}%) • ${finalPct >= 80 ? "PASS" : "RETRY"}`);
       toast("Session complete", finalPct >= 80 ? "success" : "info");
     }
-  };
-  requestAnimationFrame(tick);
-}
+  }
 
 
   return (
@@ -337,8 +450,17 @@ function onPause() {
                   const scn = await res.json();
                   setCurrent(scn);
                   resultsRef.current = Array(scn.steps.length).fill(undefined);
+                  setResultsVersion(v => v + 1);
                   setStepIndex(-1);
-                  setStatus("Scenario loaded"); log(`Scenario loaded: ${scn.label}`);
+                  setStatus("Scenario loaded");
+                  log(`Scenario loaded: ${scn.label}`);
+                  setAnswer("");
+                  setLastResultText("—");
+                  setRetryCount(0);
+                  setAvgRespSec(null);
+                  setAwaitingAdvance(false);
+                  awaitingAdvanceRef.current = false;
+                  proceedResolverRef.current = null;
                   preloadCaptainForScenario(scn);
                 }}
               >
@@ -362,20 +484,33 @@ function onPause() {
         <div className={`pm-main ${mode}`}>
           {/* LEFT */}
           <section className="pm-panel">
-            <div className="pm-row" style={{ justifyContent: "space-between" }}>
-              <div className="pm-row">
-               <button type="button" className="pm-btn ghost" onClick={() => { console.log("CLICK Prepare"); onPrepareMic(); }}>
-  Prepare Mic
-</button>
-<button type="button" className="pm-btn" onClick={() => { console.log("CLICK Start"); onStart(); }}>
-  Start
-</button>
-<button type="button" className="pm-btn ghost" onClick={() => { console.log("CLICK Pause"); onPause(); }}>
-  Pause
-</button>
-
-
-
+            <div className="pm-row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div className="pm-row" style={{ flexWrap: "wrap", gap: 8 }}>
+                <button type="button" className="pm-btn" onClick={onStart}>Start</button>
+                <button type="button" className="pm-btn ghost" onClick={onPause}>Pause</button>
+                <div className="pm-row" style={{ marginLeft: 12, gap: 6, flexWrap: "wrap" }}>
+                  <span className="pm-label">Advance</span>
+                  <button
+                    type="button"
+                    className={`pm-btn${autoAdvance ? "" : " ghost"}`}
+                    aria-pressed={autoAdvance}
+                    onClick={() => {
+                      if (!autoAdvance) { setAutoAdvance(true); log("Advance mode: automatic."); }
+                    }}
+                  >
+                    Automatic
+                  </button>
+                  <button
+                    type="button"
+                    className={`pm-btn${!autoAdvance ? "" : " ghost"}`}
+                    aria-pressed={!autoAdvance}
+                    onClick={() => {
+                      if (autoAdvance) { setAutoAdvance(false); log("Advance mode: prompt."); }
+                    }}
+                  >
+                    Prompt
+                  </button>
+                </div>
               </div>
               <MicWidget status={micStatus} level={micLevel} />
             </div>
@@ -390,20 +525,29 @@ function onPause() {
             </div>
 
             <div className="pm-row" style={{ marginTop: 8 }}>
-              <button className="pm-btn" onClick={() =>
+              <button className="pm-btn" onClick={() => {
+                resolvePrompt({ silent: true });
                 setStepIndex(i => {
                   const n = Math.max(0, (typeof i === "number" ? i : 0) - 1);
-                  const s = steps[n]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
+                  const s = steps[n]; if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
                   return n;
-                })}>⟵ Prev</button>
+                });
+              }}>⟵ Prev</button>
               <button className="pm-btn primary" onClick={() =>
-                setStepIndex(i => {
-                  const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
-                  const s = steps[n]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
-                  return n;
-                })}>Next ⟶</button>
+                {
+                  if (awaitingAdvanceRef.current) {
+                    log("Advance confirmed via Next button.");
+                    resolvePrompt();
+                    return;
+                  }
+                  setStepIndex(i => {
+                    const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
+                    const s = steps[n]; if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+                    return n;
+                  });
+                }}>Next ⟶</button>
               <button className="pm-btn" onClick={() => {
-                const s = steps[stepIndex]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
+                const s = steps[stepIndex]; if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
               }}>▶︎ Play line</button>
             </div>
 
@@ -416,6 +560,21 @@ function onPause() {
               </div>
             </div>
 
+            {awaitingAdvance && (
+              <div className="pm-row" style={{ marginTop: 8 }}>
+                <span className="pm-pill">Response captured. Proceed when ready.</span>
+                <button
+                  className="pm-btn primary"
+                  onClick={() => {
+                    log("Advance confirmed.");
+                    resolvePrompt();
+                  }}
+                >
+                  Proceed
+                </button>
+              </div>
+            )}
+
             {stepIndex >= 0 && steps[stepIndex] && <WordDiff expected={steps[stepIndex].text} heard={answer} />}
           </section>
 
@@ -425,12 +584,17 @@ function onPause() {
               <div>
                 <div className="pm-label">Progress</div>
                 <Stepper total={total} current={Math.max(0, stepIndex)} results={resultsRef.current || []}
-                         onJump={(i) => { setStepIndex(i); const s = steps[i]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue); }} />
+                         onJump={(i) => {
+                           resolvePrompt({ silent: true });
+                           setStepIndex(i);
+                           const s = steps[i];
+                           if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+                         }} />
               </div>
               <div className="pm-scoreRow">
                 <ScoreRing pct={pct} />
                 <div>
-                  <div className="pm-pill">Correct: <strong>{correct}/{total}</strong></div>
+                  <div className="pm-pill">Correct: <strong>{correct}/{gradedTotal}</strong></div>
                   <div className="pm-pill">Retries: <strong>{retryCount || 0}</strong></div>
                   <div className="pm-pill">Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong></div>
                 </div>
