@@ -67,21 +67,14 @@ body{
 body.piedmont {
   background-image:
     linear-gradient(180deg, var(--bg-start), var(--bg-mid) 40%, var(--bg-end)),
-    url("images/plane-spray.jpg");
+    url("/images/plane-spray.jpg");
   background-repeat: no-repeat;
-  background-position: center top;
-  background-size: cover;
-  background-attachment: fixed; /* parallax on desktop */
+  background-position: center top;   /* keep it centered */
+  background-size: cover;            /* key change */
+  background-attachment: fixed;      /* still gives parallax */
   color: var(--ink);
 }
 
-/* --- Mobile/Tablet override --- */
-@media (max-width: 768px) {
-  body.piedmont {
-    background-attachment: scroll; /* smoother on touch devices */
-    background-position: center center; /* recenters when taller */
-  }
-}
 
 
 /* container + card */
