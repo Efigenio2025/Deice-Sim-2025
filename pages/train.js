@@ -466,10 +466,7 @@ function onPause() {
                 {(scenarioList || []).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
-            <div className="pm-statusGroup">
-              <span className="pm-pill">{status}</span>
-              <span className="pm-pill">Captain: {captainStatus}</span>
-            </div>
+
           </div>
         </div>
 
@@ -481,11 +478,7 @@ function onPause() {
               <div className="pm-row pm-startControls">
                 <button type="button" className="pm-btn" onClick={onStart}>Start</button>
                 <button type="button" className="pm-btn ghost" onClick={onPause}>Pause</button>
-                <div className="pm-row pm-speechToggle">
-                  <span className="pm-label" id="speech-mode-label">Speech mode</span>
-                  <span
-                    id="speech-mode-auto"
-                    className={`pm-switchOption${autoAdvance ? " active" : ""}`}
+
                   >
                     Auto
                   </span>
@@ -501,9 +494,7 @@ function onPause() {
                       log(`Speech mode: ${next ? "Auto" : "Manual"}.`);
                     }}
                   >
-                    <span className="pm-switchTrack">
-                      <span className="pm-switchThumb" />
-                    </span>
+
                   </button>
                   <span
                     id="speech-mode-manual"
@@ -616,7 +607,7 @@ function onPause() {
 
         {/* Footer */}
         <div className="pm-footer">
-          <div>V1 • for training purposes only • OMA station • Microphone works only in Safari on iOS</div>
+          <div>V2 • For Training Purposes Only • OMA station 2025 </div>
           <div className="pm-pill">Tip: Use headphones to avoid feedback.</div>
         </div>
       </div>
