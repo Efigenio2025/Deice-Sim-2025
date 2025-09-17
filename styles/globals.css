@@ -67,7 +67,7 @@ body{
 body.piedmont {
   background-image:
     linear-gradient(180deg, var(--bg-start), var(--bg-mid) 40%, var(--bg-end)),
-    url("public/images/plane-spray.jpg");
+    url("images/plane-spray.jpg");
   background-repeat: no-repeat;
   background-position: center top;
   background-size: cover;
