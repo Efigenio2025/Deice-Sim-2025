@@ -175,6 +175,7 @@ function TrainApp({ forcedMode }) {
   const micStatus = preparedRef.current ? (runningRef.current && !pausedRef.current ? "listening" : "ready") : "idle";
   const micLevel = micLevelRef.current || 0;
   const activeSpeechLabelId = autoAdvance ? "speech-mode-auto" : "speech-mode-manual";
+  const isMobile = mode === "mobile";
 
   const log = (msg) => setLogText((t) => (t ? t + "\n" : "") + msg);
 
@@ -478,15 +479,60 @@ function TrainApp({ forcedMode }) {
     }
   }
 
+  const scoreDetails = (
+    <div className="pm-scoreDetails">
+      <div className="pm-pill">
+        Correct: <strong>{correct}/{gradedTotal}</strong>
+      </div>
+      <div className="pm-pill">
+        Retries: <strong>{retryCount || 0}</strong>
+      </div>
+      <div className="pm-pill">
+        Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
+      </div>
+    </div>
+  );
+
+  const progressSummary = (
+    <div className="pm-row pm-progressRow">
+      <div>
+        <div className="pm-label">Progress</div>
+        <Stepper
+          total={total}
+          current={Math.max(0, stepIndex)}
+          results={resultsRef.current || []}
+          onJump={(i) => {
+            resolvePrompt({ silent: true });
+            setStepIndex(i);
+            const s = steps[i];
+            if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+          }}
+        />
+      </div>
+      <div className={`pm-scoreRow${isMobile ? " pm-scoreRowCompact" : ""}`}>
+        {!isMobile && <ScoreRing pct={pct} />}
+        {scoreDetails}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="pm-app">
+    <div className={`pm-app ${mode}`}>
       <div className="pm-card">
         {/* Header */}
         <div className="pm-header">
-          <div className="pm-title">
-            <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
-            <h1>Deice Verbiage Trainer</h1>
-            <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>
+          <div className={`pm-title${isMobile ? " pm-titleMobile" : ""}`}>
+            <div className="pm-titleBrand">
+              <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
+              <h1>Deice Verbiage Trainer</h1>
+            </div>
+            {isMobile ? (
+              <div className="pm-titleScore" aria-label={`Score ${pct}%`}>
+                <ScoreRing pct={pct} size={60} />
+              </div>
+            ) : (
+              <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>
+            )}
           </div>
           <div className="pm-headerControls">
             <div className="pm-row pm-scenarioControl">
@@ -521,9 +567,9 @@ function TrainApp({ forcedMode }) {
                 ))}
               </select>
             </div>
-            <div className="pm-statusGroup">
-              <span className="pm-pill">{status}</span>
-              <span className="pm-pill">Captain: {captainStatus}</span>
+            <div className={`pm-statusGroup${isMobile ? " pm-statusGroupCompact" : ""}`}>
+              <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>{status}</span>
+              <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>Captain: {captainStatus}</span>
             </div>
           </div>
         </div>
@@ -532,12 +578,21 @@ function TrainApp({ forcedMode }) {
         <div className={`pm-main ${mode}`}>
           {/* LEFT */}
           <section className="pm-panel">
+            {isMobile && <div className="pm-progressTop">{progressSummary}</div>}
             <div className="pm-runRow">
               <div className="pm-row pm-startControls">
-                <button type="button" className="pm-btn" onClick={onStart}>
+                <button
+                  type="button"
+                  className={`pm-btn${isMobile ? " pm-mobileControl" : ""}`}
+                  onClick={onStart}
+                >
                   Start
                 </button>
-                <button type="button" className="pm-btn ghost" onClick={onPause}>
+                <button
+                  type="button"
+                  className={`pm-btn ghost${isMobile ? " pm-mobileControl" : ""}`}
+                  onClick={onPause}
+                >
                   Pause
                 </button>
                 <div className="pm-row pm-speechToggle">
@@ -584,9 +639,12 @@ function TrainApp({ forcedMode }) {
               </div>
             </div>
 
-            <div className="pm-row pm-navRow" style={{ marginTop: 8 }}>
+            <div
+              className={`pm-row pm-navRow${isMobile ? " pm-navRowCompact" : ""}`}
+              style={{ marginTop: 8 }}
+            >
               <button
-                className="pm-btn"
+                className={`pm-btn${isMobile ? " pm-mobileNavBtn" : ""}`}
                 onClick={() => {
                   resolvePrompt({ silent: true });
                   setStepIndex((i) => {
@@ -600,7 +658,7 @@ function TrainApp({ forcedMode }) {
                 ⟵ Prev
               </button>
               <button
-                className="pm-btn primary"
+                className={`pm-btn primary${isMobile ? " pm-mobileNavBtn" : ""}`}
                 onClick={() => {
                   if (awaitingAdvanceRef.current) {
                     log("Advance confirmed via Next button.");
@@ -618,7 +676,7 @@ function TrainApp({ forcedMode }) {
                 Next ⟶
               </button>
               <button
-                className="pm-btn"
+                className={`pm-btn${isMobile ? " pm-mobileNavBtn" : ""}`}
                 onClick={() => {
                   const s = steps[stepIndex];
                   if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
@@ -665,41 +723,14 @@ function TrainApp({ forcedMode }) {
 
           {/* RIGHT */}
           <section className="pm-panel">
-            <div className="pm-row pm-progressRow">
-              <div>
-                <div className="pm-label">Progress</div>
-                <Stepper
-                  total={total}
-                  current={Math.max(0, stepIndex)}
-                  results={resultsRef.current || []}
-                  onJump={(i) => {
-                    resolvePrompt({ silent: true });
-                    setStepIndex(i);
-                    const s = steps[i];
-                    if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
-                  }}
-                />
-              </div>
-              <div className="pm-scoreRow">
-                <ScoreRing pct={pct} />
-                <div>
-                  <div className="pm-pill">
-                    Correct: <strong>{correct}/{gradedTotal}</strong>
-                  </div>
-                  <div className="pm-pill">
-                    Retries: <strong>{retryCount || 0}</strong>
-                  </div>
-                  <div className="pm-pill">
-                    Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {!isMobile && progressSummary}
 
-            <div style={{ marginTop: 10 }}>
-              <div className="pm-label">Session Log</div>
-              <div className="pm-log">{logText}</div>
-            </div>
+            {!isMobile && (
+              <div style={{ marginTop: 10 }}>
+                <div className="pm-label">Session Log</div>
+                <div className="pm-log">{logText}</div>
+              </div>
+            )}
 
             <div className="pm-row pm-exportRow" style={{ marginTop: 10 }}>
               <button className="pm-btn ghost" onClick={exportSession}>
