@@ -491,7 +491,7 @@ function onPause() {
                 <button type="button" className="pm-btn" onClick={onStart}>Start</button>
                 <button type="button" className="pm-btn ghost" onClick={onPause}>Pause</button>
                 <div className="pm-row pm-advanceToggle">
-                  <span className="pm-label">Advance</span>
+                  <span className="pm-label"> Scenario Mode </span>
                   <button
                     type="button"
                     className={`pm-btn${autoAdvance ? "" : " ghost"}`}
@@ -510,7 +510,7 @@ function onPause() {
                       if (autoAdvance) { setAutoAdvance(false); log("Advance mode: prompt."); }
                     }}
                   >
-                    Prompt
+                    Manual Prompt
                   </button>
                 </div>
               </div>
@@ -617,7 +617,7 @@ function onPause() {
 
         {/* Footer */}
         <div className="pm-footer">
-          <div>V1 • for training purposes only • OMA station • Microphone works only in Safari on iOS</div>
+          <div>V2 • For Training Purposes Only • OMA station 2025 </div>
           <div className="pm-pill">Tip: Use headphones to avoid feedback.</div>
         </div>
       </div>
