@@ -60,14 +60,15 @@ function renderToasts() {
   if (!host) { host = document.createElement("div"); host.id = "pm-toast-host"; host.className = "pm-toasts"; document.body.appendChild(host); }
   host.innerHTML = _toasts.map(t => `<div class="pm-toast ${t.kind}">${t.msg}</div>`).join("");
 }
-function useResponsiveMode() {
+function useResponsiveMode(forced = null) {
   const pick = () => (window.innerWidth <= 860 ? "mobile" : "desktop");
-  const [mode, setMode] = useState(() => (typeof window === "undefined" ? "desktop" : pick()));
+  const [mode, setMode] = useState(typeof window === "undefined" ? "desktop" : forced || pick());
   useEffect(() => {
+    if (forced) { setMode(forced); return; }
     const onResize = () => setMode(pick());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [forced]);
   return mode;
 }
 function downloadCSV(rows, filename = "deice-results.csv") {
@@ -99,7 +100,8 @@ export default function TrainPage() {
   const [awaitingAdvance, setAwaitingAdvance] = useState(false);
   const [resultsVersion, setResultsVersion] = useState(0);
 
-  const mode = useResponsiveMode();
+  const [forcedMode, setForcedMode] = useState(null);
+  const mode = useResponsiveMode(forcedMode);
 
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
@@ -128,7 +130,6 @@ export default function TrainPage() {
   const pct = gradedTotal ? Math.round((correct / gradedTotal) * 100) : 0;
   const micStatus = preparedRef.current ? (runningRef.current && !pausedRef.current ? "listening" : "ready") : "idle";
   const micLevel = micLevelRef.current || 0;
-  const activeSpeechLabelId = autoAdvance ? "speech-mode-auto" : "speech-mode-manual";
 
   const log = (msg) => setLogText(t => (t ? t + "\n" : "") + msg);
 
@@ -466,12 +467,6 @@ function onPause() {
                 {(scenarioList || []).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
-<<<<<<< codex/improve-mobile-version-for-usability-sklvh0
-            <div className="pm-statusGroup">
-              <span className="pm-pill">{status}</span>
-              <span className="pm-pill">Captain: {captainStatus}</span>
-            </div>
-=======
 
             <div className="pm-row pm-viewToggle">
               <span className="pm-label">View</span>
@@ -484,7 +479,6 @@ function onPause() {
               <span className="pm-pill">{status}</span>
               <span className="pm-pill">Captain: {captainStatus}</span>
             </div>
->>>>>>> main
           </div>
         </div>
 
@@ -496,13 +490,6 @@ function onPause() {
               <div className="pm-row pm-startControls">
                 <button type="button" className="pm-btn" onClick={onStart}>Start</button>
                 <button type="button" className="pm-btn ghost" onClick={onPause}>Pause</button>
-<<<<<<< codex/improve-mobile-version-for-usability-sklvh0
-                <div className="pm-row pm-speechToggle">
-                  <span className="pm-label" id="speech-mode-label">Speech mode</span>
-                  <span
-                    id="speech-mode-auto"
-                    className={`pm-switchOption${autoAdvance ? " active" : ""}`}
-=======
                 <div className="pm-row pm-advanceToggle">
                   <span className="pm-label"> Scenario Mode </span>
                   <button
@@ -512,36 +499,19 @@ function onPause() {
                     onClick={() => {
                       if (!autoAdvance) { setAutoAdvance(true); log("Advance mode: automatic."); }
                     }}
->>>>>>> main
                   >
-                    Auto
-                  </span>
+                    Automatic
+                  </button>
                   <button
                     type="button"
-                    className={`pm-switch${autoAdvance ? "" : " manual"}`}
-                    role="switch"
-                    aria-checked={!autoAdvance}
-                    aria-labelledby={`speech-mode-label ${activeSpeechLabelId}`}
+                    className={`pm-btn${!autoAdvance ? "" : " ghost"}`}
+                    aria-pressed={!autoAdvance}
                     onClick={() => {
-                      const next = !autoAdvance;
-                      setAutoAdvance(next);
-                      log(`Speech mode: ${next ? "Auto" : "Manual"}.`);
+                      if (autoAdvance) { setAutoAdvance(false); log("Advance mode: prompt."); }
                     }}
                   >
-<<<<<<< codex/improve-mobile-version-for-usability-sklvh0
-                    <span className="pm-switchTrack">
-                      <span className="pm-switchThumb" />
-                    </span>
-=======
                     Manual Prompt
->>>>>>> main
                   </button>
-                  <span
-                    id="speech-mode-manual"
-                    className={`pm-switchOption${autoAdvance ? "" : " active"}`}
-                  >
-                    Manual
-                  </span>
                 </div>
               </div>
               <MicWidget status={micStatus} level={micLevel} />
