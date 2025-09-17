@@ -1,5 +1,5 @@
 // pages/train.js
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   unlockAudio,
   playCaptainCue,
@@ -81,12 +81,23 @@ export default function TrainPage() {
   // scenario list + current
   const [scenarioList, setScenarioList] = useState([]);
   const [current, setCurrent] = useState(null);
+  const currentId = current?.id;
 
   // steps / results
   const [stepIndex, setStepIndex] = useState(-1);
   const steps = useMemo(() => current?.steps || [], [current]);
   const total = steps.length;
   const resultsRef = useRef([]);
+  const stepIndexRef = useRef(stepIndex);
+  useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
+  const autoAdvanceRef = useRef(null);
+  useEffect(() => { autoAdvanceRef.current = null; }, [currentId]);
+  useEffect(() => {
+    const step = steps[stepIndex];
+    if (!step || step.role !== "Captain" || !step.cue) {
+      autoAdvanceRef.current = null;
+    }
+  }, [stepIndex, steps]);
 
   // UI & control state
   const [status, setStatus] = useState("Ready");
@@ -113,6 +124,20 @@ export default function TrainPage() {
 
   const log = (msg) => setLogText(t => (t ? t + "\n" : "") + msg);
 
+  const playCaptainForStep = useCallback((idx, autoAdvance = false) => {
+    const step = steps[idx];
+    if (!currentId || !step || step.role !== "Captain" || !step.cue) return;
+    if (autoAdvance) {
+      autoAdvanceRef.current = { scenarioId: currentId, step: idx };
+    } else if (
+      autoAdvanceRef.current?.scenarioId === currentId &&
+      autoAdvanceRef.current?.step === idx
+    ) {
+      autoAdvanceRef.current = null;
+    }
+    void playCaptainCue(currentId, step.cue);
+  }, [currentId, steps]);
+
   // 1) Load scenario list for dropdown
   useEffect(() => {
     let live = true;
@@ -138,11 +163,39 @@ export default function TrainPage() {
     return () => { live = false; };
   }, []);
 
-  // 2) subscribe to captain audio status
+  // 2) subscribe to captain audio status + auto-advance when playback ends
   useEffect(() => {
-    const off = onAudio("status", (e) => setCaptainStatus(e.detail?.status || "idle"));
+    const handler = (e) => {
+      const detail = e.detail || {};
+      setCaptainStatus(detail.status || "idle");
+      if (detail.who !== "captain") return;
+
+      if (detail.status === "ended") {
+        const pending = autoAdvanceRef.current;
+        if (!pending || pending.scenarioId !== currentId) return;
+        if (!runningRef.current || pausedRef.current) return;
+        const activeStep = stepIndexRef.current;
+        if (activeStep !== pending.step) return;
+
+        const nextIdx = activeStep + 1;
+        if (nextIdx < steps.length) {
+          setStepIndex(nextIdx);
+          const nextStep = steps[nextIdx];
+          if (nextStep?.role === "Captain" && nextStep.cue) {
+            playCaptainForStep(nextIdx, true);
+          } else {
+            autoAdvanceRef.current = null;
+          }
+        } else {
+          autoAdvanceRef.current = null;
+        }
+      } else if (detail.status === "error") {
+        autoAdvanceRef.current = null;
+      }
+    };
+    const off = onAudio("status", handler);
     return () => off && off();
-  }, []);
+  }, [currentId, playCaptainForStep, steps]);
 
   // mic level mock
   useEffect(() => {
@@ -210,6 +263,7 @@ async function onStart() {
 
     pausedRef.current = false;
     runningRef.current = true;
+    autoAdvanceRef.current = null;
     setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
     log("Simulation started.");
 
@@ -217,17 +271,10 @@ async function onStart() {
     if (stepIndex < 0 && steps.length) {
       setStepIndex(0);
       setTimeout(() => {
-        const s0 = steps[0];
-        if (s0?.role === "Captain" && s0.cue && current?.id) {
-          // Do NOT await here
-          void playCaptainCue(current.id, s0.cue);
-        }
+        playCaptainForStep(0, true);
       }, 30);
-    } else {
-      const s = steps[stepIndex];
-      if (s?.role === "Captain" && s.cue && current?.id) {
-        void playCaptainCue(current.id, s.cue);
-      }
+    } else if (stepIndex >= 0) {
+      playCaptainForStep(stepIndex, true);
     }
 
     // Always start the loop
@@ -245,6 +292,7 @@ function onPause() {
   try {
     pausedRef.current = true;
     runningRef.current = false;
+    autoAdvanceRef.current = null;
     stopAudio();
     setStatus("Paused");
     log("Simulation paused.");
@@ -292,8 +340,10 @@ function onPause() {
       const next = stepIndex + 1;
       setStepIndex(next);
       const s = steps[next];
-      if (s?.role === "Captain" && s.cue && current?.id) {
-        void playCaptainCue(current.id, s.cue);
+      if (s?.role === "Captain" && s.cue) {
+        playCaptainForStep(next, true);
+      } else {
+        autoAdvanceRef.current = null;
       }
     }
 
@@ -392,18 +442,30 @@ function onPause() {
             <div className="pm-row" style={{ marginTop: 8 }}>
               <button className="pm-btn" onClick={() =>
                 setStepIndex(i => {
-                  const n = Math.max(0, (typeof i === "number" ? i : 0) - 1);
-                  const s = steps[n]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
+                  const base = typeof i === "number" ? i : 0;
+                  const n = Math.max(0, base - 1);
+                  const step = steps[n];
+                  if (step?.role === "Captain" && step.cue) {
+                    playCaptainForStep(n, runningRef.current);
+                  } else {
+                    autoAdvanceRef.current = null;
+                  }
                   return n;
                 })}>⟵ Prev</button>
               <button className="pm-btn primary" onClick={() =>
                 setStepIndex(i => {
-                  const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
-                  const s = steps[n]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
+                  const base = typeof i === "number" ? i : -1;
+                  const n = Math.min(total - 1, base + 1);
+                  const step = steps[n];
+                  if (step?.role === "Captain" && step.cue) {
+                    playCaptainForStep(n, runningRef.current);
+                  } else {
+                    autoAdvanceRef.current = null;
+                  }
                   return n;
                 })}>Next ⟶</button>
               <button className="pm-btn" onClick={() => {
-                const s = steps[stepIndex]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
+                playCaptainForStep(stepIndex, false);
               }}>▶︎ Play line</button>
             </div>
 
@@ -425,7 +487,15 @@ function onPause() {
               <div>
                 <div className="pm-label">Progress</div>
                 <Stepper total={total} current={Math.max(0, stepIndex)} results={resultsRef.current || []}
-                         onJump={(i) => { setStepIndex(i); const s = steps[i]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue); }} />
+                         onJump={(i) => {
+                           setStepIndex(i);
+                           const step = steps[i];
+                           if (step?.role === "Captain" && step.cue) {
+                             playCaptainForStep(i, runningRef.current);
+                           } else {
+                             autoAdvanceRef.current = null;
+                           }
+                         }} />
               </div>
               <div className="pm-scoreRow">
                 <ScoreRing pct={pct} />
