@@ -60,15 +60,14 @@ function renderToasts() {
   if (!host) { host = document.createElement("div"); host.id = "pm-toast-host"; host.className = "pm-toasts"; document.body.appendChild(host); }
   host.innerHTML = _toasts.map(t => `<div class="pm-toast ${t.kind}">${t.msg}</div>`).join("");
 }
-function useResponsiveMode(forced = null) {
+function useResponsiveMode() {
   const pick = () => (window.innerWidth <= 860 ? "mobile" : "desktop");
-  const [mode, setMode] = useState(typeof window === "undefined" ? "desktop" : forced || pick());
+  const [mode, setMode] = useState(() => (typeof window === "undefined" ? "desktop" : pick()));
   useEffect(() => {
-    if (forced) { setMode(forced); return; }
     const onResize = () => setMode(pick());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [forced]);
+  }, []);
   return mode;
 }
 function downloadCSV(rows, filename = "deice-results.csv") {
@@ -100,8 +99,7 @@ export default function TrainPage() {
   const [awaitingAdvance, setAwaitingAdvance] = useState(false);
   const [resultsVersion, setResultsVersion] = useState(0);
 
-  const [forcedMode, setForcedMode] = useState(null);
-  const mode = useResponsiveMode(forcedMode);
+  const mode = useResponsiveMode();
 
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
@@ -438,8 +436,8 @@ function onPause() {
             <h1>Deice Verbiage Trainer</h1>
             <span className="pm-badge">V1 • OMA • Training use only</span>
           </div>
-          <div className="pm-row">
-            <div className="pm-row">
+          <div className="pm-headerControls">
+            <div className="pm-row pm-scenarioControl">
               <span className="pm-label">Scenario</span>
               <select
                 className="pm-select"
@@ -467,16 +465,10 @@ function onPause() {
                 {(scenarioList || []).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
-
-            <div className="pm-row" style={{ marginLeft: 8 }}>
-              <span className="pm-label">View</span>
-              <button className="pm-btn ghost" onClick={() => setForcedMode(null)}>Auto</button>
-              <button className="pm-btn ghost" onClick={() => setForcedMode("desktop")}>Desktop</button>
-              <button className="pm-btn ghost" onClick={() => setForcedMode("mobile")}>Mobile</button>
+            <div className="pm-statusGroup">
+              <span className="pm-pill">{status}</span>
+              <span className="pm-pill">Captain: {captainStatus}</span>
             </div>
-
-            <span className="pm-pill" style={{ marginLeft: 8 }}>{status}</span>
-            <span className="pm-pill" style={{ marginLeft: 8 }}>Captain: {captainStatus}</span>
           </div>
         </div>
 
@@ -484,11 +476,11 @@ function onPause() {
         <div className={`pm-main ${mode}`}>
           {/* LEFT */}
           <section className="pm-panel">
-            <div className="pm-row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-              <div className="pm-row" style={{ flexWrap: "wrap", gap: 8 }}>
+            <div className="pm-runRow">
+              <div className="pm-row pm-startControls">
                 <button type="button" className="pm-btn" onClick={onStart}>Start</button>
                 <button type="button" className="pm-btn ghost" onClick={onPause}>Pause</button>
-                <div className="pm-row" style={{ marginLeft: 12, gap: 6, flexWrap: "wrap" }}>
+                <div className="pm-row pm-advanceToggle">
                   <span className="pm-label">Advance</span>
                   <button
                     type="button"
@@ -524,7 +516,7 @@ function onPause() {
               </div>
             </div>
 
-            <div className="pm-row" style={{ marginTop: 8 }}>
+            <div className="pm-row pm-navRow" style={{ marginTop: 8 }}>
               <button className="pm-btn" onClick={() => {
                 resolvePrompt({ silent: true });
                 setStepIndex(i => {
@@ -554,14 +546,14 @@ function onPause() {
             <div style={{ marginTop: 10 }}>
               <div className="pm-label">Your Response</div>
               <textarea rows={3} className="pm-input" value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Speak or type your line…" />
-              <div className="pm-row" style={{ marginTop: 6 }}>
+              <div className="pm-row pm-checkRow" style={{ marginTop: 6 }}>
                 <button className="pm-btn" onClick={onCheck}>Check</button>
                 <span className="pm-pill">{lastResultText}</span>
               </div>
             </div>
 
             {awaitingAdvance && (
-              <div className="pm-row" style={{ marginTop: 8 }}>
+              <div className="pm-row pm-awaitRow" style={{ marginTop: 8 }}>
                 <span className="pm-pill">Response captured. Proceed when ready.</span>
                 <button
                   className="pm-btn primary"
@@ -580,7 +572,7 @@ function onPause() {
 
           {/* RIGHT */}
           <section className="pm-panel">
-            <div className="pm-row" style={{ justifyContent: "space-between" }}>
+            <div className="pm-row pm-progressRow">
               <div>
                 <div className="pm-label">Progress</div>
                 <Stepper total={total} current={Math.max(0, stepIndex)} results={resultsRef.current || []}
@@ -606,7 +598,7 @@ function onPause() {
               <div className="pm-log">{logText}</div>
             </div>
 
-            <div className="pm-row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+            <div className="pm-row pm-exportRow" style={{ marginTop: 10 }}>
               <button className="pm-btn ghost" onClick={exportSession}>Export CSV</button>
               <button className="pm-btn ghost" onClick={() => toast("Saved settings","success")}>Save Settings</button>
             </div>

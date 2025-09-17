@@ -95,6 +95,16 @@ body.piedmont {
 .pm-main.desktop { grid-template-columns: 1.25fr .9fr; }
 .pm-main.mobile  { grid-template-columns: 1fr; }
 
+.pm-headerControls { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap; }
+.pm-scenarioControl { align-items:center; gap:8px; }
+.pm-statusGroup { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.pm-runRow { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.pm-startControls { gap:8px; align-items:center; flex-wrap:wrap; }
+.pm-advanceToggle { gap:6px; align-items:center; flex-wrap:wrap; }
+.pm-navRow, .pm-checkRow, .pm-awaitRow { gap:8px; align-items:center; flex-wrap:wrap; }
+.pm-progressRow { justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.pm-exportRow { justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+
 /* panels */
 .pm-panel { background: #e2e8f0; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .pm-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
@@ -151,5 +161,37 @@ body.piedmont {
 
 /* responsive */
 @media (hover:none) and (pointer:coarse){ .pm-btn, .pm-select, .pm-input, textarea { min-height:44px } }
-@media (max-width: 860px){ .pm-main{ padding:12px } .pm-log{ height:140px } body.piedmont{ background-size: 600px auto } }
-@media (max-width: 480px){ .pm-log{ height:120px } body.piedmont{ background-position: right -10px top -10px } }
+@media (max-width: 860px){
+  .pm-main{ padding:12px }
+  .pm-log{ height:140px }
+  body.piedmont{ background:#000; background-image:none; }
+}
+@media (max-width: 720px){
+  .pm-app{ margin:16px auto; padding:0 12px; }
+  .pm-card{ border-radius:14px; }
+  .pm-header{ flex-direction:column; align-items:flex-start; gap:12px; }
+  .pm-title{ flex-wrap:wrap; gap:10px; }
+  .pm-title img{ height:110px; }
+  .pm-headerControls{ width:100%; flex-direction:column; align-items:stretch; gap:12px; }
+  .pm-headerControls > *{ justify-content:space-between; }
+  .pm-scenarioControl{ width:100%; justify-content:space-between; }
+  .pm-statusGroup{ width:100%; flex-direction:column; align-items:stretch; }
+  .pm-statusGroup .pm-pill{ width:100%; text-align:center; }
+  .pm-runRow{ flex-direction:column; align-items:stretch; }
+  .pm-runRow .pm-mic{ width:100%; justify-content:space-between; }
+  .pm-navRow{ flex-direction:column; align-items:stretch; }
+  .pm-navRow .pm-btn{ width:100%; }
+  .pm-checkRow{ flex-direction:column; align-items:stretch; }
+  .pm-checkRow .pm-btn{ width:100%; }
+  .pm-awaitRow{ flex-direction:column; align-items:stretch; }
+  .pm-awaitRow .pm-btn{ width:100%; }
+  .pm-scoreRow{ flex-direction:column; align-items:flex-start; }
+  .pm-progressRow{ flex-direction:column; align-items:stretch; }
+  .pm-exportRow{ flex-direction:column; align-items:stretch; }
+  .pm-exportRow .pm-btn{ width:100%; }
+  .pm-footer{ flex-direction:column; align-items:flex-start; gap:8px; }
+}
+@media (max-width: 480px){
+  .pm-log{ height:120px }
+  .pm-title img{ height:90px; }
+}
