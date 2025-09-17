@@ -57,12 +57,12 @@ function WordDiff({ expected = "", heard = "" }) {
   );
 }
 
-function MicWidget({ status = "idle", level = 0 }) {
+function MicWidget({ status = "idle", level = 0, compact = false }) {
   const normalized = status || "idle";
   const label = normalized === "manual" ? "Manual entry" : normalized.charAt(0).toUpperCase() + normalized.slice(1);
   return (
-    <div className="pm-mic">
-      <span className="pm-pill">Mic: {label}</span>
+    <div className={`pm-mic${compact ? " compact" : ""}`}>
+      <span className={`pm-pill${compact ? " pm-pillCompact" : ""}`}>Mic: {label}</span>
       <div className="pm-meter">
         <div className="pm-fill" style={{ width: `${Math.min(100, level)}%` }} />
       </div>
@@ -659,35 +659,58 @@ function TrainApp({ forcedMode }) {
     </div>
   );
 
+  const titleBlock = (
+    <div className="pm-title">
+      <div className="pm-titleBrand">
+        <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
+        <div className="pm-titleText">
+          <h1>Deice Verbiage Trainer</h1>
+          <span className="pm-badge pm-titleBadge">V2 • For training purposes only • OMA Station • 2025</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const scoreBlock = (
+    <div className="pm-headerScore" aria-label={`Score ${pct}%`}>
+      <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 60} />
+    </div>
+  );
+
+  const statusBlock = (
+    <div className={`pm-statusGroup${isMobile ? " pm-statusGroupCompact" : ""}`}>
+      <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>{status}</span>
+      <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>Captain: {captainStatus}</span>
+    </div>
+  );
+
+  const micBlock = <MicWidget status={micStatus} level={micLevel} compact={isMobile} />;
+
   return (
     <div className={`pm-app ${mode}`}>
       <div className="pm-card">
         {/* Header */}
-        <div className={`pm-header ${isMobile ? "mobile" : "desktop"}`}>
-          <div className="pm-headerLeft">
-            <div className="pm-title">
-              <div className="pm-titleBrand">
-                <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
-                <div className="pm-titleText">
-                  <h1>Deice Verbiage Trainer</h1>
-                  <span className="pm-badge pm-titleBadge">V2 • For training purposes only • OMA Station • 2025</span>
-                </div>
-              </div>
+        {isMobile ? (
+          <div className="pm-header mobile">
+            <div className="pm-headerSection pm-headerBrand">{titleBlock}</div>
+            <div className="pm-headerSection pm-headerScoreWrap">{scoreBlock}</div>
+            <div className="pm-headerSection pm-headerStatus">{statusBlock}</div>
+            <div className="pm-headerSection pm-headerMic">{micBlock}</div>
+          </div>
+        ) : (
+          <div className="pm-header desktop">
+            <div className="pm-headerLeft">
+              {titleBlock}
+              {scoreBlock}
             </div>
-            <div className="pm-headerScore" aria-label={`Score ${pct}%`}>
-              <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 60} />
+            <div className="pm-headerRight">
+              {statusBlock}
+              {micBlock}
             </div>
           </div>
-          <div className="pm-headerRight">
-            <div className={`pm-statusGroup${isMobile ? " pm-statusGroupCompact" : ""}`}>
-              <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>{status}</span>
-              <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>Captain: {captainStatus}</span>
-            </div>
-            <MicWidget status={micStatus} level={micLevel} />
-          </div>
-        </div>
+        )}
 
-        <div className="pm-panel pm-scenarioPanel">
+        <div className={`pm-panel pm-scenarioPanel${isMobile ? " mobile" : ""}`}>
           <div className="pm-row pm-scenarioControl">
             <span className="pm-label">Scenario</span>
             <select

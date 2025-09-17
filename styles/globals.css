@@ -104,19 +104,30 @@ body.piedmont {
 .pm-headerRight .pm-meter { min-width:120px; }
 .pm-header.desktop .pm-titleBadge { display:inline-flex; }
 .pm-header.mobile .pm-titleBadge { display:none; }
-.pm-header.mobile { flex-direction:column; align-items:stretch; gap:12px; }
-.pm-header.mobile .pm-headerLeft,
-.pm-header.mobile .pm-headerRight { width:100%; }
-.pm-header.mobile .pm-headerLeft { justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.pm-header.mobile {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-areas:
+    "brand score"
+    "status score"
+    "mic score";
+  padding:8px 12px;
+  gap:8px 12px;
+  align-items:center;
+}
+.pm-header.mobile .pm-headerSection { display:flex; align-items:center; gap:8px; min-width:0; }
+.pm-header.mobile .pm-headerBrand { grid-area: brand; }
+.pm-header.mobile .pm-headerScoreWrap { grid-area: score; justify-content:flex-end; }
 .pm-header.mobile .pm-headerScore { justify-content:flex-end; }
-.pm-header.mobile .pm-headerRight { flex-direction:column; align-items:stretch; gap:8px; }
-.pm-header.mobile .pm-statusGroup { justify-content:space-between; }
+.pm-header.mobile .pm-headerStatus { grid-area: status; }
+.pm-header.mobile .pm-headerMic { grid-area: mic; }
+.pm-header.mobile .pm-statusGroup { width:100%; justify-content:flex-start; gap:6px; flex-wrap:wrap; }
+.pm-header.mobile .pm-statusGroup.pm-statusGroupCompact { gap:6px; }
+.pm-header.mobile .pm-statusGroup.pm-statusGroupCompact .pm-pill { flex:1 1 auto; min-width:0; }
 .pm-header.mobile .pm-mic { width:100%; justify-content:space-between; }
 .pm-header.mobile .pm-meter { flex:1 1 auto; min-width:0; }
-.pm-header.mobile .pm-statusGroup.pm-statusGroupCompact { flex-wrap:wrap; gap:6px; }
-.pm-header.mobile .pm-statusGroup.pm-statusGroupCompact .pm-pill { flex:1 1 0; }
-.pm-header.mobile .pm-titleBrand img { height: clamp(44px, 17vw, 60px); }
-.pm-header.mobile .pm-titleText h1 { font-size: clamp(14px, 4.3vw, 16px); line-height:1.2; }
+.pm-header.mobile .pm-titleBrand img { height: clamp(38px, 16vw, 54px); }
+.pm-header.mobile .pm-titleText h1 { font-size: clamp(13px, 4vw, 15px); line-height:1.2; }
 .pm-titleText h1 { margin:0; }
 
 /* main grid */
@@ -176,6 +187,9 @@ body.piedmont {
 .pm-meter { flex:1; height:8px; background:#eef5ff; border:1px solid var(--border);
   border-radius:999px; overflow:hidden; }
 .pm-fill { height:100%; background:#19b56b; }
+.pm-mic.compact { gap:6px; }
+.pm-mic.compact .pm-meter { height:6px; }
+.pm-mic.compact .pm-pill { padding:3px 7px; font-size:10px; }
 
 /* “coach” bubble */
 .pm-coach { font-size:15px; background:#f6f9ff; border-left:3px solid var(--accent); padding:12px; border-radius:8px; }
@@ -290,5 +304,9 @@ body.piedmont {
 }
 
 .pm-scenarioPanel { margin: 0 16px; background:#f6f9ff; }
-.pm-scenarioPanel .pm-scenarioControl { width:100%; justify-content:space-between; gap:12px; }
+.pm-scenarioPanel .pm-scenarioControl { width:100%; justify-content:space-between; gap:10px; }
 .pm-scenarioPanel .pm-select { flex:1 1 260px; min-width:0; }
+.pm-scenarioPanel.mobile { margin: 0 12px; padding:6px 10px; background:#f8fbff; }
+.pm-scenarioPanel.mobile .pm-scenarioControl { gap:8px; align-items:center; }
+.pm-scenarioPanel.mobile .pm-label { font-size:10px; letter-spacing:0.02em; }
+.pm-scenarioPanel.mobile .pm-select { padding:6px 8px; font-size:12px; }
