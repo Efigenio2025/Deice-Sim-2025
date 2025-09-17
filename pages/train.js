@@ -438,8 +438,8 @@ function onPause() {
             <h1>Deice Verbiage Trainer</h1>
             <span className="pm-badge">V1 • OMA • Training use only</span>
           </div>
-          <div className="pm-row">
-            <div className="pm-row">
+          <div className="pm-headerControls">
+            <div className="pm-row pm-scenarioControl">
               <span className="pm-label">Scenario</span>
               <select
                 className="pm-select"
@@ -468,15 +468,17 @@ function onPause() {
               </select>
             </div>
 
-            <div className="pm-row" style={{ marginLeft: 8 }}>
+            <div className="pm-row pm-viewToggle">
               <span className="pm-label">View</span>
               <button className="pm-btn ghost" onClick={() => setForcedMode(null)}>Auto</button>
               <button className="pm-btn ghost" onClick={() => setForcedMode("desktop")}>Desktop</button>
               <button className="pm-btn ghost" onClick={() => setForcedMode("mobile")}>Mobile</button>
             </div>
 
-            <span className="pm-pill" style={{ marginLeft: 8 }}>{status}</span>
-            <span className="pm-pill" style={{ marginLeft: 8 }}>Captain: {captainStatus}</span>
+            <div className="pm-statusGroup">
+              <span className="pm-pill">{status}</span>
+              <span className="pm-pill">Captain: {captainStatus}</span>
+            </div>
           </div>
         </div>
 
@@ -484,11 +486,11 @@ function onPause() {
         <div className={`pm-main ${mode}`}>
           {/* LEFT */}
           <section className="pm-panel">
-            <div className="pm-row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-              <div className="pm-row" style={{ flexWrap: "wrap", gap: 8 }}>
+            <div className="pm-runRow">
+              <div className="pm-row pm-startControls">
                 <button type="button" className="pm-btn" onClick={onStart}>Start</button>
                 <button type="button" className="pm-btn ghost" onClick={onPause}>Pause</button>
-                <div className="pm-row" style={{ marginLeft: 12, gap: 6, flexWrap: "wrap" }}>
+                <div className="pm-row pm-advanceToggle">
                   <span className="pm-label">Advance</span>
                   <button
                     type="button"
@@ -524,7 +526,7 @@ function onPause() {
               </div>
             </div>
 
-            <div className="pm-row" style={{ marginTop: 8 }}>
+            <div className="pm-row pm-navRow" style={{ marginTop: 8 }}>
               <button className="pm-btn" onClick={() => {
                 resolvePrompt({ silent: true });
                 setStepIndex(i => {
@@ -554,14 +556,14 @@ function onPause() {
             <div style={{ marginTop: 10 }}>
               <div className="pm-label">Your Response</div>
               <textarea rows={3} className="pm-input" value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Speak or type your line…" />
-              <div className="pm-row" style={{ marginTop: 6 }}>
+              <div className="pm-row pm-checkRow" style={{ marginTop: 6 }}>
                 <button className="pm-btn" onClick={onCheck}>Check</button>
                 <span className="pm-pill">{lastResultText}</span>
               </div>
             </div>
 
             {awaitingAdvance && (
-              <div className="pm-row" style={{ marginTop: 8 }}>
+              <div className="pm-row pm-awaitRow" style={{ marginTop: 8 }}>
                 <span className="pm-pill">Response captured. Proceed when ready.</span>
                 <button
                   className="pm-btn primary"
@@ -580,7 +582,7 @@ function onPause() {
 
           {/* RIGHT */}
           <section className="pm-panel">
-            <div className="pm-row" style={{ justifyContent: "space-between" }}>
+            <div className="pm-row pm-progressRow">
               <div>
                 <div className="pm-label">Progress</div>
                 <Stepper total={total} current={Math.max(0, stepIndex)} results={resultsRef.current || []}
@@ -606,7 +608,7 @@ function onPause() {
               <div className="pm-log">{logText}</div>
             </div>
 
-            <div className="pm-row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+            <div className="pm-row pm-exportRow" style={{ marginTop: 10 }}>
               <button className="pm-btn ghost" onClick={exportSession}>Export CSV</button>
               <button className="pm-btn ghost" onClick={() => toast("Saved settings","success")}>Save Settings</button>
             </div>
