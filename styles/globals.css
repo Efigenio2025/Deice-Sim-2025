@@ -64,16 +64,7 @@ body{
   --err:#ff5c6c;
 }
 
-body.piedmont {
-  background-image:
-    linear-gradient(180deg, var(--bg-start), var(--bg-mid) 40%, var(--bg-end)),
-    url("/images/plane-spray.jpg");
-  background-repeat: no-repeat;
-  background-position: right -60px top;
-  background-size: 1920px auto;
-  background-attachment: fixed;
-  color: var(--ink);
-}
+
 
 
 /* container + card */
