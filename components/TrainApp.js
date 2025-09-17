@@ -58,9 +58,11 @@ function WordDiff({ expected = "", heard = "" }) {
 }
 
 function MicWidget({ status = "idle", level = 0 }) {
+  const normalized = status || "idle";
+  const label = normalized === "manual" ? "Manual entry" : normalized.charAt(0).toUpperCase() + normalized.slice(1);
   return (
     <div className="pm-mic">
-      <span className="pm-pill">Mic: {status}</span>
+      <span className="pm-pill">Mic: {label}</span>
       <div className="pm-meter">
         <div className="pm-fill" style={{ width: `${Math.min(100, level)}%` }} />
       </div>
@@ -135,12 +137,18 @@ function TrainApp({ forcedMode }) {
   // UI & control state
   const [status, setStatus] = useState("Ready");
   const [answer, setAnswer] = useState("");
+  const answerRef = useRef("");
   const [lastResultText, setLastResultText] = useState("—");
   const [retryCount, setRetryCount] = useState(0);
   const [avgRespSec, setAvgRespSec] = useState(null);
   const [logText, setLogText] = useState("");
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [awaitingAdvance, setAwaitingAdvance] = useState(false);
+  const [captureMode, setCaptureMode] = useState(() => {
+    if (typeof window === "undefined") return "speech";
+    return window.SpeechRecognition || window.webkitSpeechRecognition ? "speech" : "manual";
+  });
+  const captureModeRef = useRef(captureMode);
   const [resultsVersion, setResultsVersion] = useState(0);
 
   const mode = useResponsiveMode(forcedMode);
@@ -155,6 +163,10 @@ function TrainApp({ forcedMode }) {
 
   const micLevelRef = useRef(0);
   const [captainStatus, setCaptainStatus] = useState("idle");
+  useEffect(() => {
+    answerRef.current = answer;
+  }, [answer]);
+
   useEffect(() => {
     autoAdvanceRef.current = autoAdvance;
     if (autoAdvance && awaitingAdvanceRef.current && proceedResolverRef.current) {
@@ -172,12 +184,38 @@ function TrainApp({ forcedMode }) {
     }, 0);
   }, [steps, resultsVersion]);
   const pct = gradedTotal ? Math.round((correct / gradedTotal) * 100) : 0;
-  const micStatus = preparedRef.current ? (runningRef.current && !pausedRef.current ? "listening" : "ready") : "idle";
+  const speechSupported = captureMode === "speech";
+  const micStatus = speechSupported
+    ? preparedRef.current
+      ? runningRef.current && !pausedRef.current
+        ? "listening"
+        : "ready"
+      : "idle"
+    : "manual";
   const micLevel = micLevelRef.current || 0;
   const activeSpeechLabelId = autoAdvance ? "speech-mode-auto" : "speech-mode-manual";
   const isMobile = mode === "mobile";
 
   const log = (msg) => setLogText((t) => (t ? t + "\n" : "") + msg);
+
+  useEffect(() => {
+    captureModeRef.current = captureMode;
+  }, [captureMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hasSpeech = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+    setCaptureMode(hasSpeech ? "speech" : "manual");
+  }, []);
+
+  useEffect(() => {
+    if (captureMode === "manual") {
+      if (autoAdvanceRef.current) {
+        autoAdvanceRef.current = false;
+      }
+      if (autoAdvance) setAutoAdvance(false);
+    }
+  }, [captureMode, autoAdvance]);
 
   // 1) Load scenario list for dropdown
   useEffect(() => {
@@ -224,6 +262,10 @@ function TrainApp({ forcedMode }) {
   // mic level mock
   useEffect(() => {
     const id = setInterval(() => {
+      if (captureModeRef.current !== "speech") {
+        micLevelRef.current = 0;
+        return;
+      }
       micLevelRef.current = runningRef.current && !pausedRef.current ? 10 + Math.round(Math.random() * 80) : 0;
     }, 500);
     return () => clearInterval(id);
@@ -254,13 +296,29 @@ function TrainApp({ forcedMode }) {
 
     setStatus("Preparing mic…");
     log("Preparing microphone.");
+    let speechModeActive = captureModeRef.current === "speech";
+    if (typeof window !== "undefined") {
+      const hasSpeech = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+      if (!hasSpeech) {
+        speechModeActive = false;
+        if (captureModeRef.current !== "manual") setCaptureMode("manual");
+      }
+    }
     try {
       await unlockAudio();
       log("Audio unlocked via unlockAudio().");
 
-      if (navigator.mediaDevices?.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        log("Mic permission granted by getUserMedia().");
+      if (speechModeActive) {
+        if (navigator.mediaDevices?.getUserMedia) {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+          log("Mic permission granted by getUserMedia().");
+        } else {
+          log("getUserMedia unavailable; switching to manual capture mode.");
+          setCaptureMode("manual");
+          speechModeActive = false;
+        }
+      } else {
+        log("Speech capture not supported; running in manual mode.");
       }
 
       const cues = (current?.steps || []).filter((s) => s.role === "Captain" && s.cue).map((s) => s.cue);
@@ -270,14 +328,20 @@ function TrainApp({ forcedMode }) {
       }
 
       preparedRef.current = true;
-      setStatus("Mic ready");
-      toast("Mic ready", "success");
+      setStatus(speechModeActive ? "Mic ready" : "Ready (manual)");
+      toast(speechModeActive ? "Mic ready" : "Manual mode ready", "success");
       return true;
     } catch (err) {
-      preparedRef.current = false;
-      setStatus("Mic prepare failed");
-      toast("Mic prepare failed", "error");
+      if (speechModeActive) {
+        preparedRef.current = false;
+        setStatus("Mic prepare failed");
+        toast("Mic prepare failed", "error");
+      } else {
+        preparedRef.current = true;
+        setStatus("Ready (manual)");
+      }
       log(`Prepare Mic ERROR: ${err?.message || err}`);
+      if (!speechModeActive) return true;
       return false;
     }
   }
@@ -371,6 +435,40 @@ function TrainApp({ forcedMode }) {
     let responseCount = 0;
     let responseTotal = 0;
 
+    const awaitManualResponse = async (step) => {
+      setAnswer("");
+      setStatus("Type your line and tap Proceed…");
+      log(`[Step ${idx + 1}] Manual response mode.`);
+
+      const started = performance.now();
+      awaitingAdvanceRef.current = true;
+      setAwaitingAdvance(true);
+
+      await new Promise((resolve) => {
+        proceedResolverRef.current = () => {
+          const heard = (answerRef.current || "").trim();
+          const expected = step.text || "";
+          const score = quickScore(expected, heard);
+          const ok = score >= 60;
+          resultsRef.current[idx] = ok;
+          setResultsVersion((v) => v + 1);
+          setLastResultText(ok ? `✅ Good (${score}%)` : `❌ Try again (${score}%)`);
+          if (!ok) {
+            setRetryCount((n) => n + 1);
+            toast("Let's try that line again.", "info");
+          }
+          const took = (performance.now() - started) / 1000;
+          responseCount += 1;
+          responseTotal += took;
+          setAvgRespSec(responseCount ? responseTotal / responseCount : null);
+          log(`[Step ${idx + 1}] Manual score ${score}% → ${ok ? "OK" : "MISS"}`);
+          resolve();
+        };
+      });
+
+      return runningRef.current && !pausedRef.current && runIdRef.current === runId;
+    };
+
     while (runningRef.current && !pausedRef.current && runIdRef.current === runId && idx < steps.length) {
       const step = steps[idx];
       if (!step) break;
@@ -390,6 +488,15 @@ function TrainApp({ forcedMode }) {
           setResultsVersion((v) => v + 1);
         }
       } else if (step.role === "Iceman") {
+        if (captureModeRef.current !== "speech") {
+          const shouldContinue = await awaitManualResponse(step);
+          if (!shouldContinue) break;
+          if (!runningRef.current || pausedRef.current || runIdRef.current !== runId) break;
+          if (runningRef.current && !pausedRef.current) setStatus("Running…");
+          idx += 1;
+          continue;
+        }
+
         setAnswer("");
         setStatus("Listening…");
         log(`[Step ${idx + 1}] Listening for response.`);
@@ -412,11 +519,15 @@ function TrainApp({ forcedMode }) {
         if (!runningRef.current || pausedRef.current || runIdRef.current !== runId) break;
 
         if (speech?.ended === "nosr") {
-          log("Speech recognition unavailable; stopping simulator.");
-          toast("Speech recognition not supported in this browser.", "error");
-          setStatus("Speech recognition unavailable");
-          runningRef.current = false;
-          break;
+          log("Speech recognition unavailable; switching to manual mode.");
+          toast("Speech capture not supported in this browser. Using manual mode.", "info");
+          setCaptureMode("manual");
+          const shouldContinue = await awaitManualResponse(step);
+          if (!shouldContinue) break;
+          if (!runningRef.current || pausedRef.current || runIdRef.current !== runId) break;
+          if (runningRef.current && !pausedRef.current) setStatus("Running…");
+          idx += 1;
+          continue;
         }
 
         const heard = (speech?.final || speech?.interim || "").trim();
@@ -608,7 +719,9 @@ function TrainApp({ forcedMode }) {
                     role="switch"
                     aria-checked={!autoAdvance}
                     aria-labelledby={`speech-mode-label ${activeSpeechLabelId}`}
+                    disabled={captureMode !== "speech"}
                     onClick={() => {
+                      if (captureMode !== "speech") return;
                       const next = !autoAdvance;
                       setAutoAdvance(next);
                       log(`Speech mode: ${next ? "Auto" : "Manual"}.`);
@@ -625,6 +738,14 @@ function TrainApp({ forcedMode }) {
               </div>
               <MicWidget status={micStatus} level={micLevel} />
             </div>
+
+            {captureMode !== "speech" && (
+              <div className="pm-manualNotice">
+                <span className="pm-pill pm-pillWarn">
+                  Speech capture isn't available on this device. Type your response and use Proceed.
+                </span>
+              </div>
+            )}
 
             <div style={{ marginTop: 10 }}>
               <div className="pm-label">Current Line</div>

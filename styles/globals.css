@@ -137,6 +137,8 @@ body.piedmont {
 .pm-mic { display:flex; align-items:center; gap:8px; }
 .pm-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border);
   border-radius:999px; background:#f6f9ff; color:#34507a; font-size:12px; }
+.pm-pill.pm-pillWarn { background:#fff4d6; border-color:#f0c36d; color:#5b3d00; }
+.pm-manualNotice { margin-top:10px; }
 .pm-pill.pm-pillCompact { padding:4px 8px; font-size:11px; min-width:0; justify-content:center; white-space:nowrap; }
 .pm-meter { flex:1; height:8px; background:#eef5ff; border:1px solid var(--border);
   border-radius:999px; overflow:hidden; }
