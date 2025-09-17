@@ -85,7 +85,11 @@ body{
 .pm-main.mobile  { grid-template-columns: 1fr; }
 
 .pm-headerControls { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap; }
-
+.pm-scenarioControl, .pm-viewToggle { align-items:center; gap:8px; }
+.pm-statusGroup { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.pm-runRow { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.pm-startControls { gap:8px; align-items:center; flex-wrap:wrap; }
+.pm-advanceToggle { gap:6px; align-items:center; flex-wrap:wrap; }
 .pm-navRow, .pm-checkRow, .pm-awaitRow { gap:8px; align-items:center; flex-wrap:wrap; }
 .pm-progressRow { justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 .pm-exportRow { justify-content:flex-end; gap:10px; flex-wrap:wrap; }
@@ -146,6 +150,7 @@ body{
 
 /* responsive */
 @media (hover:none) and (pointer:coarse){ .pm-btn, .pm-select, .pm-input, textarea { min-height:44px } }
+@media (max-width: 860px){ .pm-main{ padding:12px } .pm-log{ height:140px } body.piedmont{ background-size: 600px auto } }
 @media (max-width: 720px){
   .pm-app{ margin:16px auto; padding:0 12px; }
   .pm-card{ border-radius:14px; }
@@ -154,6 +159,7 @@ body{
   .pm-title img{ height:110px; }
   .pm-headerControls{ width:100%; flex-direction:column; align-items:stretch; gap:12px; }
   .pm-headerControls > *{ justify-content:space-between; }
+  .pm-scenarioControl, .pm-viewToggle{ width:100%; justify-content:space-between; }
   .pm-statusGroup{ width:100%; flex-direction:column; align-items:stretch; }
   .pm-statusGroup .pm-pill{ width:100%; text-align:center; }
   .pm-runRow{ flex-direction:column; align-items:stretch; }
@@ -169,8 +175,10 @@ body{
   .pm-exportRow{ flex-direction:column; align-items:stretch; }
   .pm-exportRow .pm-btn{ width:100%; }
   .pm-footer{ flex-direction:column; align-items:flex-start; gap:8px; }
+  body.piedmont{ background-size:520px auto; background-position:right -20px top -10px; background-attachment:scroll; }
 }
 @media (max-width: 480px){
   .pm-log{ height:120px }
   .pm-title img{ height:90px; }
+  body.piedmont{ background-position: right -40px top -20px; background-size:420px auto; }
 }
