@@ -84,6 +84,7 @@ export default function TrainPage() {
 
   // steps / results
   const [stepIndex, setStepIndex] = useState(-1);
+  const stepIndexRef = useRef(stepIndex);
   const steps = useMemo(() => current?.steps || [], [current]);
   const total = steps.length;
   const resultsRef = useRef([]);
@@ -112,6 +113,10 @@ export default function TrainPage() {
   const micLevel = micLevelRef.current || 0;
 
   const log = (msg) => setLogText(t => (t ? t + "\n" : "") + msg);
+
+  useEffect(() => {
+    stepIndexRef.current = stepIndex;
+  }, [stepIndex]);
 
   // 1) Load scenario list for dropdown
   useEffect(() => {
@@ -214,7 +219,8 @@ async function onStart() {
     log("Simulation started.");
 
     // First start: move to step 0 if needed
-    if (stepIndex < 0 && steps.length) {
+    if (stepIndexRef.current < 0 && steps.length) {
+      stepIndexRef.current = 0;
       setStepIndex(0);
       setTimeout(() => {
         const s0 = steps[0];
@@ -224,7 +230,8 @@ async function onStart() {
         }
       }, 30);
     } else {
-      const s = steps[stepIndex];
+      const idx = stepIndexRef.current;
+      const s = steps[idx];
       if (s?.role === "Captain" && s.cue && current?.id) {
         void playCaptainCue(current.id, s.cue);
       }
@@ -280,21 +287,30 @@ function onPause() {
 
  function runSimulator() {
   if (!current || !steps.length) { setStatus("Select a scenario first."); return; }
-  if (stepIndex < 0) { setStepIndex(0); } // safety
+  if (stepIndexRef.current < 0) { stepIndexRef.current = 0; setStepIndex(0); } // safety
 
   const startedAt = performance.now();
   setStatus("Running…");
   const tick = () => {
     if (!runningRef.current || pausedRef.current) return;
 
-    const judged = resultsRef.current[stepIndex];
-    if (judged && stepIndex < steps.length - 1) {
-      const next = stepIndex + 1;
-      setStepIndex(next);
-      const s = steps[next];
-      if (s?.role === "Captain" && s.cue && current?.id) {
-        void playCaptainCue(current.id, s.cue);
-      }
+    const idx = stepIndexRef.current;
+    if (idx < 0) { requestAnimationFrame(tick); return; }
+
+    const judged = resultsRef.current?.[idx];
+    if (judged && idx < steps.length - 1) {
+      setStepIndex(prev => {
+        const previousIdx = typeof prev === "number" ? prev : -1;
+        const currentIdx = Math.max(previousIdx, idx);
+        if (currentIdx >= steps.length - 1) { stepIndexRef.current = currentIdx; return currentIdx; }
+        const nextIdx = currentIdx + 1;
+        stepIndexRef.current = nextIdx;
+        const nextStep = steps[nextIdx];
+        if (nextStep?.role === "Captain" && nextStep.cue && current?.id) {
+          void playCaptainCue(current.id, nextStep.cue);
+        }
+        return nextIdx;
+      });
     }
 
     const dur = (performance.now() - startedAt) / 1000;
@@ -338,6 +354,7 @@ function onPause() {
                   setCurrent(scn);
                   resultsRef.current = Array(scn.steps.length).fill(undefined);
                   setStepIndex(-1);
+                  stepIndexRef.current = -1;
                   setStatus("Scenario loaded"); log(`Scenario loaded: ${scn.label}`);
                   preloadCaptainForScenario(scn);
                 }}
@@ -393,12 +410,14 @@ function onPause() {
               <button className="pm-btn" onClick={() =>
                 setStepIndex(i => {
                   const n = Math.max(0, (typeof i === "number" ? i : 0) - 1);
+                  stepIndexRef.current = n;
                   const s = steps[n]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
                   return n;
                 })}>⟵ Prev</button>
               <button className="pm-btn primary" onClick={() =>
                 setStepIndex(i => {
                   const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
+                  stepIndexRef.current = n;
                   const s = steps[n]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue);
                   return n;
                 })}>Next ⟶</button>
@@ -425,7 +444,7 @@ function onPause() {
               <div>
                 <div className="pm-label">Progress</div>
                 <Stepper total={total} current={Math.max(0, stepIndex)} results={resultsRef.current || []}
-                         onJump={(i) => { setStepIndex(i); const s = steps[i]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue); }} />
+                         onJump={(i) => { stepIndexRef.current = i; setStepIndex(i); const s = steps[i]; if (s?.role === "Captain" && s.cue) playCaptainCue(current.id, s.cue); }} />
               </div>
               <div className="pm-scoreRow">
                 <ScoreRing pct={pct} />
