@@ -520,7 +520,9 @@ function TrainApp({ forcedMode }) {
           <div className="pm-title">
             <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
             <h1>Deice Verbiage Trainer</h1>
-            <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>
+            {!isMobile && (
+              <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>
+            )}
           </div>
           <div className="pm-headerControls">
             <div className="pm-row pm-scenarioControl">
@@ -555,9 +557,9 @@ function TrainApp({ forcedMode }) {
                 ))}
               </select>
             </div>
-            <div className="pm-statusGroup">
-              <span className="pm-pill">{status}</span>
-              <span className="pm-pill">Captain: {captainStatus}</span>
+            <div className={`pm-statusGroup${isMobile ? " pm-statusGroupCompact" : ""}`}>
+              <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>{status}</span>
+              <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>Captain: {captainStatus}</span>
             </div>
           </div>
         </div>

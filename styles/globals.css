@@ -98,6 +98,7 @@ body.piedmont {
 .pm-headerControls { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap; }
 .pm-scenarioControl { align-items:center; gap:8px; }
 .pm-statusGroup { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.pm-statusGroup.pm-statusGroupCompact { gap:6px; flex-wrap:nowrap; justify-content:flex-start; }
 .pm-runRow { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 .pm-startControls { gap:8px; align-items:center; flex-wrap:wrap; }
 .pm-speechToggle { gap:8px; align-items:center; flex-wrap:wrap; }
@@ -135,6 +136,7 @@ body.piedmont {
 .pm-mic { display:flex; align-items:center; gap:8px; }
 .pm-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border);
   border-radius:999px; background:#f6f9ff; color:#34507a; font-size:12px; }
+.pm-pill.pm-pillCompact { padding:4px 8px; font-size:11px; min-width:0; justify-content:center; white-space:nowrap; }
 .pm-meter { flex:1; height:8px; background:#eef5ff; border:1px solid var(--border);
   border-radius:999px; overflow:hidden; }
 .pm-fill { height:100%; background:#19b56b; }
@@ -196,6 +198,8 @@ body.piedmont {
   .pm-scenarioControl{ width:100%; justify-content:space-between; }
   .pm-statusGroup{ width:100%; flex-direction:column; align-items:stretch; }
   .pm-statusGroup .pm-pill{ width:100%; text-align:center; }
+  .pm-statusGroup.pm-statusGroupCompact{ flex-direction:row; align-items:center; flex-wrap:nowrap; gap:6px; }
+  .pm-statusGroup.pm-statusGroupCompact .pm-pill{ width:auto; flex:1 1 0; text-align:center; }
   .pm-runRow{ flex-direction:column; align-items:stretch; }
   .pm-runRow .pm-mic{ width:100%; justify-content:space-between; }
   .pm-navRow{ flex-direction:column; align-items:stretch; }
