@@ -112,6 +112,29 @@ function useResponsiveMode(forcedMode) {
   return mode;
 }
 
+function useViewportSize() {
+  const getSize = () => ({
+    width: typeof window === "undefined" ? 1024 : window.innerWidth,
+    height: typeof window === "undefined" ? 768 : window.innerHeight,
+  });
+  const [size, setSize] = useState(getSize);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handle = () => {
+      setSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener("resize", handle);
+    window.addEventListener("orientationchange", handle);
+    return () => {
+      window.removeEventListener("resize", handle);
+      window.removeEventListener("orientationchange", handle);
+    };
+  }, []);
+
+  return size;
+}
+
 function downloadCSV(rows, filename = "deice-results.csv") {
   const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -152,6 +175,7 @@ function TrainApp({ forcedMode }) {
   const [resultsVersion, setResultsVersion] = useState(0);
 
   const mode = useResponsiveMode(forcedMode);
+  const { width: viewportWidth } = useViewportSize();
 
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
@@ -195,6 +219,14 @@ function TrainApp({ forcedMode }) {
   const micLevel = micLevelRef.current || 0;
   const activeSpeechLabelId = autoAdvance ? "speech-mode-auto" : "speech-mode-manual";
   const isMobile = mode === "mobile";
+  const mobileScoreSize = useMemo(() => {
+    if (!isMobile) return 72;
+    const min = 48;
+    const max = 68;
+    const computed = Math.round((viewportWidth || 0) * 0.18);
+    const withinRange = Math.max(min, Math.min(max, computed || min));
+    return withinRange;
+  }, [isMobile, viewportWidth]);
 
   const log = (msg) => setLogText((t) => (t ? t + "\n" : "") + msg);
 
@@ -639,7 +671,7 @@ function TrainApp({ forcedMode }) {
             </div>
             {isMobile ? (
               <div className="pm-titleScore" aria-label={`Score ${pct}%`}>
-                <ScoreRing pct={pct} size={60} />
+                <ScoreRing pct={pct} size={mobileScoreSize} />
               </div>
             ) : (
               <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>

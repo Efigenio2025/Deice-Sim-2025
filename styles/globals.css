@@ -225,46 +225,77 @@ body.piedmont {
 
 .pm-app.mobile .pm-title {
   width: 100%;
-  flex-wrap: nowrap;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(6px, 2vw, 12px);
 }
 
 .pm-app.mobile .pm-titleBrand {
-  gap: 8px;
+  gap: clamp(6px, 2vw, 10px);
   flex: 1 1 auto;
   min-width: 0;
 }
 
 .pm-app.mobile .pm-titleBrand h1 {
-  font-size: 16px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: clamp(14px, 4.6vw, 17px);
+  white-space: normal;
+  line-height: 1.2;
   flex: 1 1 auto;
 }
 
 .pm-app.mobile .pm-titleBrand img {
-  height: 64px;
+  height: clamp(48px, 18vw, 68px);
 }
 
 .pm-app.mobile .pm-titleScore {
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-self: end;
 }
 
 .pm-app.mobile .pm-titleScore .pm-ring {
-  max-width: 60px;
+  width: clamp(48px, 18vw, 68px);
+  height: auto;
 }
 
 @media (max-width: 480px) {
-  .pm-app.mobile .pm-titleBrand img {
-    height: 56px;
+  .pm-app.mobile .pm-title {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .pm-app.mobile .pm-titleScore .pm-ring {
-    max-width: 56px;
+  .pm-app.mobile .pm-titleScore {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 380px) {
+  .pm-panel {
+    padding: 10px;
+  }
+
+  .pm-btn.pm-mobileNavBtn {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .pm-btn.pm-mobileControl {
+    padding: 9px 12px;
+  }
+}
+
+@media (max-width: 340px) {
+  .pm-panel {
+    padding: 8px;
+  }
+
+  .pm-btn {
+    padding: 8px 10px;
+  }
+
+  .pm-pill {
+    font-size: 11px;
   }
 }
 
