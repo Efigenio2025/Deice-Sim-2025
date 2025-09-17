@@ -479,6 +479,20 @@ function TrainApp({ forcedMode }) {
     }
   }
 
+  const scoreDetails = (
+    <div className="pm-scoreDetails">
+      <div className="pm-pill">
+        Correct: <strong>{correct}/{gradedTotal}</strong>
+      </div>
+      <div className="pm-pill">
+        Retries: <strong>{retryCount || 0}</strong>
+      </div>
+      <div className="pm-pill">
+        Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
+      </div>
+    </div>
+  );
+
   const progressSummary = (
     <div className="pm-row pm-progressRow">
       <div>
@@ -495,19 +509,9 @@ function TrainApp({ forcedMode }) {
           }}
         />
       </div>
-      <div className="pm-scoreRow">
-        <ScoreRing pct={pct} />
-        <div>
-          <div className="pm-pill">
-            Correct: <strong>{correct}/{gradedTotal}</strong>
-          </div>
-          <div className="pm-pill">
-            Retries: <strong>{retryCount || 0}</strong>
-          </div>
-          <div className="pm-pill">
-            Avg. Response: <strong>{avgRespSec?.toFixed?.(1) ?? "—"}s</strong>
-          </div>
-        </div>
+      <div className={`pm-scoreRow${isMobile ? " pm-scoreRowCompact" : ""}`}>
+        {!isMobile && <ScoreRing pct={pct} />}
+        {scoreDetails}
       </div>
     </div>
   );
@@ -517,10 +521,16 @@ function TrainApp({ forcedMode }) {
       <div className="pm-card">
         {/* Header */}
         <div className="pm-header">
-          <div className="pm-title">
-            <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
-            <h1>Deice Verbiage Trainer</h1>
-            {!isMobile && (
+          <div className={`pm-title${isMobile ? " pm-titleMobile" : ""}`}>
+            <div className="pm-titleBrand">
+              <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
+              <h1>Deice Verbiage Trainer</h1>
+            </div>
+            {isMobile ? (
+              <div className="pm-titleScore" aria-label={`Score ${pct}%`}>
+                <ScoreRing pct={pct} size={60} />
+              </div>
+            ) : (
               <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>
             )}
           </div>
