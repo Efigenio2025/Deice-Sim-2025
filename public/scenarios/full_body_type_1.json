@@ -9,7 +9,7 @@
     },
     {
       "role": "Iceman",
-      "text": "N443DF, this is Iceman, go ahead."
+      "text": "Go for iceman N443DF."
     },
     {
       "role": "Captain",
@@ -18,7 +18,7 @@
     },
     {
       "role": "Iceman",
-      "text": "Copy that N443DF, you are requesting full body Type 1. Please prepare the aircraft for deicing."
+      "text": "Copy that N443DF you are requesting full body type 1. Please prepare the aircraft for type 1 application."
     },
     {
       "role": "Captain",
@@ -27,7 +27,7 @@
     },
     {
       "role": "Iceman",
-      "text": "Aircraft N443DF, copy that. Engines running and APU off, full body Type 1 requested. Starting application now."
+      "text": "Copy that N443DF. Engines are running with APU off, full body Type 1. Starting application now."
     },
     {
       "role": "Iceman",
@@ -40,12 +40,12 @@
     },
     {
       "role": "Iceman",
-      "text": "Yes, N443DF, deicing complete. Post-deicing check complete, personnel and equipment are clear."
+      "text": "Yes N443DF deicing is complete. Post-deicing check complete, personnel and equipment are safely out of the way, Have a safe flight."
     },
     {
       "role": "Captain",
       "cue": "final",
-      "text": "Iceman, aircraft N443DF copies. Thank you for your help and stay warm out there!"
+      "text": "Hey, iceman, aircraft N443DF copies. Thank you for your help and stay warm out there!"
     }
   ]
 }
