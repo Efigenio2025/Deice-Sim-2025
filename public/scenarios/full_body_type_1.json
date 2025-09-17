@@ -27,7 +27,7 @@
     },
     {
       "role": "Iceman",
-      "text": "Copy that N443DF. Engines are running with APU off, full body Type 1. Starting application now."
+      "text": "Copy that N443DF. Engines are running with APU off, full body type 1. Starting application now."
     },
     {
       "role": "Iceman",
@@ -40,7 +40,7 @@
     },
     {
       "role": "Iceman",
-      "text": "Yes N443DF deicing is complete. Post-deicing check complete, personnel and equipment are safely out of the way, Have a safe flight."
+      "text": "Yes N443DF deicing is complete. Post-deicing check complete, personnel and equipment are safely out of the way. Have a safe flight."
     },
     {
       "role": "Captain",
