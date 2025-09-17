@@ -711,38 +711,40 @@ function TrainApp({ forcedMode }) {
         )}
 
         <div className={`pm-panel pm-scenarioPanel${isMobile ? " mobile" : ""}`}>
-          <div className="pm-row pm-scenarioControl">
-            <span className="pm-label">Scenario</span>
-            <select
-              className="pm-select"
-              value={current?.id || ""}
-              onChange={async (e) => {
-                const id = e.target.value;
-                const res = await fetch(`/scenarios/${id}.json`);
-                const scn = await res.json();
-                setCurrent(scn);
-                resultsRef.current = Array(scn.steps.length).fill(undefined);
-                setResultsVersion((v) => v + 1);
-                setStepIndex(-1);
-                setStatus("Scenario loaded");
-                log(`Scenario loaded: ${scn.label}`);
-                setAnswer("");
-                setLastResultText("—");
-                setRetryCount(0);
-                setAvgRespSec(null);
-                setAwaitingAdvance(false);
-                awaitingAdvanceRef.current = false;
-                proceedResolverRef.current = null;
-                preloadCaptainForScenario(scn);
-              }}
-            >
-              {(scenarioList || []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <label className="pm-srOnly" htmlFor="scenario-select">
+            Scenario
+          </label>
+          <select
+            id="scenario-select"
+            className="pm-select pm-scenarioSelect"
+            value={current?.id || ""}
+            size={1}
+            onChange={async (e) => {
+              const id = e.target.value;
+              const res = await fetch(`/scenarios/${id}.json`);
+              const scn = await res.json();
+              setCurrent(scn);
+              resultsRef.current = Array(scn.steps.length).fill(undefined);
+              setResultsVersion((v) => v + 1);
+              setStepIndex(-1);
+              setStatus("Scenario loaded");
+              log(`Scenario loaded: ${scn.label}`);
+              setAnswer("");
+              setLastResultText("—");
+              setRetryCount(0);
+              setAvgRespSec(null);
+              setAwaitingAdvance(false);
+              awaitingAdvanceRef.current = false;
+              proceedResolverRef.current = null;
+              preloadCaptainForScenario(scn);
+            }}
+          >
+            {(scenarioList || []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Main */}
