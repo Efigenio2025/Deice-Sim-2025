@@ -158,10 +158,10 @@ body.piedmont {
 
 /* panels */
 .pm-panel { background: #e2e8f0; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
-.pm-panel.pm-scenarioPanel { padding: 8px 12px; }
-.pm-scenarioPanel .pm-row { gap:6px; }
-.pm-scenarioPanel .pm-label { flex:0 0 auto; }
-.pm-scenarioPanel .pm-select { flex:1 1 220px; min-width:0; }
+.pm-panel.pm-scenarioPanel { padding: 6px 10px; }
+.pm-scenarioPanel .pm-row { gap:4px; }
+.pm-scenarioPanel .pm-label { flex:0 0 auto; font-size: 10px; }
+.pm-scenarioPanel .pm-select { flex:1 1 200px; min-width:0; padding:6px 8px; font-size:12px; }
 .pm-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .pm-label { color: var(--muted); font-size: 11px; }
 .pm-select, .pm-input, textarea { width:100%; background:#f6f9ff; border:1px solid var(--border); color:var(--ink);
@@ -232,7 +232,10 @@ body.piedmont {
 .pm-toast.error{ border-color:#ff5c6c }
 
 /* responsive */
-@media (hover:none) and (pointer:coarse){ .pm-btn, .pm-select, .pm-input, textarea { min-height:44px } }
+@media (hover:none) and (pointer:coarse){
+  .pm-btn, .pm-select, .pm-input, textarea { min-height:44px }
+  .pm-scenarioPanel .pm-select { min-height:38px; }
+}
 @media (max-width: 860px){
   .pm-main{ padding:12px }
   .pm-log{ height:140px }
@@ -303,10 +306,10 @@ body.piedmont {
   width: 100%;
 }
 
-.pm-scenarioPanel { margin: 0 16px; background:#f6f9ff; }
-.pm-scenarioPanel .pm-scenarioControl { width:100%; justify-content:space-between; gap:10px; }
-.pm-scenarioPanel .pm-select { flex:1 1 260px; min-width:0; }
-.pm-scenarioPanel.mobile { margin: 0 12px; padding:6px 10px; background:#f8fbff; }
-.pm-scenarioPanel.mobile .pm-scenarioControl { gap:8px; align-items:center; }
-.pm-scenarioPanel.mobile .pm-label { font-size:10px; letter-spacing:0.02em; }
-.pm-scenarioPanel.mobile .pm-select { padding:6px 8px; font-size:12px; }
+.pm-scenarioPanel { margin: 0 14px; background:#f6f9ff; }
+.pm-scenarioPanel .pm-scenarioControl { width:100%; justify-content:space-between; gap:6px; }
+.pm-scenarioPanel .pm-select { flex:1 1 220px; min-width:0; padding:6px 8px; font-size:12px; }
+.pm-scenarioPanel.mobile { margin: 0 10px; padding:5px 8px; background:#f8fbff; }
+.pm-scenarioPanel.mobile .pm-scenarioControl { gap:6px; align-items:center; }
+.pm-scenarioPanel.mobile .pm-label { font-size:9.5px; letter-spacing:0.03em; }
+.pm-scenarioPanel.mobile .pm-select { padding:5px 7px; font-size:11px; }
