@@ -60,15 +60,14 @@ function renderToasts() {
   if (!host) { host = document.createElement("div"); host.id = "pm-toast-host"; host.className = "pm-toasts"; document.body.appendChild(host); }
   host.innerHTML = _toasts.map(t => `<div class="pm-toast ${t.kind}">${t.msg}</div>`).join("");
 }
-function useResponsiveMode(forced = null) {
+function useResponsiveMode() {
   const pick = () => (window.innerWidth <= 860 ? "mobile" : "desktop");
-  const [mode, setMode] = useState(typeof window === "undefined" ? "desktop" : forced || pick());
+  const [mode, setMode] = useState(() => (typeof window === "undefined" ? "desktop" : pick()));
   useEffect(() => {
-    if (forced) { setMode(forced); return; }
     const onResize = () => setMode(pick());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [forced]);
+  }, []);
   return mode;
 }
 function downloadCSV(rows, filename = "deice-results.csv") {
@@ -100,8 +99,7 @@ export default function TrainPage() {
   const [awaitingAdvance, setAwaitingAdvance] = useState(false);
   const [resultsVersion, setResultsVersion] = useState(0);
 
-  const [forcedMode, setForcedMode] = useState(null);
-  const mode = useResponsiveMode(forcedMode);
+  const mode = useResponsiveMode();
 
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
@@ -130,6 +128,7 @@ export default function TrainPage() {
   const pct = gradedTotal ? Math.round((correct / gradedTotal) * 100) : 0;
   const micStatus = preparedRef.current ? (runningRef.current && !pausedRef.current ? "listening" : "ready") : "idle";
   const micLevel = micLevelRef.current || 0;
+  const activeSpeechLabelId = autoAdvance ? "speech-mode-auto" : "speech-mode-manual";
 
   const log = (msg) => setLogText(t => (t ? t + "\n" : "") + msg);
 
@@ -436,7 +435,7 @@ function onPause() {
           <div className="pm-title">
             <img src="/images/piedmont-logo.png" alt="Piedmont Airlines" />
             <h1>Deice Verbiage Trainer</h1>
-            <span className="pm-badge">V1 • OMA • Training use only</span>
+            <span className="pm-badge">V2 • For training purposes only • OMA Station • 2025</span>
           </div>
           <div className="pm-headerControls">
             <div className="pm-row pm-scenarioControl">
@@ -467,14 +466,6 @@ function onPause() {
                 {(scenarioList || []).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
-
-            <div className="pm-row pm-viewToggle">
-              <span className="pm-label">View</span>
-              <button className="pm-btn ghost" onClick={() => setForcedMode(null)}>Auto</button>
-              <button className="pm-btn ghost" onClick={() => setForcedMode("desktop")}>Desktop</button>
-              <button className="pm-btn ghost" onClick={() => setForcedMode("mobile")}>Mobile</button>
-            </div>
-
             <div className="pm-statusGroup">
               <span className="pm-pill">{status}</span>
               <span className="pm-pill">Captain: {captainStatus}</span>
@@ -490,28 +481,36 @@ function onPause() {
               <div className="pm-row pm-startControls">
                 <button type="button" className="pm-btn" onClick={onStart}>Start</button>
                 <button type="button" className="pm-btn ghost" onClick={onPause}>Pause</button>
-                <div className="pm-row pm-advanceToggle">
-                  <span className="pm-label"> Scenario Mode </span>
+                <div className="pm-row pm-speechToggle">
+                  <span className="pm-label" id="speech-mode-label">Speech mode</span>
+                  <span
+                    id="speech-mode-auto"
+                    className={`pm-switchOption${autoAdvance ? " active" : ""}`}
+                  >
+                    Auto
+                  </span>
                   <button
                     type="button"
-                    className={`pm-btn${autoAdvance ? "" : " ghost"}`}
-                    aria-pressed={autoAdvance}
+                    className={`pm-switch${autoAdvance ? "" : " manual"}`}
+                    role="switch"
+                    aria-checked={!autoAdvance}
+                    aria-labelledby={`speech-mode-label ${activeSpeechLabelId}`}
                     onClick={() => {
-                      if (!autoAdvance) { setAutoAdvance(true); log("Advance mode: automatic."); }
+                      const next = !autoAdvance;
+                      setAutoAdvance(next);
+                      log(`Speech mode: ${next ? "Auto" : "Manual"}.`);
                     }}
                   >
-                    Automatic
+                    <span className="pm-switchTrack">
+                      <span className="pm-switchThumb" />
+                    </span>
                   </button>
-                  <button
-                    type="button"
-                    className={`pm-btn${!autoAdvance ? "" : " ghost"}`}
-                    aria-pressed={!autoAdvance}
-                    onClick={() => {
-                      if (autoAdvance) { setAutoAdvance(false); log("Advance mode: prompt."); }
-                    }}
+                  <span
+                    id="speech-mode-manual"
+                    className={`pm-switchOption${autoAdvance ? "" : " active"}`}
                   >
-                    Manual Prompt
-                  </button>
+                    Manual
+                  </span>
                 </div>
               </div>
               <MicWidget status={micStatus} level={micLevel} />
@@ -617,7 +616,7 @@ function onPause() {
 
         {/* Footer */}
         <div className="pm-footer">
-          <div>V2 • For Training Purposes Only • OMA station 2025 </div>
+          <div>V2 • For training purposes only • OMA Station • 2025 • Microphone works only in Safari on iOS</div>
           <div className="pm-pill">Tip: Use headphones to avoid feedback.</div>
         </div>
       </div>
