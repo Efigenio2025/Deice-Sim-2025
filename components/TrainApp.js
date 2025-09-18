@@ -21,9 +21,10 @@ function Stepper({ total, current, results = [], onJump }) {
   );
 }
 
-function ScoreRing({ pct = 0, size = 60 }) {
+function ScoreRing({ pct = 0, size = 60, label }) {
   const r = (size - 8) / 2, c = size / 2, circ = 2 * Math.PI * r;
   const off = circ * (1 - pct / 100);
+  const display = label ?? `${pct}%`;
   return (
     <svg className="pm-ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <circle cx={c} cy={c} r={r} stroke="#dfeaff" strokeWidth="8" fill="none" />
@@ -38,7 +39,9 @@ function ScoreRing({ pct = 0, size = 60 }) {
         strokeDashoffset={off}
         strokeLinecap="round"
       />
-      <text x="50%" y="54%" textAnchor="middle" fontSize="14" fill="#0b1e39">{pct}%</text>
+      <text x="50%" y="54%" textAnchor="middle" fontSize="14" fill="#0b1e39">
+        {String(display)}
+      </text>
     </svg>
   );
 }
@@ -156,6 +159,7 @@ function TrainApp({ forcedMode }) {
   const steps = useMemo(() => current?.steps || [], [current]);
   const total = steps.length;
   const resultsRef = useRef([]);
+  const scoresRef = useRef([]);
 
   // UI & control state
   const [status, setStatus] = useState("Ready");
@@ -207,7 +211,13 @@ function TrainApp({ forcedMode }) {
       return acc + (steps[idx]?.role === "Iceman" && val === true ? 1 : 0);
     }, 0);
   }, [steps, resultsVersion]);
-  const pct = gradedTotal ? Math.round((correct / gradedTotal) * 100) : 0;
+  const totalScore = useMemo(() => {
+    return (scoresRef.current || []).reduce((acc, val, idx) => {
+      return acc + (steps[idx]?.role === "Iceman" && typeof val === "number" ? val : 0);
+    }, 0);
+  }, [steps, resultsVersion]);
+  const totalPossible = gradedTotal * 100;
+  const pct = totalPossible ? Math.round((totalScore / totalPossible) * 100) : 0;
   const speechSupported = captureMode === "speech";
   const micStatus = speechSupported
     ? preparedRef.current
@@ -264,6 +274,7 @@ function TrainApp({ forcedMode }) {
           const data = await res2.json();
           setCurrent(data);
           resultsRef.current = Array(data.steps.length).fill(undefined);
+          scoresRef.current = Array(data.steps.length).fill(null);
           setResultsVersion((v) => v + 1);
           setStatus("Scenario loaded");
           setStepIndex(-1);
@@ -423,6 +434,7 @@ function TrainApp({ forcedMode }) {
     const p = quickScore(exp, answer);
     const ok = p >= 60;
     resultsRef.current[stepIndex] = ok;
+    scoresRef.current[stepIndex] = p;
     setResultsVersion((v) => v + 1);
     setLastResultText(ok ? `✅ Good (${p}%)` : `❌ Try again (${p}%)`);
     if (!ok) setRetryCount((n) => n + 1);
@@ -483,6 +495,7 @@ function TrainApp({ forcedMode }) {
           const score = quickScore(expected, heard);
           const ok = score >= 60;
           resultsRef.current[idx] = ok;
+          scoresRef.current[idx] = score;
           setResultsVersion((v) => v + 1);
           setLastResultText(ok ? `✅ Good (${score}%)` : `❌ Try again (${score}%)`);
           if (!ok) {
@@ -574,6 +587,7 @@ function TrainApp({ forcedMode }) {
         const score = quickScore(expected, heard);
         const ok = score >= 60;
         resultsRef.current[idx] = ok;
+        scoresRef.current[idx] = score;
         setResultsVersion((v) => v + 1);
         setLastResultText(ok ? `✅ Good (${score}%)` : `❌ Try again (${score}%)`);
         if (!ok) {
@@ -653,7 +667,7 @@ function TrainApp({ forcedMode }) {
         />
       </div>
       <div className={`pm-scoreRow${isMobile ? " pm-scoreRowCompact" : ""}`}>
-        {!isMobile && <ScoreRing pct={pct} />}
+        {!isMobile && <ScoreRing pct={pct} label={totalScore} />}
         {scoreDetails}
       </div>
     </div>
@@ -671,9 +685,10 @@ function TrainApp({ forcedMode }) {
     </div>
   );
 
+  const totalScoreText = totalPossible ? `${totalScore} of ${totalPossible}` : `${totalScore}`;
   const scoreBlock = (
-    <div className="pm-headerScore" aria-label={`Score ${pct}%`}>
-      <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 60} />
+    <div className="pm-headerScore" aria-label={`Iceman total ${totalScoreText}`}>
+      <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 60} label={totalScore} />
     </div>
   );
 
@@ -725,6 +740,7 @@ function TrainApp({ forcedMode }) {
               const scn = await res.json();
               setCurrent(scn);
               resultsRef.current = Array(scn.steps.length).fill(undefined);
+              scoresRef.current = Array(scn.steps.length).fill(null);
               setResultsVersion((v) => v + 1);
               setStepIndex(-1);
               setStatus("Scenario loaded");
