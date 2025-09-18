@@ -216,9 +216,12 @@ body.piedmont {
 .pm-step.miss { background:#ffe3e6; }
 
 /* diff */
+.pm-diffBlock { margin-top:12px; }
+.pm-diffBlock .pm-label { margin-bottom:4px; display:block; }
 .pm-diff { padding:8px; border-radius:8px; background:#f6f9ff; margin:8px 0; }
 .pm-wok { color:#0f7a4a; }
 .pm-wmiss { color:#b00d2d; text-decoration: underline dotted; }
+.pm-wextra { color:#4a5a7d; font-style: italic; }
 
 /* score ring */
 .pm-scoreRow { display:flex; align-items:center; gap:12px; }
