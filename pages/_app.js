@@ -1,10 +1,10 @@
-// pages/_app.js
 import '../styles/globals.css';
-import { useEffect } from 'react';
+import { FrostLayout } from '../components/frost/FrostLayout';
 
 export default function App({ Component, pageProps }) {
-  useEffect(() => {
-    document.body.classList.add('piedmont');
-  }, []);
-  return <Component {...pageProps} />;
+  return (
+    <FrostLayout>
+      <Component {...pageProps} />
+    </FrostLayout>
+  );
 }
