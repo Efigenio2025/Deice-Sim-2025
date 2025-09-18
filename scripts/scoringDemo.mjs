@@ -35,4 +35,10 @@ const threeResult = scoreWords({
 });
 logResult('"Three" vs "Tree"', threeResult);
 
+const numericWordResult = scoreWords({
+  expected: ["type", "1"],
+  transcript: "type one",
+});
+logResult('"Type 1" vs "Type one"', numericWordResult);
+
 console.log("\nScoring demo complete.");
