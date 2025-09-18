@@ -7,6 +7,43 @@ import {
   stopAudio,
 } from "../lib/audio";
 import { listenOnce } from "../lib/speech";
+import { prepareScenarioForGrading, scoreWords, diffWords } from "@/lib/scoring";
+import { quickScoreDetail } from "@/lib/quickScore";
+
+/**
+ * Training simulator UI.
+ *
+ * Scoring flow overview:
+ *   1. Scenario JSON is normalized with prepareScenarioForGrading (handles NATO tails + token metadata).
+ *   2. gradeUtterance funnels expected tokens into scoreWords for fuzzy/NATO-aware grading (quickScore fallback via flag).
+ *   3. diffWords powers the "Why you got this score" feedback pane.
+ */
+
+const ENV = typeof process !== "undefined" ? process.env || {} : {};
+const NODE_ENV = typeof process !== "undefined" ? process.env?.NODE_ENV : "production";
+const USE_RICH_SCORER = ENV.NEXT_PUBLIC_USE_RICH_SCORER === "false" ? false : true;
+const DEBUG_SCORER = ENV.NEXT_PUBLIC_DEBUG_SCORER === "true";
+const SHOULD_LOG_SCORER = DEBUG_SCORER || NODE_ENV !== "production";
+const SCORE_THRESHOLD = 60;
+const SCORE_OPTIONS = {
+  fuzzyThreshold: 0.82,
+  enableNATOExpansion: true,
+};
+
+const logScoringDebug = (context, transcript, result) => {
+  if (!SHOULD_LOG_SCORER) return;
+  try {
+    console.debug(`[scoring] ${context}`, {
+      asrText: transcript,
+      totalMatched: result?.totalMatched ?? 0,
+      totalExpected: result?.totalExpected ?? 0,
+      percent: result?.percent ?? 0,
+      first5Matches: (result?.matches || []).slice(0, 5),
+    });
+  } catch (err) {
+    // ignore logging failures
+  }
+};
 
 function Stepper({ total, current, results = [], onJump }) {
   return (
@@ -46,17 +83,38 @@ function ScoreRing({ pct = 0, size = 60, label }) {
   );
 }
 
-function WordDiff({ expected = "", heard = "" }) {
-  const A = expected.trim().split(/\s+/);
-  const B = new Set(heard.trim().toLowerCase().split(/\s+/));
+function WordDiff({ diff, expectedLine = "" }) {
+  if (!diff) return null;
+  const expectedTokens = diff.expected || [];
+  const transcriptTokens = diff.transcript || [];
   return (
-    <p className="pm-diff">
-      {A.map((w, i) => (
-        <span key={i} className={B.has(w.toLowerCase()) ? "pm-wok" : "pm-wmiss"}>
-          {w}{" "}
-        </span>
-      ))}
-    </p>
+    <div className="pm-diffBlock">
+      <div className="pm-label">Why you got this score</div>
+      <p className="pm-diff">
+        {expectedTokens.length ? (
+          expectedTokens.map((token, idx) => (
+            <span key={`exp-${idx}`} className={token.status === "match" ? "pm-wok" : "pm-wmiss"}>
+              {token.display}
+              {" "}
+            </span>
+          ))
+        ) : (
+          <span className="pm-wmiss">{expectedLine || "—"}</span>
+        )}
+      </p>
+      <p className="pm-diff">
+        {transcriptTokens.length ? (
+          transcriptTokens.map((token, idx) => (
+            <span key={`heard-${idx}`} className={token.status === "match" ? "pm-wok" : "pm-wextra"}>
+              {token.display}
+              {" "}
+            </span>
+          ))
+        ) : (
+          <span className="pm-wmiss">No response captured.</span>
+        )}
+      </p>
+    </div>
   );
 }
 
@@ -152,7 +210,8 @@ function downloadCSV(rows, filename = "deice-results.csv") {
 function TrainApp({ forcedMode }) {
   // scenario list + current
   const [scenarioList, setScenarioList] = useState([]);
-  const [current, setCurrent] = useState(null);
+  const [preparedScenario, setPreparedScenario] = useState(null);
+  const current = preparedScenario;
 
   // steps / results
   const [stepIndex, setStepIndex] = useState(-1);
@@ -166,6 +225,7 @@ function TrainApp({ forcedMode }) {
   const [answer, setAnswer] = useState("");
   const answerRef = useRef("");
   const [lastResultText, setLastResultText] = useState("—");
+  const [lastDiff, setLastDiff] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [avgRespSec, setAvgRespSec] = useState(null);
   const [logText, setLogText] = useState("");
@@ -195,6 +255,36 @@ function TrainApp({ forcedMode }) {
     answerRef.current = answer;
   }, [answer]);
 
+  // Scoring pipeline: prefer the rich scorer (lib/scoring) with optional quickScore fallback for debugging.
+  const formatScoreSummary = (result) => {
+    const percent = result?.percent ?? 0;
+    const totalExpected = result?.totalExpected;
+    const totalMatched = result?.totalMatched ?? 0;
+    if (typeof totalExpected === "number") {
+      return `${percent}% — ${totalMatched}/${totalExpected}`;
+    }
+    return `${percent}%`;
+  };
+
+  const gradeUtterance = (step, transcript) => {
+    if (!step) {
+      return quickScoreDetail("", transcript);
+    }
+    if (USE_RICH_SCORER) {
+      const expectedSource =
+        step._expectedForGrade && step._expectedForGrade.length
+          ? step._expectedForGrade
+          : step._expectedGradeText || step.text || "";
+      return scoreWords({
+        expected: expectedSource,
+        transcript,
+        options: SCORE_OPTIONS,
+      });
+    }
+    const fallbackText = step?._expectedGradeText || step?.text || "";
+    return quickScoreDetail(fallbackText, transcript);
+  };
+
   useEffect(() => {
     autoAdvanceRef.current = autoAdvance;
     if (autoAdvance && awaitingAdvanceRef.current && proceedResolverRef.current) {
@@ -204,6 +294,10 @@ function TrainApp({ forcedMode }) {
   useEffect(() => {
     awaitingAdvanceRef.current = awaitingAdvance;
   }, [awaitingAdvance]);
+
+  useEffect(() => {
+    setLastDiff(null);
+  }, [stepIndex]);
 
   const gradedTotal = useMemo(() => (steps || []).filter((s) => s.role === "Iceman").length, [steps]);
   const correct = useMemo(() => {
@@ -272,20 +366,22 @@ function TrainApp({ forcedMode }) {
           // auto-load first scenario
           const res2 = await fetch(`/scenarios/${list[0].id}.json`);
           const data = await res2.json();
-          setCurrent(data);
-          resultsRef.current = Array(data.steps.length).fill(undefined);
-          scoresRef.current = Array(data.steps.length).fill(null);
+          const prepared = prepareScenarioForGrading(data);
+          setPreparedScenario(prepared);
+          resultsRef.current = Array(prepared.steps.length).fill(undefined);
+          scoresRef.current = Array(prepared.steps.length).fill(null);
           setResultsVersion((v) => v + 1);
           setStatus("Scenario loaded");
           setStepIndex(-1);
           setAnswer("");
           setLastResultText("—");
+          setLastDiff(null);
           setRetryCount(0);
           setAvgRespSec(null);
           setAwaitingAdvance(false);
           awaitingAdvanceRef.current = false;
           proceedResolverRef.current = null;
-          preloadCaptainForScenario(data);
+          preloadCaptainForScenario(prepared);
         }
       } catch (e) {
         console.error("Load scenario list failed", e);
@@ -313,16 +409,6 @@ function TrainApp({ forcedMode }) {
     }, 500);
     return () => clearInterval(id);
   }, []);
-
-  function normalize(s) {
-    return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
-  }
-  function quickScore(expected, heard) {
-    const A = new Set(normalize(expected).split(" "));
-    const B = new Set(normalize(heard).split(" "));
-    const inter = [...A].filter((x) => B.has(x)).length;
-    return A.size ? Math.round((inter / A.size) * 100) : 0;
-  }
 
   function preloadCaptainForScenario(scn) {
     const scnId = scn?.id;
@@ -430,15 +516,21 @@ function TrainApp({ forcedMode }) {
 
   function onCheck() {
     if (stepIndex < 0 || !steps[stepIndex]) return;
-    const exp = steps[stepIndex].text;
-    const p = quickScore(exp, answer);
-    const ok = p >= 60;
+    const step = steps[stepIndex];
+    const heard = (answer || "").trim();
+    const result = gradeUtterance(step, heard);
+    const percent = result?.percent ?? 0;
+    const ok = percent >= SCORE_THRESHOLD;
+    const summary = formatScoreSummary(result);
     resultsRef.current[stepIndex] = ok;
-    scoresRef.current[stepIndex] = p;
+    scoresRef.current[stepIndex] = percent;
     setResultsVersion((v) => v + 1);
-    setLastResultText(ok ? `✅ Good (${p}%)` : `❌ Try again (${p}%)`);
+    const diff = diffWords(result);
+    setLastDiff(diff);
+    setLastResultText(ok ? `✅ Good (${summary})` : `❌ Try again (${summary})`);
     if (!ok) setRetryCount((n) => n + 1);
-    log(`[Step ${stepIndex + 1}] Score ${p}% → ${ok ? "OK" : "MISS"}`);
+    log(`[Step ${stepIndex + 1}] Score ${summary} → ${ok ? "OK" : "MISS"}`);
+    logScoringDebug(`manual-check-${stepIndex + 1}`, heard, result);
   }
 
   function exportSession() {
@@ -491,13 +583,16 @@ function TrainApp({ forcedMode }) {
       await new Promise((resolve) => {
         proceedResolverRef.current = () => {
           const heard = (answerRef.current || "").trim();
-          const expected = step.text || "";
-          const score = quickScore(expected, heard);
-          const ok = score >= 60;
+          const result = gradeUtterance(step, heard);
+          const percent = result?.percent ?? 0;
+          const ok = percent >= SCORE_THRESHOLD;
+          const summary = formatScoreSummary(result);
           resultsRef.current[idx] = ok;
-          scoresRef.current[idx] = score;
+          scoresRef.current[idx] = percent;
           setResultsVersion((v) => v + 1);
-          setLastResultText(ok ? `✅ Good (${score}%)` : `❌ Try again (${score}%)`);
+          const diff = diffWords(result);
+          setLastDiff(diff);
+          setLastResultText(ok ? `✅ Good (${summary})` : `❌ Try again (${summary})`);
           if (!ok) {
             setRetryCount((n) => n + 1);
             toast("Let's try that line again.", "info");
@@ -506,7 +601,8 @@ function TrainApp({ forcedMode }) {
           responseCount += 1;
           responseTotal += took;
           setAvgRespSec(responseCount ? responseTotal / responseCount : null);
-          log(`[Step ${idx + 1}] Manual score ${score}% → ${ok ? "OK" : "MISS"}`);
+          log(`[Step ${idx + 1}] Manual score ${summary} → ${ok ? "OK" : "MISS"}`);
+          logScoringDebug(`manual-step-${idx + 1}`, heard, result);
           resolve();
         };
       });
@@ -583,18 +679,22 @@ function TrainApp({ forcedMode }) {
         responseTotal += took;
         setAvgRespSec(responseCount ? responseTotal / responseCount : null);
 
-        const expected = step.text || "";
-        const score = quickScore(expected, heard);
-        const ok = score >= 60;
+        const result = gradeUtterance(step, heard);
+        const percent = result?.percent ?? 0;
+        const ok = percent >= SCORE_THRESHOLD;
+        const summary = formatScoreSummary(result);
         resultsRef.current[idx] = ok;
-        scoresRef.current[idx] = score;
+        scoresRef.current[idx] = percent;
         setResultsVersion((v) => v + 1);
-        setLastResultText(ok ? `✅ Good (${score}%)` : `❌ Try again (${score}%)`);
+        const diff = diffWords(result);
+        setLastDiff(diff);
+        setLastResultText(ok ? `✅ Good (${summary})` : `❌ Try again (${summary})`);
         if (!ok) {
           setRetryCount((n) => n + 1);
           toast("Let's try that line again.", "info");
         }
-        log(`[Step ${idx + 1}] Auto score ${score}% → ${ok ? "OK" : "MISS"}`);
+        log(`[Step ${idx + 1}] Auto score ${summary} → ${ok ? "OK" : "MISS"}`);
+        logScoringDebug(`auto-step-${idx + 1}`, heard, result);
 
         if (!autoAdvanceRef.current && idx < steps.length - 1) {
           setStatus("Awaiting proceed…");
@@ -738,21 +838,23 @@ function TrainApp({ forcedMode }) {
               const id = e.target.value;
               const res = await fetch(`/scenarios/${id}.json`);
               const scn = await res.json();
-              setCurrent(scn);
-              resultsRef.current = Array(scn.steps.length).fill(undefined);
-              scoresRef.current = Array(scn.steps.length).fill(null);
+              const prepared = prepareScenarioForGrading(scn);
+              setPreparedScenario(prepared);
+              resultsRef.current = Array(prepared.steps.length).fill(undefined);
+              scoresRef.current = Array(prepared.steps.length).fill(null);
               setResultsVersion((v) => v + 1);
               setStepIndex(-1);
               setStatus("Scenario loaded");
-              log(`Scenario loaded: ${scn.label}`);
+              log(`Scenario loaded: ${prepared.label}`);
               setAnswer("");
               setLastResultText("—");
+              setLastDiff(null);
               setRetryCount(0);
               setAvgRespSec(null);
               setAwaitingAdvance(false);
               awaitingAdvanceRef.current = false;
               proceedResolverRef.current = null;
-              preloadCaptainForScenario(scn);
+              preloadCaptainForScenario(prepared);
             }}
           >
             {(scenarioList || []).map((s) => (
@@ -916,7 +1018,12 @@ function TrainApp({ forcedMode }) {
               </div>
             )}
 
-            {stepIndex >= 0 && steps[stepIndex] && <WordDiff expected={steps[stepIndex].text} heard={answer} />}
+            {stepIndex >= 0 && steps[stepIndex] && (
+              <WordDiff
+                diff={lastDiff}
+                expectedLine={steps[stepIndex]._displayLine || steps[stepIndex].text || ""}
+              />
+            )}
           </section>
 
           {/* RIGHT */}

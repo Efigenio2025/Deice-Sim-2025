@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start -p 3000"
+    "start": "next start -p 3000",
+    "scoring:demo": "node scripts/scoringDemo.mjs"
   },
   "dependencies": {
     "next": "^14.2.5",
