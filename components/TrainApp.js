@@ -667,7 +667,7 @@ function TrainApp({ forcedMode }) {
         />
       </div>
       <div className={`pm-scoreRow${isMobile ? " pm-scoreRowCompact" : ""}`}>
-        {!isMobile && <ScoreRing pct={pct} label={totalScore} />}
+        {!isMobile && <ScoreRing pct={pct} />}
         {scoreDetails}
       </div>
     </div>
@@ -685,10 +685,10 @@ function TrainApp({ forcedMode }) {
     </div>
   );
 
-  const totalScoreText = totalPossible ? `${totalScore} of ${totalPossible}` : `${totalScore}`;
+  const totalScoreText = totalPossible ? `${pct}% (${totalScore} of ${totalPossible})` : `${pct}%`;
   const scoreBlock = (
     <div className="pm-headerScore" aria-label={`Iceman total ${totalScoreText}`}>
-      <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 60} label={totalScore} />
+      <ScoreRing pct={pct} size={isMobile ? mobileScoreSize : 60} />
     </div>
   );
 
