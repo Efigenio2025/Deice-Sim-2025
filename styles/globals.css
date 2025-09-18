@@ -109,11 +109,11 @@ body.piedmont {
   grid-template-columns:minmax(0,1fr) auto;
   grid-template-areas:
     "brand score"
-    "status score"
-    "mic score";
+    "status status"
+    "mic mic";
   padding:8px 12px;
   gap:8px 12px;
-  align-items:center;
+  align-items:start;
 }
 .pm-header.mobile .pm-headerSection { display:flex; align-items: flex-start; gap:8px; min-width:0; }
 .pm-header.mobile .pm-headerBrand { grid-area: brand; }
@@ -121,7 +121,7 @@ body.piedmont {
 .pm-header.mobile .pm-headerScore { justify-content:flex-end; }
 .pm-header.mobile .pm-headerStatus { grid-area: status; }
 .pm-header.mobile .pm-headerMic { grid-area: mic; }
-.pm-header.mobile .pm-statusGroup { width:30%; justify-content:flex-start; gap:6px; flex-wrap:wrap; }
+.pm-header.mobile .pm-statusGroup { width:100%; justify-content:flex-start; gap:6px; flex-wrap:wrap; }
 .pm-header.mobile .pm-statusGroup.pm-statusGroupCompact { gap:6px; }
 .pm-header.mobile .pm-statusGroup.pm-statusGroupCompact .pm-pill { flex:1 1 auto; min-width:0; }
 .pm-header.mobile .pm-mic { width:100%; justify-content:space-between; }
