@@ -322,7 +322,7 @@ body.piedmont {
 .pm-scenarioPanel { margin: 0 14px; background:#f6f9ff; }
 .pm-scenarioPanel .pm-scenarioControl { width:100%; justify-content:space-between; gap:6px; }
 .pm-scenarioPanel .pm-select { flex:1 1 220px; min-width:0; padding:6px 8px; font-size:12px; }
-.pm-scenarioPanel.mobile { margin: 0 10px; padding:5px 8px; background:#f8fbff; }
+.pm-scenarioPanel.mobile { margin: 5px 10px; padding:5px 8px; background:#f8fbff; }
 .pm-scenarioPanel.mobile .pm-scenarioControl { gap:6px; align-items:center; }
 .pm-scenarioPanel.mobile .pm-label { font-size:9.5px; letter-spacing:0.03em; }
 .pm-scenarioPanel.mobile .pm-select { padding:5px 7px; font-size:11px; }
