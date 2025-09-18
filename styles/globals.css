@@ -155,6 +155,58 @@ body.piedmont {
 .pm-navRow, .pm-checkRow, .pm-awaitRow { gap:8px; align-items:center; flex-wrap:wrap; }
 .pm-progressRow { justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 .pm-exportRow { justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+.pm-employeeRow { justify-content:flex-start; gap:8px; flex-wrap:wrap; }
+.pm-employeeRow .pm-pill { flex:1 1 auto; min-width:0; }
+
+.pm-modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 22, 46, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.pm-modal {
+  background: #ffffff;
+  color: var(--ink);
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(5, 30, 74, 0.22);
+  padding: 20px;
+  max-width: 420px;
+  width: min(420px, 100%);
+}
+
+.pm-modal h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.pm-modal p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pm-fieldLabel { display:block; margin-bottom:6px; }
+.pm-fieldError { color: var(--err); font-size: 12px; margin-top: 6px; }
+
+.pm-modalActions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.pm-modalActions .pm-btn { flex: 0 0 auto; }
+
+.pm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* panels */
 .pm-panel { background: #e2e8f0; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }

@@ -29,6 +29,8 @@ const SCORE_OPTIONS = {
   fuzzyThreshold: 0.82,
   enableNATOExpansion: true,
 };
+const EMPLOYEE_STORAGE_KEY = "trainer.employeeId";
+const EMPLOYEE_ID_REGEX = /^\d{4,10}$/;
 
 const logScoringDebug = (context, transcript, result) => {
   if (!SHOULD_LOG_SCORER) return;
@@ -237,6 +239,12 @@ function TrainApp({ forcedMode }) {
   });
   const captureModeRef = useRef(captureMode);
   const [resultsVersion, setResultsVersion] = useState(0);
+  const [employeeId, setEmployeeId] = useState("");
+  const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
+  const [employeeInput, setEmployeeInput] = useState("");
+  const [employeeError, setEmployeeError] = useState("");
+  const employeeInputRef = useRef(null);
+  const [savingStats, setSavingStats] = useState(false);
 
   const mode = useResponsiveMode(forcedMode);
   const { width: viewportWidth } = useViewportSize();
@@ -254,6 +262,42 @@ function TrainApp({ forcedMode }) {
   useEffect(() => {
     answerRef.current = answer;
   }, [answer]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored =
+        sessionStorage.getItem(EMPLOYEE_STORAGE_KEY) || localStorage.getItem(EMPLOYEE_STORAGE_KEY);
+      if (stored) setEmployeeId(stored);
+    } catch (err) {
+      console.warn("Read employee ID failed", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!employeeModalOpen || typeof window === "undefined") return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const input = employeeInputRef.current;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [employeeModalOpen]);
+
+  useEffect(() => {
+    if (!employeeModalOpen || typeof window === "undefined") return undefined;
+    const onKeyDown = (evt) => {
+      if (evt.key === "Escape") {
+        evt.preventDefault();
+        setEmployeeModalOpen(false);
+        setEmployeeError("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [employeeModalOpen]);
 
   // Scoring pipeline: prefer the rich scorer (lib/scoring) with optional quickScore fallback for debugging.
   const formatScoreSummary = (result) => {
@@ -284,6 +328,57 @@ function TrainApp({ forcedMode }) {
     const fallbackText = step?._expectedGradeText || step?.text || "";
     return quickScoreDetail(fallbackText, transcript);
   };
+
+  function persistEmployeeId(value) {
+    if (typeof window === "undefined") return;
+    try {
+      if (value) {
+        sessionStorage.setItem(EMPLOYEE_STORAGE_KEY, value);
+        localStorage.setItem(EMPLOYEE_STORAGE_KEY, value);
+      } else {
+        sessionStorage.removeItem(EMPLOYEE_STORAGE_KEY);
+        localStorage.removeItem(EMPLOYEE_STORAGE_KEY);
+      }
+    } catch (err) {
+      console.warn("Persist employee ID failed", err);
+    }
+  }
+
+  function openEmployeeModal({ forceEmpty = false } = {}) {
+    setEmployeeError("");
+    setEmployeeInput(!forceEmpty && employeeId ? employeeId : "");
+    setEmployeeModalOpen(true);
+  }
+
+  function closeEmployeeModal() {
+    setEmployeeModalOpen(false);
+    setEmployeeError("");
+  }
+
+  function handleEmployeeSubmit(event) {
+    event.preventDefault();
+    const normalized = (employeeInput || "").trim();
+    if (!EMPLOYEE_ID_REGEX.test(normalized)) {
+      setEmployeeError("Employee number should be 4-10 digits.");
+      return;
+    }
+    setEmployeeId(normalized);
+    persistEmployeeId(normalized);
+    setEmployeeModalOpen(false);
+    setEmployeeError("");
+    toast(`Signed in as ${normalized}`, "success");
+    log(`Employee signed in as ${normalized}.`);
+  }
+
+  function handleEmployeeSignOut() {
+    setEmployeeId("");
+    persistEmployeeId("");
+    setEmployeeInput("");
+    setEmployeeModalOpen(false);
+    setEmployeeError("");
+    toast("Signed out", "info");
+    log("Employee signed out.");
+  }
 
   useEffect(() => {
     autoAdvanceRef.current = autoAdvance;
@@ -542,6 +637,81 @@ function TrainApp({ forcedMode }) {
     ];
     downloadCSV(rows, `deice_${current?.id || "scenario"}.csv`);
     toast("CSV downloaded", "success");
+  }
+
+  async function saveStats() {
+    if (!current || !steps.length) {
+      toast("Load a scenario before saving stats", "error");
+      log("Save stats aborted: no scenario loaded.");
+      return;
+    }
+    if (!employeeId) {
+      toast("Enter your employee number to save stats.", "info");
+      openEmployeeModal({ forceEmpty: true });
+      log("Save stats aborted: employee ID required.");
+      return;
+    }
+
+    const summary = {
+      scenarioId: current?.id || "",
+      scenarioLabel: current?.label || "",
+      totalSteps: steps.length,
+      gradedSteps: gradedTotal,
+      correct,
+      percent: pct,
+      totalScore,
+      totalPossible,
+      retryCount,
+      avgResponseSeconds:
+        typeof avgRespSec === "number" && Number.isFinite(avgRespSec)
+          ? Number(avgRespSec.toFixed(2))
+          : null,
+    };
+
+    const detail = steps.map((step, index) => {
+      const result = resultsRef.current[index];
+      const score = scoresRef.current[index];
+      return {
+        index: index + 1,
+        role: step.role,
+        expected: step._displayLine || step.text || "",
+        result: result === undefined ? null : result ? "OK" : "MISS",
+        score:
+          typeof score === "number" && Number.isFinite(score) ? Number(score.toFixed(2)) : null,
+      };
+    });
+
+    const payload = {
+      employeeId,
+      scenarioId: summary.scenarioId,
+      scenarioLabel: summary.scenarioLabel,
+      recordedAt: new Date().toISOString(),
+      summary,
+      steps: detail,
+    };
+
+    setSavingStats(true);
+    log(`Saving stats for ${employeeId} (${summary.scenarioId || "scenario"}).`);
+
+    try {
+      const res = await fetch("/api/logs-write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`);
+      }
+      toast("Stats saved", "success");
+      log("Stats saved successfully.");
+    } catch (err) {
+      console.error("Save stats failed", err);
+      toast("Save stats failed", "error");
+      log(`Save stats error: ${err?.message || err}`);
+    } finally {
+      setSavingStats(false);
+    }
   }
 
   function resolvePrompt({ silent = false } = {}) {
@@ -1037,12 +1207,30 @@ function TrainApp({ forcedMode }) {
               </div>
             )}
 
+            <div className="pm-row pm-employeeRow" style={{ marginTop: 10 }}>
+              <span className="pm-pill">
+                {employeeId ? `Signed in: ${employeeId}` : "Not signed in"}
+              </span>
+              <button
+                type="button"
+                className="pm-btn ghost"
+                onClick={() => openEmployeeModal({ forceEmpty: !employeeId })}
+              >
+                {employeeId ? "Change ID" : "Log in"}
+              </button>
+            </div>
+
             <div className="pm-row pm-exportRow" style={{ marginTop: 10 }}>
-              <button className="pm-btn ghost" onClick={exportSession}>
+              <button type="button" className="pm-btn ghost" onClick={exportSession}>
                 Export CSV
               </button>
-              <button className="pm-btn ghost" onClick={() => toast("Saved settings", "success")}>
-                Save Settings
+              <button
+                type="button"
+                className="pm-btn ghost"
+                onClick={saveStats}
+                disabled={savingStats}
+              >
+                {savingStats ? "Saving…" : "Save Stats"}
               </button>
             </div>
           </section>
@@ -1054,6 +1242,62 @@ function TrainApp({ forcedMode }) {
           <div className="pm-pill">Tip: Use headphones to avoid feedback.</div>
         </div>
       </div>
+      {employeeModalOpen && (
+        <div
+          className="pm-modalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="employee-modal-title"
+          onClick={closeEmployeeModal}
+        >
+          <div className="pm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 id="employee-modal-title">Employee login</h2>
+            <p>Enter your employee number to save training stats.</p>
+            <form onSubmit={handleEmployeeSubmit}>
+              <div>
+                <label className="pm-label pm-fieldLabel" htmlFor="employee-id-input">
+                  Employee number
+                </label>
+                <input
+                  id="employee-id-input"
+                  ref={employeeInputRef}
+                  className="pm-input"
+                  value={employeeInput}
+                  onChange={(e) => {
+                    const digits = (e.target.value || "").replace(/\D/g, "").slice(0, 10);
+                    setEmployeeInput(digits);
+                    if (employeeError) setEmployeeError("");
+                  }}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={10}
+                  placeholder="e.g. 123456"
+                  aria-invalid={employeeError ? "true" : "false"}
+                  aria-describedby={employeeError ? "employee-id-error" : undefined}
+                />
+              </div>
+              {employeeError && (
+                <div id="employee-id-error" className="pm-fieldError" role="alert">
+                  {employeeError}
+                </div>
+              )}
+              <div className="pm-modalActions">
+                {employeeId && (
+                  <button type="button" className="pm-btn ghost" onClick={handleEmployeeSignOut}>
+                    Sign out
+                  </button>
+                )}
+                <button type="button" className="pm-btn ghost" onClick={closeEmployeeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="pm-btn primary">
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
