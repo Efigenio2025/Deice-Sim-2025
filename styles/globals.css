@@ -99,7 +99,7 @@ body.piedmont {
 .pm-headerScore { display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .pm-titleText { display:flex; flex-direction:column; gap:4px; }
 .pm-titleBadge { align-self:flex-start; }
-.pm-headerRight .pm-statusGroup { flex:1 1 auto; min-width:80px; justify-content:flex-end; }
+.pm-headerRight .pm-statusGroup { flex:1 1 auto; min-width:160px; justify-content:flex-end; }
 .pm-headerRight .pm-mic { flex:1 1 220px; justify-content:flex-end; }
 .pm-headerRight .pm-meter { min-width:120px; }
 .pm-header.desktop .pm-titleBadge { display:inline-flex; }
@@ -121,7 +121,7 @@ body.piedmont {
 .pm-header.mobile .pm-headerScore { justify-content:flex-end; }
 .pm-header.mobile .pm-headerStatus { grid-area: status; }
 .pm-header.mobile .pm-headerMic { grid-area: mic; }
-.pm-header.mobile .pm-statusGroup { width:100%; justify-content:flex-start; gap:6px; flex-wrap:wrap; }
+.pm-header.mobile .pm-statusGroup { width:50%; justify-content:flex-start; gap:6px; flex-wrap:wrap; }
 .pm-header.mobile .pm-statusGroup.pm-statusGroupCompact { gap:6px; }
 .pm-header.mobile .pm-statusGroup.pm-statusGroupCompact .pm-pill { flex:1 1 auto; min-width:0; }
 .pm-header.mobile .pm-mic { width:100%; justify-content:space-between; }
