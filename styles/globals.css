@@ -99,7 +99,7 @@ body.piedmont {
 .pm-headerScore { display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .pm-titleText { display:flex; flex-direction:column; gap:4px; }
 .pm-titleBadge { align-self:flex-start; }
-.pm-headerRight .pm-statusGroup { flex:1 1 auto; min-width:160px; justify-content:flex-end; }
+.pm-headerRight .pm-statusGroup { flex:1 1 auto; min-width:80px; justify-content:flex-end; }
 .pm-headerRight .pm-mic { flex:1 1 220px; justify-content:flex-end; }
 .pm-headerRight .pm-meter { min-width:120px; }
 .pm-header.desktop .pm-titleBadge { display:inline-flex; }
