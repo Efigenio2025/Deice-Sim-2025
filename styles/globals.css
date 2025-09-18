@@ -149,8 +149,7 @@ body.piedmont {
 }
 .pm-controlBlock {
   display:flex;
-
-  gap:6px;
+  flex-direction:column;  gap:6px;
   align-items:stretch;
   flex:1 1 160px;
   min-width:160px;
