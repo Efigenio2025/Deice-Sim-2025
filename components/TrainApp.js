@@ -237,6 +237,7 @@ function TrainApp({ forcedMode }) {
   });
   const captureModeRef = useRef(captureMode);
   const [resultsVersion, setResultsVersion] = useState(0);
+  const [runState, setRunState] = useState("idle");
 
   const mode = useResponsiveMode(forcedMode);
   const { width: viewportWidth } = useViewportSize();
@@ -322,6 +323,7 @@ function TrainApp({ forcedMode }) {
     : "manual";
   const micLevel = micLevelRef.current || 0;
   const activeSpeechLabelId = autoAdvance ? "speech-mode-auto" : "speech-mode-manual";
+  const activeRunLabelId = runState === "paused" ? "run-toggle-pause" : "run-toggle-resume";
   const isMobile = mode === "mobile";
   const mobileScoreSize = useMemo(() => {
     if (!isMobile) return 72;
@@ -482,6 +484,7 @@ function TrainApp({ forcedMode }) {
 
       pausedRef.current = false;
       runningRef.current = true;
+      setRunState("running");
       setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
       log("Simulation started.");
 
@@ -494,6 +497,7 @@ function TrainApp({ forcedMode }) {
     } catch (e) {
       console.error("Start failed:", e);
       setStatus("Start failed");
+      setRunState("idle");
       toast("Start failed", "error");
     }
   }
@@ -506,11 +510,58 @@ function TrainApp({ forcedMode }) {
       stopAudio();
       resolvePrompt({ silent: true });
       setStatus("Paused");
+      setRunState("paused");
       log("Simulation paused.");
       toast("Paused", "info");
     } catch (e) {
       console.error("Pause failed:", e);
       toast("Pause failed", "error");
+    }
+  }
+
+  function onResume() {
+    try {
+      pausedRef.current = false;
+      runningRef.current = true;
+      setRunState("running");
+      setStatus(preparedRef.current ? "Running…" : "Running (no mic)");
+      log("Simulation resumed.");
+      toast("Resumed", "success");
+      runSimulator();
+    } catch (e) {
+      console.error("Resume failed:", e);
+      setRunState("paused");
+      toast("Resume failed", "error");
+    }
+  }
+
+  async function onRestart() {
+    try {
+      stopAudio();
+      resolvePrompt({ silent: true });
+      runningRef.current = false;
+      pausedRef.current = false;
+      runIdRef.current = Date.now();
+      setRunState("idle");
+      setStatus("Restarting…");
+      log("Restarting simulation.");
+      setAnswer("");
+      setLastResultText("—");
+      setLastDiff(null);
+      setRetryCount(0);
+      setAvgRespSec(null);
+      setAwaitingAdvance(false);
+      awaitingAdvanceRef.current = false;
+      proceedResolverRef.current = null;
+      resultsRef.current = Array(steps.length).fill(undefined);
+      scoresRef.current = Array(steps.length).fill(null);
+      setResultsVersion((v) => v + 1);
+      setStepIndex(-1);
+      toast("Restarting…", "info");
+      await onStart();
+    } catch (e) {
+      console.error("Restart failed:", e);
+      toast("Restart failed", "error");
     }
   }
 
@@ -559,6 +610,9 @@ function TrainApp({ forcedMode }) {
   async function runSimulator() {
     if (!current || !steps.length) {
       setStatus("Select a scenario first.");
+      runningRef.current = false;
+      pausedRef.current = false;
+      setRunState("idle");
       return;
     }
 
@@ -654,6 +708,8 @@ function TrainApp({ forcedMode }) {
           toast("Speech capture failed", "error");
           setStatus("Speech capture failed");
           runningRef.current = false;
+          pausedRef.current = false;
+          setRunState("idle");
           break;
         }
 
@@ -727,6 +783,8 @@ function TrainApp({ forcedMode }) {
 
     if (idx >= steps.length) {
       runningRef.current = false;
+      pausedRef.current = false;
+      setRunState("idle");
       const okCount = (resultsRef.current || []).reduce((acc, val, i) => {
         return acc + (steps[i]?.role === "Iceman" && val === true ? 1 : 0);
       }, 0);
@@ -846,6 +904,11 @@ function TrainApp({ forcedMode }) {
               setStepIndex(-1);
               setStatus("Scenario loaded");
               log(`Scenario loaded: ${prepared.label}`);
+              stopAudio();
+              resolvePrompt({ silent: true });
+              runningRef.current = false;
+              pausedRef.current = false;
+              setRunState("idle");
               setAnswer("");
               setLastResultText("—");
               setLastDiff(null);
@@ -871,7 +934,8 @@ function TrainApp({ forcedMode }) {
           <section className="pm-panel">
             {isMobile && <div className="pm-progressTop">{progressSummary}</div>}
             <div className="pm-runRow">
-              <div className="pm-row pm-startControls">
+              <div className="pm-controlBlock">
+                <span className="pm-label">Start</span>
                 <button
                   type="button"
                   className={`pm-btn${isMobile ? " pm-mobileControl" : ""}`}
@@ -879,17 +943,60 @@ function TrainApp({ forcedMode }) {
                 >
                   Start
                 </button>
+              </div>
+              <div className="pm-controlBlock">
+                <span className="pm-label">Restart</span>
                 <button
                   type="button"
                   className={`pm-btn ghost${isMobile ? " pm-mobileControl" : ""}`}
-                  onClick={onPause}
+                  onClick={onRestart}
                 >
-                  Pause
+                  Restart
                 </button>
-                <div className="pm-row pm-speechToggle">
-                  <span className="pm-label" id="speech-mode-label">
-                    Speech mode
+              </div>
+              <div className="pm-controlBlock">
+                <span className="pm-label" id="run-toggle-label">
+                  Run control
+                </span>
+                <div className="pm-runToggle">
+                  <span
+                    id="run-toggle-resume"
+                    className={`pm-switchOption${runState === "paused" ? "" : " active"}`}
+                  >
+                    Resume
                   </span>
+                  <button
+                    type="button"
+                    className={`pm-switch${runState === "paused" ? " on" : ""}`}
+                    role="switch"
+                    aria-checked={runState === "paused"}
+                    aria-labelledby={`run-toggle-label ${activeRunLabelId}`}
+                    disabled={runState === "idle"}
+                    onClick={() => {
+                      if (runState === "running") {
+                        onPause();
+                      } else if (runState === "paused") {
+                        onResume();
+                      }
+                    }}
+                  >
+                    <span className="pm-switchTrack">
+                      <span className="pm-switchThumb" />
+                    </span>
+                  </button>
+                  <span
+                    id="run-toggle-pause"
+                    className={`pm-switchOption${runState === "paused" ? " active" : ""}`}
+                  >
+                    Pause
+                  </span>
+                </div>
+              </div>
+              <div className="pm-controlBlock">
+                <span className="pm-label" id="speech-mode-label">
+                  Speech mode
+                </span>
+                <div className="pm-speechToggle">
                   <span id="speech-mode-auto" className={`pm-switchOption${autoAdvance ? " active" : ""}`}>
                     Auto
                   </span>

@@ -138,20 +138,47 @@ body.piedmont {
 .pm-scenarioControl { align-items:center; gap:6px; }
 .pm-statusGroup { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
 .pm-statusGroup.pm-statusGroupCompact { gap:4px; flex-wrap:nowrap; justify-content:flex-start; }
-.pm-runRow { display:flex; justify-content:flex-start; align-items:flex-start; gap:12px; flex-wrap:wrap; }
-.pm-startControls { gap:8px; align-items:center; flex-wrap:wrap; }
-.pm-speechToggle { gap:8px; align-items:center; flex-wrap:wrap; }
-.pm-switchOption { font-size:12px; color:var(--muted); font-weight:600; }
+.pm-runRow {
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  align-items:stretch;
+  gap:10px;
+  padding-bottom:4px;
+}
+.pm-controlBlock {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:stretch;
+  min-width:0;
+}
+.pm-controlBlock .pm-btn { width:100%; }
+.pm-speechToggle,
+.pm-runToggle {
+  display:grid;
+  grid-auto-flow:row;
+  justify-items:center;
+  align-content:center;
+  gap:4px;
+  width:100%;
+}
+.pm-runToggle .pm-switchOption,
+.pm-speechToggle .pm-switchOption { font-size:11px; text-align:center; white-space:normal; }
+.pm-runToggle .pm-switch,
+.pm-speechToggle .pm-switch { margin:0; }
+.pm-switchOption { font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; }
 .pm-switchOption.active { color:var(--ink); }
 .pm-switch { display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent;
-  padding:4px; cursor:pointer; position:relative; border-radius:16px; }
+  padding:2px; cursor:pointer; position:relative; border-radius:16px; }
 .pm-switch:focus-visible { outline:2px solid #0e63ff; outline-offset:2px; }
-.pm-switchTrack { width:46px; height:24px; border-radius:999px; border:1px solid var(--border);
+.pm-switchTrack { width:42px; height:24px; border-radius:999px; border:1px solid var(--border);
   background:#dbe7ff; position:relative; transition:background .2s ease, border-color .2s ease; }
 .pm-switchThumb { width:18px; height:18px; border-radius:50%; background:#fff; position:absolute;
   top:2px; left:2px; transition:transform .2s ease; box-shadow:0 2px 6px rgba(10,44,97,.2); }
 .pm-switch.manual .pm-switchTrack { background:#0e63ff; border-color:#0e63ff; }
-.pm-switch.manual .pm-switchThumb { transform:translateX(24px); }
+.pm-switch.manual .pm-switchThumb { transform:translateX(20px); }
+.pm-switch.on .pm-switchTrack { background:#0e63ff; border-color:#0e63ff; }
+.pm-switch.on .pm-switchThumb { transform:translateX(20px); }
 .pm-navRow, .pm-checkRow, .pm-awaitRow { gap:8px; align-items:center; flex-wrap:wrap; }
 .pm-progressRow { justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 .pm-exportRow { justify-content:flex-end; gap:10px; flex-wrap:wrap; }
