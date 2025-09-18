@@ -326,3 +326,32 @@ body.piedmont {
 .pm-scenarioPanel.mobile .pm-scenarioControl { gap:6px; align-items:center; }
 .pm-scenarioPanel.mobile .pm-label { font-size:9.5px; letter-spacing:0.03em; }
 .pm-scenarioPanel.mobile .pm-select { padding:5px 7px; font-size:11px; }
+/* Put pill + meter side-by-side and align */
+.pm-header.mobile .pm-headerMic { display: flex; } /* already covered by .pm-headerSection, but explicit here */
+
+/* Mic row layout */
+.pm-header.mobile .pm-mic {
+  display: flex;           /* ← key */
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Keep the pill snug, let the meter grow */
+.pm-header.mobile .pm-mic .pm-pill { 
+  flex: 0 0 auto; 
+  white-space: nowrap;
+}
+
+/* Progress bar stretches to fill remaining space */
+.pm-header.mobile .pm-mic .pm-meter {
+  flex: 1 1 140px;         /* grows, but has a sensible base */
+  min-width: 0;            /* prevents overflow with long labels */
+}
+
+/* Optional: ensure the inner fill never overflows rounded corners etc. */
+.pm-header.mobile .pm-mic .pm-meter .pm-fill {
+  width: 0%;               /* will be set inline by JS */
+  height: 100%;
+}
+
