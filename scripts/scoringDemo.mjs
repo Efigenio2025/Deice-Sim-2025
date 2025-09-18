@@ -23,6 +23,12 @@ const tailResult = scoreWords({
 });
 logResult("Tail number NATO expansion", tailResult);
 
+const mergedDigitsResult = scoreWords({
+  expected: ["four", "four", "three"],
+  transcript: "four forty three",
+});
+logResult('Merged digits vs "forty" transcript', mergedDigitsResult);
+
 const icemanResult = scoreWords({
   expected: ["iceman"],
   transcript: "ice man",
