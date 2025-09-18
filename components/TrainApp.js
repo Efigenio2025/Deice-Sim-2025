@@ -958,7 +958,7 @@ function TrainApp({ forcedMode }) {
                 <span className="pm-label" id="run-toggle-label">
                   Run control
                 </span>
-                <div className="pm-row pm-runToggle">
+                <div className="pm-runToggle">
                   <span
                     id="run-toggle-resume"
                     className={`pm-switchOption${runState === "paused" ? "" : " active"}`}
@@ -996,7 +996,7 @@ function TrainApp({ forcedMode }) {
                 <span className="pm-label" id="speech-mode-label">
                   Speech mode
                 </span>
-                <div className="pm-row pm-speechToggle">
+                <div className="pm-speechToggle">
                   <span id="speech-mode-auto" className={`pm-switchOption${autoAdvance ? " active" : ""}`}>
                     Auto
                   </span>
