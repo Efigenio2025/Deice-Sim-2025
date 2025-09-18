@@ -115,7 +115,7 @@ body.piedmont {
   gap:8px 12px;
   align-items:center;
 }
-.pm-header.mobile .pm-headerSection { display:flex; align-items:center; gap:8px; min-width:0; }
+.pm-header.mobile .pm-headerSection { display:flex; align-items: flex-start; gap:8px; min-width:0; }
 .pm-header.mobile .pm-headerBrand { grid-area: brand; }
 .pm-header.mobile .pm-headerScoreWrap { grid-area: score; justify-content:flex-end; }
 .pm-header.mobile .pm-headerScore { justify-content:flex-end; }
