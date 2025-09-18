@@ -794,8 +794,8 @@ function TrainApp({ forcedMode }) {
 
   const statusBlock = (
     <div className={`pm-statusGroup${isMobile ? " pm-statusGroupCompact" : ""}`}>
-      <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>{status}</span>
-      <span className={`pm-pill${isMobile ? " pm-pillCompact" : ""}`}>Captain: {captainStatus}</span>
+      <span className="pm-pill pm-pillCompact">{status}</span>
+      <span className="pm-pill pm-pillCompact">Captain: {captainStatus}</span>
     </div>
   );
 
