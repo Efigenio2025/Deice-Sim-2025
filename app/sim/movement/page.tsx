@@ -28,6 +28,9 @@ type ResponseRecord = {
   misses: string[];
   said: string;
   latencyPenalty: number;
+  tokensHit: number;
+  tokensTotal: number;
+  pct: number;
 };
 
 const SCENARIOS: Scenario[] = [
@@ -149,6 +152,11 @@ export default function MovementSimulatorPage() {
   const isComplete = cueIndex >= cues.length;
   const totalLatency = responses.reduce((sum, record) => sum + record.latencyPenalty, 0);
   const correctCount = responses.filter((record) => record.correct).length;
+  const tokensHit = responses.reduce((sum, record) => sum + record.tokensHit, 0);
+  const tokensTotal = responses.reduce((sum, record) => sum + record.tokensTotal, 0);
+  const tokenAccuracy = tokensTotal > 0 ? (tokensHit / tokensTotal) * 100 : 0;
+  const cuesComplete = responses.length;
+  const progressPct = cues.length > 0 ? Math.min((cuesComplete / cues.length) * 100, 100) : 0;
 
   useEffect(() => {
     setCueStartedAt(Date.now());
@@ -176,7 +184,10 @@ export default function MovementSimulatorPage() {
       correct: result.pct >= 0.8,
       misses: result.misses,
       said: input,
-      latencyPenalty
+      latencyPenalty,
+      tokensHit: result.hit,
+      tokensTotal: result.total,
+      pct: result.pct
     };
     setResponses((prev) => [...prev, record]);
     setInput("");
@@ -256,7 +267,52 @@ export default function MovementSimulatorPage() {
                 );
               })}
             </div>
-            <Badge>Latency penalties: {totalLatency}s</Badge>
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge>Latency penalties: {totalLatency}s</Badge>
+              <button
+                type="button"
+                onClick={() => resetScenario()}
+                className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-sky-500/60 hover:text-slate-100"
+              >
+                Reset scenario
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        <Card title="Session metrics" subtitle="Monitor accuracy and pacing in real time">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Token accuracy</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-100">{tokenAccuracy.toFixed(0)}%</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Cues completed</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-100">
+                {cuesComplete}/{cues.length}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Correct read-backs</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-100">{correctCount}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Latency penalties</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-100">{totalLatency}s</p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-400">
+              <span>Scenario progress</span>
+              <Badge>{mode === "coach" ? "Coach" : "Assessment"}</Badge>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full border border-slate-800/80 bg-slate-950/80" role="progressbar" aria-valuenow={Math.round(progressPct)} aria-valuemin={0} aria-valuemax={100}>
+              <div
+                className="h-full bg-sky-500"
+                style={{ width: `${progressPct}%` }}
+                aria-hidden
+              />
+            </div>
           </div>
         </Card>
 
@@ -335,6 +391,7 @@ export default function MovementSimulatorPage() {
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
                         <Badge>Penalty: {record.latencyPenalty}s</Badge>
+                        <Badge>Tokens: {record.tokensHit}/{record.tokensTotal}</Badge>
                         {record.misses.length > 0 && <Badge tone="critical">Missed: {record.misses.join(", ")}</Badge>}
                       </div>
                     </li>
@@ -349,7 +406,9 @@ export default function MovementSimulatorPage() {
           <Card title="Assessment summary" subtitle="Reveal exemplar phrasing for final review">
             <div className="space-y-3">
               <p className="text-sm text-slate-300">
-                Final score {correctCount}/{responses.length} with {totalLatency}s latency penalties.
+                Final score {correctCount}/{responses.length} with {totalLatency}s latency penalties and
+                {" "}
+                {tokenAccuracy.toFixed(0)}% token accuracy.
               </p>
               <ul className="space-y-3 text-sm text-slate-200">
                 {completedCues.map((cue) => (

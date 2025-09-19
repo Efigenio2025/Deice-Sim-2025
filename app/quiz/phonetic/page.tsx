@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "../../../components/Badge";
 import { Card } from "../../../components/Card";
 import { ProgressRing } from "../../../components/ProgressRing";
@@ -29,6 +29,18 @@ type FeedbackState = {
   expected?: string;
   prompt?: string;
   misses?: string[];
+};
+
+type HistoryEntry = {
+  id: number;
+  prompt: string;
+  response: string;
+  correct: boolean;
+  expected: string;
+  misses: string[];
+  tokensHit: number;
+  tokensTotal: number;
+  timestamp: number;
 };
 
 const ROUND_SECONDS = 60;
@@ -78,6 +90,10 @@ export default function PhoneticQuizPage() {
   const [stats, setStats] = useState<RoundStats>(initialStats);
   const [feedback, setFeedback] = useState<FeedbackState>({ status: "idle" });
   const [bests, setBests] = useState<Record<Mode, BestEntry>>(() => createBestTemplate());
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [roundComplete, setRoundComplete] = useState(false);
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const currentPrompt = queue[index] ?? "";
   const elapsedSeconds = ROUND_SECONDS - timeLeft;
@@ -111,6 +127,20 @@ export default function PhoneticQuizPage() {
     }, 1000);
     return () => window.clearInterval(tick);
   }, [running, timeLeft]);
+
+  useEffect(() => {
+    if (running) {
+      inputRef.current?.focus();
+    }
+  }, [running, currentPrompt]);
+
+  useEffect(() => {
+    if (!running && timeLeft <= 0 && stats.total > 0) {
+      setRoundComplete(true);
+    } else if (running) {
+      setRoundComplete(false);
+    }
+  }, [running, timeLeft, stats.total]);
 
   useEffect(() => {
     if (stats.total === 0) return;
@@ -148,12 +178,20 @@ export default function PhoneticQuizPage() {
 
   const handleStart = () => {
     if (!running) {
-      if (stats.total === 0 || timeLeft === ROUND_SECONDS) {
+      const shouldReinitialize =
+        stats.total === 0 ||
+        timeLeft === ROUND_SECONDS ||
+        timeLeft <= 0 ||
+        queue.length === 0;
+      if (shouldReinitialize) {
         setStats(initialStats);
         setIndex(0);
         setFeedback({ status: "idle" });
         setQueue(RANDOM_ITEMS(mode, 120));
+        setTimeLeft(ROUND_SECONDS);
+        setHistory([]);
       }
+      setRoundComplete(false);
       setRunning(true);
     }
   };
@@ -170,6 +208,8 @@ export default function PhoneticQuizPage() {
     setInput("");
     setQueue([]);
     setFeedback({ status: "idle" });
+    setHistory([]);
+    setRoundComplete(false);
   }, []);
 
   useEffect(() => {
@@ -204,6 +244,20 @@ export default function PhoneticQuizPage() {
       const nextIndex = index + 1;
       setIndex(nextIndex);
       ensureQueue(mode, nextIndex, 60);
+      const timestamp = Date.now();
+      const entry: HistoryEntry = {
+        id: timestamp,
+        prompt: currentPrompt,
+        response,
+        correct: result.correct,
+        expected: result.expectedPhrase,
+        misses: result.misses,
+        tokensHit: result.hit,
+        tokensTotal: result.totalTokens,
+        timestamp
+      };
+      setHistory((prev) => [entry, ...prev].slice(0, 10));
+      inputRef.current?.focus();
     },
     [currentPrompt, ensureQueue, index, mode]
   );
@@ -308,6 +362,7 @@ export default function PhoneticQuizPage() {
                     placeholder="Type the phonetic phrase"
                     className="flex-1 rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-base text-slate-100 shadow-inner focus-visible:ring-2 focus-visible:ring-sky-500"
                     autoComplete="off"
+                    ref={inputRef}
                   />
                   <button
                     type="button"
@@ -350,6 +405,24 @@ export default function PhoneticQuizPage() {
         </Card>
 
         <Card>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <Badge tone={roundComplete ? "sky" : running ? "sky" : "default"}>
+                {roundComplete ? "Round complete" : running ? "Live" : "Ready"}
+              </Badge>
+              <span className="text-sm text-slate-300">
+                Queue: {queue.length > 0 ? `${Math.max(queue.length - index, 0)} remaining` : "Load a mode to begin"}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+              <Badge>Prompts answered: {stats.total}</Badge>
+              <Badge>Tokens captured: {stats.tokensHit}</Badge>
+              <Badge tone={micActive ? "sky" : "default"}>{micActive ? "Mic armed" : "Mic idle"}</Badge>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
           <div className="grid gap-6 md:grid-cols-2">
             <div>
               <h2 className="text-lg font-semibold text-slate-100">Round stats</h2>
@@ -383,6 +456,39 @@ export default function PhoneticQuizPage() {
               </ul>
             </div>
           </div>
+        </Card>
+
+        <Card title="Recent responses" subtitle="Last 10 prompts with grading">
+          {history.length === 0 ? (
+            <p className="text-sm text-slate-400">Your answers will appear here as soon as you submit.</p>
+          ) : (
+            <ul className="space-y-3">
+              {history.map((entry) => (
+                <li key={entry.id} className="rounded-2xl border border-slate-800/70 bg-slate-950/70 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm text-slate-200">
+                      <Badge>{entry.prompt}</Badge>
+                      <span className="text-slate-400">
+                        Tokens: {entry.tokensHit}/{entry.tokensTotal}
+                      </span>
+                    </div>
+                    <Badge tone={entry.correct ? "sky" : "critical"}>
+                      {entry.correct ? "On script" : "Revisit"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Expected: <span className="text-slate-200">{entry.expected}</span>
+                  </p>
+                  <p className="mt-2 text-sm text-slate-300">
+                    You said: <span className="text-slate-100">{entry.response || "—"}</span>
+                  </p>
+                  {entry.misses.length > 0 && (
+                    <p className="mt-2 text-xs text-rose-300">Missing tokens: {entry.misses.join(", ")}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       </div>
     </div>
