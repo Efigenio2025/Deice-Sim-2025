@@ -25,6 +25,7 @@ const USE_RICH_SCORER = ENV.NEXT_PUBLIC_USE_RICH_SCORER === "false" ? false : tr
 const DEBUG_SCORER = ENV.NEXT_PUBLIC_DEBUG_SCORER === "true";
 const SHOULD_LOG_SCORER = DEBUG_SCORER || NODE_ENV !== "production";
 const SCORE_THRESHOLD = 60;
+const LOW_SCORE_PAUSE_THRESHOLD = 30;
 const SCORE_OPTIONS = {
   fuzzyThreshold: 0.82,
   enableNATOExpansion: true,
@@ -335,6 +336,24 @@ function TrainApp({ forcedMode }) {
   }, [isMobile, viewportWidth]);
 
   const log = (msg) => setLogText((t) => (t ? t + "\n" : "") + msg);
+
+  const pauseForRetry = ({ stepNumber, summary, percent }) => {
+    if (pausedRef.current) return;
+    pausedRef.current = true;
+    runningRef.current = false;
+    stopAudio();
+    awaitingAdvanceRef.current = false;
+    setAwaitingAdvance(false);
+    setRunState("paused");
+    const statusMsg =
+      typeof percent === "number"
+        ? `Paused — score ${percent}% on step ${stepNumber}. Retry the line.`
+        : "Paused — retry the last line.";
+    setStatus(statusMsg);
+    const toastMsg = typeof percent === "number" ? `Score ${percent}% — paused for retry.` : "Score too low — paused for retry.";
+    toast(toastMsg, "warning");
+    log(`[Step ${stepNumber}] ${summary} → auto-paused for retry.`);
+  };
 
   useEffect(() => {
     captureModeRef.current = captureMode;
@@ -647,9 +666,12 @@ function TrainApp({ forcedMode }) {
           const diff = diffWords(result);
           setLastDiff(diff);
           setLastResultText(ok ? `✅ Good (${summary})` : `❌ Try again (${summary})`);
+          const severeMiss = step?.role === "Iceman" && percent < LOW_SCORE_PAUSE_THRESHOLD;
           if (!ok) {
             setRetryCount((n) => n + 1);
-            toast("Let's try that line again.", "info");
+            if (!severeMiss) {
+              toast("Let's try that line again.", "info");
+            }
           }
           const took = (performance.now() - started) / 1000;
           responseCount += 1;
@@ -657,6 +679,9 @@ function TrainApp({ forcedMode }) {
           setAvgRespSec(responseCount ? responseTotal / responseCount : null);
           log(`[Step ${idx + 1}] Manual score ${summary} → ${ok ? "OK" : "MISS"}`);
           logScoringDebug(`manual-step-${idx + 1}`, heard, result);
+          if (severeMiss) {
+            pauseForRetry({ stepNumber: idx + 1, summary, percent });
+          }
           resolve();
         };
       });
@@ -739,6 +764,7 @@ function TrainApp({ forcedMode }) {
         const percent = result?.percent ?? 0;
         const ok = percent >= SCORE_THRESHOLD;
         const summary = formatScoreSummary(result);
+        const severeMiss = step?.role === "Iceman" && percent < LOW_SCORE_PAUSE_THRESHOLD;
         resultsRef.current[idx] = ok;
         scoresRef.current[idx] = percent;
         setResultsVersion((v) => v + 1);
@@ -747,10 +773,17 @@ function TrainApp({ forcedMode }) {
         setLastResultText(ok ? `✅ Good (${summary})` : `❌ Try again (${summary})`);
         if (!ok) {
           setRetryCount((n) => n + 1);
-          toast("Let's try that line again.", "info");
+          if (!severeMiss) {
+            toast("Let's try that line again.", "info");
+          }
         }
         log(`[Step ${idx + 1}] Auto score ${summary} → ${ok ? "OK" : "MISS"}`);
         logScoringDebug(`auto-step-${idx + 1}`, heard, result);
+
+        if (severeMiss) {
+          pauseForRetry({ stepNumber: idx + 1, summary, percent });
+          break;
+        }
 
         if (!autoAdvanceRef.current && idx < steps.length - 1) {
           setStatus("Awaiting proceed…");
