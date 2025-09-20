@@ -1001,15 +1001,23 @@ function TrainApp({ forcedMode }) {
   ) : null;
   const mobileActionBar = isMobile ? (
     <div className="pm-mobileActionBar">
-      <div className="pm-mobileActionControls">
+      <div className="pm-mobileActionRow">
         <button
           type="button"
-          className="pm-btn ghost pm-mobileControl"
+          className={`pm-bottomBtn pm-mobilePrimary${runState === "running" ? " pause" : " start"}`}
+          onClick={handlePrimaryAction}
+          aria-label={primaryActionAriaLabel}
+        >
+          {primaryActionLabel}
+        </button>
+        <button
+          type="button"
+          className="pm-btn ghost pm-mobileControl pm-mobileRestart"
           onClick={onRestart}
         >
           Restart
         </button>
-        <div className="pm-mobileToggle">
+        <div className="pm-mobileToggle pm-mobileRunToggle">
           <span className="pm-label" id="run-toggle-label-mobile">
             Run control
           </span>
@@ -1047,7 +1055,7 @@ function TrainApp({ forcedMode }) {
             </span>
           </div>
         </div>
-        <div className="pm-mobileToggle">
+        <div className="pm-mobileToggle pm-mobileSpeechToggle">
           <span className="pm-label" id="speech-mode-label-mobile">
             Speech mode
           </span>
@@ -1084,16 +1092,6 @@ function TrainApp({ forcedMode }) {
             </span>
           </div>
         </div>
-      </div>
-      <div className="pm-mobileActionPrimary">
-        <button
-          type="button"
-          className={`pm-bottomBtn${runState === "running" ? " pause" : " start"}`}
-          onClick={handlePrimaryAction}
-          aria-label={primaryActionAriaLabel}
-        >
-          {primaryActionLabel}
-        </button>
       </div>
     </div>
   ) : null;

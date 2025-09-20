@@ -177,10 +177,8 @@ body.piedmont {
   position: sticky;
   bottom: 0;
   z-index: 15;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px 16px;
+  display: flex;
+  padding: 12px 12px;
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
@@ -189,25 +187,55 @@ body.piedmont {
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
 }
-.pm-mobileActionControls {
-  display: grid;
+.pm-mobileActionRow {
+  display: flex;
+  align-items: stretch;
   gap: 10px;
+  width: 100%;
 }
-.pm-mobileActionControls .pm-btn { width: 100%; }
-.pm-mobileToggle { display: grid; gap: 4px; }
-.pm-mobileActionPrimary { display: flex; }
-.pm-mobileActionPrimary .pm-bottomBtn { width: 100%; }
+.pm-mobileActionRow > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.pm-bottomBtn.pm-mobilePrimary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1.25 1 0;
+  min-height: 48px;
+}
+.pm-btn.pm-mobileRestart {
+  flex: 0.85 1 0;
+  min-width: 92px;
+}
+.pm-mobileToggle {
+  display: grid;
+  gap: 4px;
+  align-content: flex-start;
+  min-width: 108px;
+}
+.pm-mobileRunToggle,
+.pm-mobileSpeechToggle {
+  flex: 1.05 1 0;
+}
 .pm-runToggleMobile,
 .pm-speechToggleMobile { justify-items: start; }
 .pm-runToggleMobile .pm-switchOption,
 .pm-speechToggleMobile .pm-switchOption { text-align: left; }
 @media (min-width: 520px) {
   .pm-mobileActionBar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    padding: 12px 16px;
   }
-  .pm-mobileActionPrimary { justify-content: flex-end; }
-  .pm-mobileActionPrimary .pm-bottomBtn { width: auto; min-width: 160px; }
+  .pm-mobileActionRow {
+    gap: 14px;
+  }
+  .pm-bottomBtn.pm-mobilePrimary {
+    flex: 1.35 1 0;
+  }
+  .pm-btn.pm-mobileRestart {
+    flex: 0.9 1 0;
+  }
 }
 .pm-bottomBtn {
   border: none;
