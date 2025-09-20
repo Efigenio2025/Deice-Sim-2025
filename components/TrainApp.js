@@ -531,6 +531,7 @@ function TrainApp({ forcedMode }) {
     setStatus("Preparing mic…");
     log("Preparing microphone.");
     let speechModeActive = captureModeRef.current === "speech";
+    const manualReadyStatus = "Ready (manual)";
     if (typeof window !== "undefined") {
       const hasSpeech = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
       if (!hasSpeech) {
@@ -564,21 +565,24 @@ function TrainApp({ forcedMode }) {
       }
 
       preparedRef.current = true;
-      setStatus(speechModeActive ? "Mic ready" : "Ready (manual)");
+      setStatus(speechModeActive ? "Mic ready" : manualReadyStatus);
       toast(speechModeActive ? "Mic ready" : "Manual mode ready", "success");
       return true;
     } catch (err) {
-      if (speechModeActive) {
-        preparedRef.current = false;
-        setStatus("Mic prepare failed");
-        toast("Mic prepare failed", "error");
-      } else {
-        preparedRef.current = true;
-        setStatus("Ready (manual)");
-      }
       log(`Prepare Mic ERROR: ${err?.message || err}`);
-      if (!speechModeActive) return true;
-      return false;
+      if (speechModeActive) {
+        if (captureModeRef.current !== "manual") setCaptureMode("manual");
+        captureModeRef.current = "manual";
+        manualSpeechOverrideRef.current = false;
+        preparedRef.current = true;
+        setStatus(manualReadyStatus);
+        toast("Mic unavailable — manual mode ready", "warning");
+        return true;
+      }
+      preparedRef.current = true;
+      setStatus(manualReadyStatus);
+      toast("Manual mode ready", "info");
+      return true;
     }
   }
 
