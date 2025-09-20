@@ -1,4 +1,6 @@
-import { MobileTrainApp } from "../components/TrainApp";
+"use client";
+
+import { MobileTrainApp } from "@/components/TrainApp";
 
 export default function MobileTrainPage() {
   return <MobileTrainApp />;
