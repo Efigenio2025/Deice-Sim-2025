@@ -178,7 +178,9 @@ body.piedmont {
   bottom: 0;
   z-index: 15;
   display: flex;
-  padding: 12px 12px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
@@ -187,54 +189,67 @@ body.piedmont {
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
 }
-.pm-mobileActionRow {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-  width: 100%;
+.pm-mobileMicIndicator {
+  flex: 1 1 auto;
+  min-width: 0;
 }
-.pm-mobileActionRow > * {
-  flex: 1 1 0;
+.pm-mobileMicIndicator .pm-mic {
+  width: 100%;
+  align-items: center;
+}
+.pm-mobileMicIndicator .pm-meter {
+  flex: 1 1 auto;
   min-width: 0;
 }
 .pm-bottomBtn.pm-mobilePrimary {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  flex: 1.25 1 0;
-  min-height: 48px;
+  flex: 0 0 auto;
+  min-width: clamp(116px, 42vw, 168px);
+  min-height: 44px;
+  padding: 10px 22px;
+  font-size: 15px;
+  border-radius: 14px;
+  box-shadow: 0 6px 14px rgba(14, 99, 255, 0.2);
 }
-.pm-btn.pm-mobileRestart {
-  flex: 0.85 1 0;
-  min-width: 92px;
+@media (min-width: 520px) {
+  .pm-mobileActionBar {
+    padding: 12px 18px;
+    gap: 16px;
+  }
+  .pm-bottomBtn.pm-mobilePrimary {
+    min-height: 46px;
+    padding: 11px 26px;
+  }
 }
-.pm-mobileToggle {
+.pm-mobilePocket {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pm-pocketBtn {
+  flex: 1 1 120px;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+.pm-pocketToggle {
+  flex: 1 1 150px;
+  min-width: 0;
   display: grid;
   gap: 4px;
   align-content: flex-start;
-  min-width: 108px;
 }
-.pm-mobileRunToggle,
-.pm-mobileSpeechToggle {
-  flex: 1.05 1 0;
-}
-.pm-runToggleMobile,
-.pm-speechToggleMobile { justify-items: start; }
-.pm-runToggleMobile .pm-switchOption,
-.pm-speechToggleMobile .pm-switchOption { text-align: left; }
-@media (min-width: 520px) {
-  .pm-mobileActionBar {
-    padding: 12px 16px;
-  }
-  .pm-mobileActionRow {
-    gap: 14px;
-  }
-  .pm-bottomBtn.pm-mobilePrimary {
-    flex: 1.35 1 0;
-  }
-  .pm-btn.pm-mobileRestart {
-    flex: 0.9 1 0;
+.pm-runTogglePocket,
+.pm-speechTogglePocket { justify-items: flex-start; }
+.pm-runTogglePocket .pm-switchOption,
+.pm-speechTogglePocket .pm-switchOption { text-align: left; }
+@media (max-width: 420px) {
+  .pm-pocketBtn,
+  .pm-pocketToggle {
+    flex: 1 1 100%;
   }
 }
 .pm-bottomBtn {
