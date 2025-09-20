@@ -306,6 +306,7 @@ function TrainApp({ forcedMode }) {
   const proceedResolverRef = useRef(null);
 
   const micLevelRef = useRef(0);
+  const captainAudioErrorRef = useRef(false);
   const [captainStatus, setCaptainStatus] = useState("idle");
   const [networkStatus, setNetworkStatus] = useState(() => {
     if (typeof navigator === "undefined") return "online";
@@ -417,6 +418,13 @@ function TrainApp({ forcedMode }) {
   }, [isMobile, viewportWidth]);
 
   const log = (msg) => setLogText((t) => (t ? t + "\n" : "") + msg);
+
+  const noteCaptainAudioIssue = (message) => {
+    if (message) log(message);
+    if (captainAudioErrorRef.current) return;
+    captainAudioErrorRef.current = true;
+    toast("Unable to generate speech audio. Review the transcript for the captain's line.", "warning", 3200);
+  };
 
   const pauseForRetry = ({ stepNumber, summary, percent }) => {
     if (pausedRef.current) return;
@@ -667,6 +675,7 @@ function TrainApp({ forcedMode }) {
       scoresRef.current = Array(steps.length).fill(null);
       setResultsVersion((v) => v + 1);
       setStepIndex(-1);
+      captainAudioErrorRef.current = false;
       toast("Restarting…", "info");
       await onStart();
     } catch (e) {
@@ -789,9 +798,13 @@ function TrainApp({ forcedMode }) {
       if (step.role === "Captain") {
         if (step.cue && current?.id) {
           try {
-            await playCaptainCue(current.id, step.cue);
+            const played = await playCaptainCue(current.id, step.cue, step.text);
+            if (!played) {
+              noteCaptainAudioIssue(`[Step ${idx + 1}] Captain audio unavailable. Using transcript.`);
+            }
           } catch (err) {
             console.error("Captain cue failed", err);
+            noteCaptainAudioIssue(`[Step ${idx + 1}] Captain audio failed to play.`);
           }
         }
         if (resultsRef.current[idx] !== true) {
@@ -945,7 +958,18 @@ function TrainApp({ forcedMode }) {
             resolvePrompt({ silent: true });
             setStepIndex(i);
             const s = steps[i];
-            if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+            if (s?.role === "Captain" && s.cue && current?.id) {
+              playCaptainCue(current.id, s.cue, s.text)
+                .then((ok) => {
+                  if (!ok) {
+                    noteCaptainAudioIssue(`[Step ${i + 1}] Captain audio unavailable after jump.`);
+                  }
+                })
+                .catch((err) => {
+                  console.error("Captain cue failed", err);
+                  noteCaptainAudioIssue(`[Step ${i + 1}] Captain audio failed after jump.`);
+                });
+            }
           }}
         />
       </div>
@@ -1250,6 +1274,7 @@ function TrainApp({ forcedMode }) {
               proceedResolverRef.current = null;
               preloadCaptainForScenario(prepared);
               manualSpeechOverrideRef.current = false;
+              captainAudioErrorRef.current = false;
             }}
           >
             {(scenarioList || []).map((s) => (
@@ -1299,7 +1324,18 @@ function TrainApp({ forcedMode }) {
                   setStepIndex((i) => {
                     const n = Math.max(0, (typeof i === "number" ? i : 0) - 1);
                     const s = steps[n];
-                    if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+                    if (s?.role === "Captain" && s.cue && current?.id) {
+                      playCaptainCue(current.id, s.cue, s.text)
+                        .then((ok) => {
+                          if (!ok) {
+                            noteCaptainAudioIssue(`[Step ${n + 1}] Captain audio unavailable on Prev.`);
+                          }
+                        })
+                        .catch((err) => {
+                          console.error("Captain cue failed", err);
+                          noteCaptainAudioIssue(`[Step ${n + 1}] Captain audio failed on Prev.`);
+                        });
+                    }
                     return n;
                   });
                 }}
@@ -1317,7 +1353,18 @@ function TrainApp({ forcedMode }) {
                   setStepIndex((i) => {
                     const n = Math.min(total - 1, (typeof i === "number" ? i : -1) + 1);
                     const s = steps[n];
-                    if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+                    if (s?.role === "Captain" && s.cue && current?.id) {
+                      playCaptainCue(current.id, s.cue, s.text)
+                        .then((ok) => {
+                          if (!ok) {
+                            noteCaptainAudioIssue(`[Step ${n + 1}] Captain audio unavailable on Next.`);
+                          }
+                        })
+                        .catch((err) => {
+                          console.error("Captain cue failed", err);
+                          noteCaptainAudioIssue(`[Step ${n + 1}] Captain audio failed on Next.`);
+                        });
+                    }
                     return n;
                   });
                 }}
@@ -1328,7 +1375,18 @@ function TrainApp({ forcedMode }) {
                 className={`pm-btn${isMobile ? " pm-mobileNavBtn" : ""}`}
                 onClick={() => {
                   const s = steps[stepIndex];
-                  if (s?.role === "Captain" && s.cue && current?.id) playCaptainCue(current.id, s.cue);
+                  if (s?.role === "Captain" && s.cue && current?.id) {
+                    playCaptainCue(current.id, s.cue, s.text)
+                      .then((ok) => {
+                        if (!ok) {
+                          noteCaptainAudioIssue(`[Step ${stepIndex + 1}] Captain audio unavailable on replay.`);
+                        }
+                      })
+                      .catch((err) => {
+                        console.error("Captain cue failed", err);
+                        noteCaptainAudioIssue(`[Step ${stepIndex + 1}] Captain audio failed on replay.`);
+                      });
+                  }
                 }}
               >
                 ▶︎ Play line
