@@ -1,4 +1,8 @@
 import Head from 'next/head';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { isAllowedEmployeeId, normalizeEmployeeId } from '../lib/employeeProfiles';
+import { getStoredEmployeeId, storeEmployeeId } from '../lib/employeeSession';
 
 const SNOWFLAKES = Array.from({ length: 28 }, (_, index) => {
   const left = (index * 37) % 100;
@@ -17,35 +21,56 @@ const SNOWFLAKES = Array.from({ length: 28 }, (_, index) => {
   };
 });
 
-const FEATURE_CARDS = [
-  {
-    title: 'Live Ops Transcript',
-    description:
-      'Pinpoint the captain’s phrasing with real-time transcription tuned for icy ramp comms.',
-    badge: 'Signal clarity',
-  },
-  {
-    title: 'Scenario Intelligence',
-    description:
-      'Surface runway, holdover, and fluid cues instantly so your callouts stay arctic-sharp.',
-    badge: 'Holdover tracking',
-  },
-  {
-    title: 'Confidence Metrics',
-    description:
-      'Receive frost-blue scoring, timing deltas, and next actions the second you key off.',
-    badge: 'Scoring pulse',
-  },
-];
+export default function LoginPortal() {
+  const router = useRouter();
+  const [employeeNumber, setEmployeeNumber] = useState('');
+  const [error, setError] = useState('');
+  const [checkingSession, setCheckingSession] = useState(true);
 
-export default function Home() {
+  useEffect(() => {
+    const existing = getStoredEmployeeId();
+    if (existing && isAllowedEmployeeId(existing)) {
+      router.replace(`/profile/${existing}`);
+      return;
+    }
+
+    setCheckingSession(false);
+  }, [router]);
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const normalized = normalizeEmployeeId(employeeNumber);
+    if (!normalized) {
+      setError('Enter your employee number to continue.');
+      return;
+    }
+
+    if (!isAllowedEmployeeId(normalized)) {
+      setError('Employee number not recognized. Contact the ops supervisor to be added.');
+      return;
+    }
+
+    storeEmployeeId(normalized);
+    router.push(`/profile/${normalized}`);
+  };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sky-100">
+        <span className="text-xs font-semibold uppercase tracking-[0.4em] text-sky-200/80">
+          Loading portal…
+        </span>
+      </div>
+    );
+  }
+
   return (
     <>
       <Head>
-        <title>Polar Ice Ops | De-Ice Trainer</title>
+        <title>Polar Ops Access Portal</title>
         <meta
           name="description"
-          content="Polar Ice Ops is the frosted-glass command center for the De-Ice Trainer. Launch desktop or mobile sims and stay ahead of the storm."
+          content="Secure employee access for the Polar Ice Ops training environment."
         />
       </Head>
 
@@ -71,98 +96,90 @@ export default function Home() {
           ))}
         </div>
 
-        <main className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-16 sm:px-8 lg:px-12">
-          <div className="flex flex-1 flex-col justify-center gap-12">
-            <section className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center">
-              <div className="frost-card relative overflow-hidden rounded-3xl border border-neutral-200/30 bg-white/10 p-8 text-sky-200/80 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-xl transition-all duration-500 sm:p-12">
-                <div className="flex flex-col gap-6">
-                  <span className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-200/60">
-                    Polar Ice Ops
+        <main className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col px-5 py-16 sm:px-8 lg:px-12">
+          <div className="flex flex-1 flex-col justify-center gap-12 lg:flex-row lg:items-stretch">
+            <section className="frost-card relative flex-1 overflow-hidden rounded-3xl border border-sky-100/10 bg-white/10 p-8 text-sky-100 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-xl sm:p-12">
+              <div className="flex w-full flex-col gap-6">
+                <span className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-200/70">
+                  Polar Ops Secure Entry
+                </span>
+                <h1 className="text-4xl font-semibold text-neutral-100 sm:text-5xl">Employee access portal</h1>
+                <p className="text-base leading-relaxed text-sky-200/80">
+                  Verify your employee number to load your personalized training dashboard and launch tools tailored
+                  to your role.
+                </p>
+
+                <form className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit}>
+                  <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-sky-200/60">
+                    Employee Number
+                    <input
+                      value={employeeNumber}
+                      onChange={(event) => {
+                        const digitsOnly = event.target.value.replace(/\D+/g, '');
+                        setEmployeeNumber(digitsOnly);
+                        setError('');
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="e.g. 50731"
+                      className="w-full rounded-2xl border border-white/20 bg-slate-950/60 px-4 py-3 text-base font-normal tracking-[0.1em] text-sky-100 placeholder:text-sky-200/40 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  {error ? (
+                    <p className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-200">
+                      {error}
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    className="frost-action relative inline-flex items-center justify-center overflow-hidden rounded-2xl border border-cyan-100/30 bg-cyan-500/20 px-6 py-3 text-base font-semibold text-neutral-100 shadow-[0_8px_30px_rgba(3,105,161,0.18)] backdrop-blur-lg transition-all duration-300 hover:bg-cyan-400/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
+                  >
+                    Enter secure area
+                  </button>
+                </form>
+
+                <p className="text-xs uppercase tracking-[0.2em] text-sky-200/50">
+                  Need access? Contact <span className="text-sky-100">ops-supervisor@polarops.example</span>
+                </p>
+              </div>
+            </section>
+
+            <aside className="frost-card relative flex w-full max-w-md flex-col justify-between gap-8 overflow-hidden rounded-3xl border border-sky-100/10 bg-white/5 p-6 text-sky-200/80 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-xl sm:p-8">
+              <div className="space-y-4">
+                <h2 className="text-2xl font-semibold text-neutral-100">Authorized employees only</h2>
+                <p className="text-sm leading-relaxed text-sky-200/80">
+                  Employee numbers are issued and updated by the operations supervisor. For security, the approved roster
+                  is not displayed here. Confirm your credentials through official channels before attempting access.
+                </p>
+              </div>
+
+              <div className="grid gap-4">
+                <div className="frost-chip flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-sky-100 backdrop-blur-lg">
+                  <span className="text-xs uppercase tracking-[0.25em] text-sky-200/60">Protocol</span>
+                  <span className="text-base font-semibold text-neutral-100">Verify offline first</span>
+                  <span className="text-sm leading-relaxed text-sky-200/80">
+                    Coordinate with operations control to confirm your current employee number assignment prior to logging
+                    in.
                   </span>
-                  <h1 className="text-4xl font-semibold text-neutral-100 sm:text-5xl">
-                    Frost-forged comms, ready for every pushback.
-                  </h1>
-                  <p className="text-lg leading-relaxed text-sky-200/80">
-                    Run simulated de-ice conversations with crystal clarity. Desktop crews and
-                    mobile ramp agents coordinate against the cold front with synchronized
-                    scoring, transcripts, and holdover intel.
-                  </p>
-                  <div className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-center">
-                    <a
-                      href="/desktop_train"
-                      className="frost-action relative overflow-hidden rounded-2xl border border-neutral-200/30 bg-cyan-500/20 px-6 py-3.5 text-center text-base font-semibold text-neutral-100 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-lg transition-all duration-300 hover:bg-cyan-400/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
-                    >
-                      Launch Desktop Training
-                    </a>
-                    <a
-                      href="/mobile_train"
-                      className="frost-action relative overflow-hidden rounded-2xl border border-neutral-200/30 bg-slate-900/40 px-6 py-3.5 text-center text-base font-semibold text-neutral-100 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-lg transition-all duration-300 hover:bg-slate-800/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
-                    >
-                      Launch Mobile Training
-                    </a>
-                  </div>
+                </div>
+                <div className="frost-chip flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-sky-100 backdrop-blur-lg">
+                  <span className="text-xs uppercase tracking-[0.25em] text-sky-200/60">Security</span>
+                  <span className="text-base font-semibold text-neutral-100">Protect credentials</span>
+                  <span className="text-sm leading-relaxed text-sky-200/80">
+                    Employee IDs are case sensitive and intended for individual use. Report any suspected compromise to
+                    the ops supervisor immediately.
+                  </span>
                 </div>
               </div>
 
-              <aside className="frost-card relative flex h-full flex-col justify-between gap-6 overflow-hidden rounded-3xl border border-neutral-200/30 bg-white/5 p-6 text-sky-200/80 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-xl sm:p-8">
-                <div className="space-y-4">
-                  <h2 className="text-2xl font-semibold text-neutral-100">De-Ice Status Board</h2>
-                  <p className="max-w-sm text-base leading-relaxed text-sky-200/80">
-                    Monitor scenario readiness, mic checks, and anti-ice coverage at a glance. The
-                    Polar matrix keeps ops aligned when temps drop.
-                  </p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="frost-chip rounded-2xl border border-neutral-200/20 bg-white/5 px-4 py-4 text-sm text-sky-200/80 backdrop-blur-lg">
-                    <span className="block text-xs uppercase tracking-[0.2em] text-sky-200/60">
-                      Holdover Window
-                    </span>
-                    <span className="mt-2 block text-2xl font-semibold text-neutral-100">+18 min</span>
-                    <span className="mt-1 block text-xs text-sky-200/70">Type IV fluid · Moderate snow</span>
-                  </div>
-                  <div className="frost-chip rounded-2xl border border-neutral-200/20 bg-white/5 px-4 py-4 text-sm text-sky-200/80 backdrop-blur-lg">
-                    <span className="block text-xs uppercase tracking-[0.2em] text-sky-200/60">
-                      Comm Link
-                    </span>
-                    <span className="mt-2 block text-2xl font-semibold text-neutral-100">Green</span>
-                    <span className="mt-1 block text-xs text-sky-200/70">Signal 96% · Auto log enabled</span>
-                  </div>
-                </div>
-              </aside>
-            </section>
-
-            <section className="grid gap-6 md:grid-cols-3">
-              {FEATURE_CARDS.map((feature) => (
-                <article
-                  key={feature.title}
-                  className="frost-card group relative overflow-hidden rounded-2xl border border-neutral-200/30 bg-white/10 p-6 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-lg transition-all duration-300 hover:-translate-y-1"
-                >
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-sky-200/60">
-                    <span className="h-2 w-2 rounded-full bg-cyan-300/70 shadow-[0_0_8px_rgba(125,211,252,0.8)]" />
-                    {feature.badge}
-                  </div>
-                  <h3 className="mt-4 text-xl font-semibold text-neutral-100">{feature.title}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-sky-200/80">{feature.description}</p>
-                  <div className="mt-6 flex items-center gap-2 text-sm text-sky-200/70">
-                    <span className="h-1.5 w-12 rounded-full bg-gradient-to-r from-sky-200/40 via-cyan-300/50 to-sky-200/30" />
-                    Always-on telemetry
-                  </div>
-                </article>
-              ))}
-            </section>
+              <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 text-xs uppercase tracking-[0.25em] text-sky-200/70">
+                Access is logged for compliance. Shared credentials are prohibited.
+              </div>
+            </aside>
           </div>
-
-          <footer className="mt-16 flex flex-col gap-6 border-t border-white/10 pt-8 text-xs text-sky-200/60 sm:flex-row sm:items-center sm:justify-between">
-            <span>V2 • Polar Ice Ops • For training purposes only • OMA Station • 2025</span>
-            <div className="flex flex-wrap items-center gap-3 text-sky-200/50">
-              <span className="rounded-full border border-white/10 px-3 py-2 text-xs uppercase tracking-[0.25em] text-sky-200/70">
-                Frostline Ready
-              </span>
-              <span className="rounded-full border border-white/10 px-3 py-2 text-xs uppercase tracking-[0.25em] text-sky-200/70">
-                Crew Safe
-              </span>
-            </div>
-          </footer>
         </main>
       </div>
     </>
