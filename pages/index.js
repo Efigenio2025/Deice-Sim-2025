@@ -1,30 +1,13 @@
-import Head from 'next/head';
-import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
-import { isAllowedEmployeeId, normalizeEmployeeId } from '../lib/employeeProfiles';
-import { getStoredEmployeeId, storeEmployeeId } from '../lib/employeeSession';
-
-const SNOWFLAKES = Array.from({ length: 28 }, (_, index) => {
-  const left = (index * 37) % 100;
-  const delay = ((index * 1.7) % 12).toFixed(2);
-  const duration = 10 + (index % 5) * 2;
-  const size = 3 + (index % 4);
-  const drift = index % 2 === 0 ? -18 : 14;
-
-  return {
-    left: `${left}%`,
-    animationDelay: `${delay}s`,
-    animationDuration: `${duration}s`,
-    size: `${size}px`,
-    opacity: 0.25 + (index % 4) * 0.15,
-    drift: `${drift}px`,
-  };
-});
+import Head from "next/head";
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import { isAllowedEmployeeId, normalizeEmployeeId } from "../lib/employeeProfiles";
+import { getStoredEmployeeId, storeEmployeeId } from "../lib/employeeSession";
 
 export default function LoginPortal() {
   const router = useRouter();
-  const [employeeNumber, setEmployeeNumber] = useState('');
-  const [error, setError] = useState('');
+  const [employeeNumber, setEmployeeNumber] = useState("");
+  const [error, setError] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
@@ -41,12 +24,12 @@ export default function LoginPortal() {
     event.preventDefault();
     const normalized = normalizeEmployeeId(employeeNumber);
     if (!normalized) {
-      setError('Enter your employee number to continue.');
+      setError("Enter your employee number to continue.");
       return;
     }
 
     if (!isAllowedEmployeeId(normalized)) {
-      setError('Employee number not recognized. Contact the ops supervisor to be added.');
+      setError("Employee number not recognized. Contact the ops supervisor to be added.");
       return;
     }
 
@@ -57,9 +40,7 @@ export default function LoginPortal() {
   if (checkingSession) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sky-100">
-        <span className="text-xs font-semibold uppercase tracking-[0.4em] text-sky-200/80">
-          Loading portal…
-        </span>
+        <span className="text-sm font-medium uppercase tracking-[0.3em] text-sky-200/70">Loading…</span>
       </div>
     );
   }
@@ -67,120 +48,58 @@ export default function LoginPortal() {
   return (
     <>
       <Head>
-        <title>Polar Ops Access Portal</title>
-        <meta
-          name="description"
-          content="Secure employee access for the Polar Ice Ops training environment."
-        />
+        <title>Employee Login</title>
+        <meta name="description" content="Sign in with your employee number to access your profile." />
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-sky-950/80 to-cyan-950">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(125,211,252,0.22),transparent_60%),radial-gradient(circle_at_85%_12%,rgba(14,165,233,0.16),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(8,47,73,0.55)_0%,rgba(12,74,110,0.35)_45%,rgba(14,116,144,0.28)_100%)] mix-blend-screen" />
-
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {SNOWFLAKES.map((flake, index) => (
-            <span
-              key={index}
-              className="snowflake"
-              style={{
-                left: flake.left,
-                animationDelay: flake.animationDelay,
-                animationDuration: flake.animationDuration,
-                width: flake.size,
-                height: flake.size,
-                '--drift': flake.drift,
-                '--opacity': flake.opacity,
-              }}
-            />
-          ))}
-        </div>
-
-        <main className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col px-5 py-16 sm:px-8 lg:px-12">
-          <div className="flex flex-1 flex-col justify-center gap-12 lg:flex-row lg:items-stretch">
-            <section className="frost-card relative flex-1 overflow-hidden rounded-3xl border border-sky-100/10 bg-white/10 p-8 text-sky-100 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-xl sm:p-12">
-              <div className="flex w-full flex-col gap-6">
-                <span className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-200/70">
-                  Polar Ops Secure Entry
-                </span>
-                <h1 className="text-4xl font-semibold text-neutral-100 sm:text-5xl">Employee access portal</h1>
-                <p className="text-base leading-relaxed text-sky-200/80">
-                  Verify your employee number to load your personalized training dashboard and launch tools tailored
-                  to your role.
-                </p>
-
-                <form className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit}>
-                  <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-sky-200/60">
-                    Employee Number
-                    <input
-                      value={employeeNumber}
-                      onChange={(event) => {
-                        const digitsOnly = event.target.value.replace(/\D+/g, '');
-                        setEmployeeNumber(digitsOnly);
-                        setError('');
-                      }}
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      placeholder="e.g. 50731"
-                      className="w-full rounded-2xl border border-white/20 bg-slate-950/60 px-4 py-3 text-base font-normal tracking-[0.1em] text-sky-100 placeholder:text-sky-200/40 focus:border-cyan-300/60 focus:outline-none"
-                    />
-                  </label>
-
-                  {error ? (
-                    <p className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-200">
-                      {error}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="submit"
-                    className="frost-action relative inline-flex items-center justify-center overflow-hidden rounded-2xl border border-cyan-100/30 bg-cyan-500/20 px-6 py-3 text-base font-semibold text-neutral-100 shadow-[0_8px_30px_rgba(3,105,161,0.18)] backdrop-blur-lg transition-all duration-300 hover:bg-cyan-400/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
-                  >
-                    Enter secure area
-                  </button>
-                </form>
-
-                <p className="text-xs uppercase tracking-[0.2em] text-sky-200/50">
-                  Need access? Contact <span className="text-sky-100">ops-supervisor@polarops.example</span>
-                </p>
-              </div>
-            </section>
-
-            <aside className="frost-card relative flex w-full max-w-md flex-col justify-between gap-8 overflow-hidden rounded-3xl border border-sky-100/10 bg-white/5 p-6 text-sky-200/80 shadow-[0_8px_30px_rgba(3,105,161,0.12)] backdrop-blur-xl sm:p-8">
-              <div className="space-y-4">
-                <h2 className="text-2xl font-semibold text-neutral-100">Authorized employees only</h2>
-                <p className="text-sm leading-relaxed text-sky-200/80">
-                  Employee numbers are issued and updated by the operations supervisor. For security, the approved roster
-                  is not displayed here. Confirm your credentials through official channels before attempting access.
-                </p>
-              </div>
-
-              <div className="grid gap-4">
-                <div className="frost-chip flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-sky-100 backdrop-blur-lg">
-                  <span className="text-xs uppercase tracking-[0.25em] text-sky-200/60">Protocol</span>
-                  <span className="text-base font-semibold text-neutral-100">Verify offline first</span>
-                  <span className="text-sm leading-relaxed text-sky-200/80">
-                    Coordinate with operations control to confirm your current employee number assignment prior to logging
-                    in.
-                  </span>
-                </div>
-                <div className="frost-chip flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-sky-100 backdrop-blur-lg">
-                  <span className="text-xs uppercase tracking-[0.25em] text-sky-200/60">Security</span>
-                  <span className="text-base font-semibold text-neutral-100">Protect credentials</span>
-                  <span className="text-sm leading-relaxed text-sky-200/80">
-                    Employee IDs are case sensitive and intended for individual use. Report any suspected compromise to
-                    the ops supervisor immediately.
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 text-xs uppercase tracking-[0.25em] text-sky-200/70">
-                Access is logged for compliance. Shared credentials are prohibited.
-              </div>
-            </aside>
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12">
+        <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900/80 p-8 text-slate-100 shadow-xl">
+          <div className="space-y-2 text-center">
+            <h1 className="text-2xl font-semibold">Employee Login</h1>
+            <p className="text-sm text-slate-300">
+              Enter your employee number to open your personal profile page.
+            </p>
           </div>
-        </main>
+
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <label className="block text-left text-sm font-medium text-slate-200">
+              Employee Number
+              <input
+                value={employeeNumber}
+                onChange={(event) => {
+                  const digitsOnly = event.target.value.replace(/\D+/g, "");
+                  setEmployeeNumber(digitsOnly);
+                  setError("");
+                }}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="e.g. 50731"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-base text-slate-100 placeholder:text-slate-500 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+              />
+            </label>
+
+            {error ? (
+              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                {error}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-950 transition hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            >
+              Log In
+            </button>
+          </form>
+
+          <button
+            type="button"
+            className="mt-6 w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-200 hover:border-slate-600 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+          >
+            Admin
+          </button>
+        </div>
       </div>
     </>
   );
