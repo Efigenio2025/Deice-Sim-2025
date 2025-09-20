@@ -2,40 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === Polar Ice Ops utilities === */
-.snowflake {
-  position: absolute;
-  top: -12vh;
-  border-radius: 9999px;
-  background: rgba(191, 219, 254, 0.82);
-  box-shadow: 0 0 12px rgba(125, 211, 252, 0.45);
-  animation-name: snowfall;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  will-change: transform, opacity;
-}
-.snowflake:nth-of-type(3n) {
-  filter: blur(0.6px);
-  background: rgba(186, 230, 253, 0.65);
-}
-.snowflake:nth-of-type(5n) {
-  filter: blur(1px);
-  background: rgba(125, 211, 252, 0.45);
-}
-@keyframes snowfall {
-  0% {
-    transform: translate3d(0, -15vh, 0);
-    opacity: 0;
-  }
-  12% {
-    opacity: var(--opacity, 0.6);
-  }
-  100% {
-    transform: translate3d(var(--drift, 14px), 110vh, 0);
-    opacity: 0;
-  }
-}
-
 .frost-card,
 .frost-action,
 .frost-chip {

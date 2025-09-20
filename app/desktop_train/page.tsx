@@ -1,4 +1,6 @@
-import { DesktopTrainApp } from "../components/TrainApp";
+"use client";
+
+import { DesktopTrainApp } from "@/components/TrainApp";
 
 export default function DesktopTrainPage() {
   return <DesktopTrainApp />;
