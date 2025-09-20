@@ -1,3 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Polar Ice Ops utilities === */
+.snowflake {
+  position: absolute;
+  top: -12vh;
+  border-radius: 9999px;
+  background: rgba(191, 219, 254, 0.82);
+  box-shadow: 0 0 12px rgba(125, 211, 252, 0.45);
+  animation-name: snowfall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+.snowflake:nth-of-type(3n) {
+  filter: blur(0.6px);
+  background: rgba(186, 230, 253, 0.65);
+}
+.snowflake:nth-of-type(5n) {
+  filter: blur(1px);
+  background: rgba(125, 211, 252, 0.45);
+}
+@keyframes snowfall {
+  0% {
+    transform: translate3d(0, -15vh, 0);
+    opacity: 0;
+  }
+  12% {
+    opacity: var(--opacity, 0.6);
+  }
+  100% {
+    transform: translate3d(var(--drift, 14px), 110vh, 0);
+    opacity: 0;
+  }
+}
+
+.frost-card,
+.frost-action,
+.frost-chip {
+  position: relative;
+  isolation: isolate;
+}
+
+.frost-card::before,
+.frost-action::before,
+.frost-chip::before {
+  content: '';
+  position: absolute;
+  inset: -30% 0;
+  background: linear-gradient(120deg, rgba(226, 240, 255, 0.35) 0%, rgba(148, 197, 252, 0.18) 45%, rgba(13, 71, 161, 0) 75%);
+  transform: translateX(-120%);
+  transition: transform 0.65s ease;
+  opacity: 0.85;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.frost-card:hover::before,
+.frost-card:focus-within::before,
+.frost-action:hover::before,
+.frost-action:focus-visible::before,
+.frost-chip:hover::before,
+.frost-chip:focus-within::before {
+  transform: translateX(0);
+}
+
+.frost-action,
+.frost-chip {
+  overflow: hidden;
+}
+
 :root{
   --bg:#0b0c10; --card:#101218; --ink:#eaeaea; --muted:#96a3bf; --line:#1e2230;
   --accent:#1f6feb; --danger:#e5534b; --ok:#19c37d; --radius:16px; --tap:48px; --space:18px
