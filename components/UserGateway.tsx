@@ -2,17 +2,8 @@
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  BadgeCheck,
-  Eye,
-  MailCheck,
-  ShieldCheck,
-  Sparkles,
-  type LucideIcon,
-} from 'lucide-react';
+import { FormEvent, useMemo, useState } from 'react';
+import { ArrowLeft, ArrowRight, BadgeCheck, CircleUserRound, LockKeyhole, Sparkles } from 'lucide-react';
 import { DeckCard } from './DeckCard';
 import { Glass } from './Glass';
 import { cn } from '@/lib/utils';
@@ -26,53 +17,11 @@ import {
   useGateway,
 } from '@/lib/gateway-context';
 
-type Accent = 'emerald' | 'sky' | 'amber';
-
-interface MethodOption {
-  id: SignInMethod;
-  title: string;
-  subtitle: string;
-  detail: string;
-  accent: Accent;
-  icon: LucideIcon;
-}
-
-const methodOptions: MethodOption[] = [
-  {
-    id: 'azure-ad',
-    title: 'Azure AD SSO',
-    subtitle: 'Corporate identity · MFA enforced',
-    detail: 'Instant federation with the airport tenant. Scopes inherit Azure entitlements automatically.',
-    accent: 'sky',
-    icon: ShieldCheck,
-  },
-  {
-    id: 'email-otp',
-    title: 'Email OTP',
-    subtitle: 'Time-boxed · 6 digit code',
-    detail: 'Leverage a one-time passcode delivered to your ramp mailbox. Sessions expire after 12 hours.',
-    accent: 'emerald',
-    icon: MailCheck,
-  },
-  {
-    id: 'guest',
-    title: 'Guest observation',
-    subtitle: 'View only · 24h scope',
-    detail: 'Preview sanitized modules without authentication. Shift-altering actions remain locked.',
-    accent: 'amber',
-    icon: Eye,
-  },
-];
-
-const accentRing: Record<Accent, string> = {
-  emerald: 'ring-2 ring-emerald-500/60',
-  sky: 'ring-2 ring-sky-500/60',
-  amber: 'ring-2 ring-amber-500/60',
-};
-
 const steps = ['Authenticate', 'Select role', 'Summary'] as const;
 
 type Step = 0 | 1 | 2;
+
+const METHOD_LABEL = 'AAID credentials';
 
 const solidButtonClasses =
   'focus-ring inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-5 py-2 text-sm font-semibold text-neutral-950 shadow-lg shadow-emerald-500/30 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50';
@@ -89,6 +38,11 @@ export function UserGateway() {
   const [step, setStep] = useState<Step>(session ? 2 : 0);
   const [selectedMethod, setSelectedMethod] = useState<SignInMethod | null>(session?.method ?? null);
   const [selectedRole, setSelectedRole] = useState<RoleId | null>(session?.role.id ?? null);
+  const [aaidInput, setAaidInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [credentialSummary, setCredentialSummary] = useState<{ aaid: string; passwordLength: number } | null>(
+    session?.identity ? { aaid: session.identity.aaid, passwordLength: 8 } : null
+  );
   const [announcement, setAnnouncement] = useState('');
 
   const roleDefinition: RoleDefinition | undefined = useMemo(
@@ -96,19 +50,31 @@ export function UserGateway() {
     [selectedRole]
   );
 
-  const summaryMethodTitle = selectedMethod
-    ? methodOptions.find((option) => option.id === selectedMethod)?.title ?? selectedMethod
-    : session
-    ? methodOptions.find((option) => option.id === session.method)?.title ?? session.method
-    : 'Not selected';
+  const summaryMethodTitle = selectedMethod || session?.method ? METHOD_LABEL : 'Not selected';
   const summaryRoleTitle = roleDefinition?.title ?? session?.role.title ?? 'Not selected';
   const summaryScopes = (roleDefinition ?? session?.role)?.scopes ?? [];
+  const summaryAaid = credentialSummary?.aaid ?? session?.identity?.aaid ?? 'Not provided';
+  const summaryPasswordMask = credentialSummary
+    ? '•'.repeat(Math.max(credentialSummary.passwordLength, 4))
+    : session?.identity
+    ? '••••••'
+    : 'Not provided';
+  const canSubmitCredentials = aaidInput.trim().length > 0 && passwordInput.length >= 6;
 
-  const handleMethodSelect = (method: SignInMethod) => {
-    const option = methodOptions.find((entry) => entry.id === method);
-    setSelectedMethod(method);
+  const handleCredentialSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmitCredentials) {
+      setAnnouncement('Enter a valid AAID and password to continue.');
+      return;
+    }
+    const trimmedAaid = aaidInput.trim();
+    const passwordLength = passwordInput.length;
+    setSelectedMethod('aaid-password');
+    setCredentialSummary({ aaid: trimmedAaid, passwordLength });
+    setAnnouncement(`Credentials captured for AAID ${trimmedAaid}. Proceed to role selection.`);
+    setAaidInput(trimmedAaid);
+    setPasswordInput('');
     setStep(1);
-    setAnnouncement(`Authentication method selected: ${option?.title ?? method}.`);
   };
 
   const handleRoleSelect = (roleId: RoleId) => {
@@ -118,24 +84,27 @@ export function UserGateway() {
   };
 
   const handleSummaryAdvance = () => {
-    if (!selectedMethod || !selectedRole || !roleDefinition) return;
+    if (!selectedMethod || !selectedRole || !roleDefinition || !credentialSummary) return;
     const payload: GatewaySession = {
       method: selectedMethod,
       role: roleDefinition,
       grantedAt: Date.now(),
+      identity: { aaid: credentialSummary.aaid },
     };
     completeSignIn(payload);
-    const methodLabel = methodOptions.find((entry) => entry.id === selectedMethod)?.title ?? selectedMethod;
-    setAnnouncement(`Access granted as ${roleDefinition.title} via ${methodLabel}.`);
+    setAnnouncement(`Access granted as ${roleDefinition.title} via ${METHOD_LABEL}.`);
     setStep(2);
   };
 
   const handleReset = () => {
     setSelectedMethod(null);
     setSelectedRole(null);
+    setAaidInput('');
+    setPasswordInput('');
+    setCredentialSummary(null);
     clearSession();
     setStep(0);
-    setAnnouncement('Gateway reset. Choose a sign-in method to begin again.');
+    setAnnouncement('Gateway reset. Enter AAID credentials to begin again.');
   };
 
   const motionProps = reduceMotion
@@ -180,31 +149,80 @@ export function UserGateway() {
 
       <AnimatePresence mode="wait">
         {step === 0 && (
-          <motion.div key="step-auth" className="grid gap-6 md:grid-cols-3" {...motionProps}>
-            {methodOptions.map((option) => {
-              const selected = selectedMethod === option.id;
-              return (
-                <DeckCard
-                  key={option.id}
-                  interactive
-                  hoverLift
-                  ariaLabel={`${option.title} sign-in method`}
-                  onClick={() => handleMethodSelect(option.id)}
-                  title={option.title}
-                  description={option.detail}
-                  eyebrow={option.subtitle}
-                  icon={option.icon}
-                  tone={option.accent}
-                  className={cn('cursor-pointer transition-all', selected && accentRing[option.accent])}
-                  actions={
-                    <span className="inline-flex items-center gap-2 text-xs text-neutral-400">
-                      Tap to continue
-                      <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+          <motion.div key="step-auth" {...motionProps}>
+            <Glass ariaLabel="AAID credential sign-in" className="max-w-2xl p-8">
+              <form className="flex flex-col gap-6" onSubmit={handleCredentialSubmit}>
+                <div className="flex flex-col gap-2">
+                  <span className="inline-flex w-fit items-center gap-2 rounded-2xl border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-sky-200/80">
+                    <LockKeyhole aria-hidden className="h-3.5 w-3.5" />
+                    Secure access
+                  </span>
+                  <h2 className="text-2xl font-semibold text-neutral-50">Sign in with AAID</h2>
+                  <p className="max-w-xl text-sm text-neutral-300/80">
+                    Enter your Airport Associate ID and password to continue to role assignment. Credentials are
+                    encrypted client-side for this simulation.
+                  </p>
+                </div>
+                <div className="grid gap-4">
+                  <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="aaid">
+                    AAID
+                    <div className="relative">
+                      <CircleUserRound aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400" />
+                      <input
+                        id="aaid"
+                        name="aaid"
+                        type="text"
+                        required
+                        minLength={4}
+                        value={aaidInput}
+                        onChange={(event) => setAaidInput(event.target.value)}
+                        placeholder="AAID-2045"
+                        autoComplete="username"
+                        className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+                      />
+                    </div>
+                  </label>
+                  <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="password">
+                    Password
+                    <div className="relative">
+                      <LockKeyhole aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        required
+                        minLength={6}
+                        value={passwordInput}
+                        onChange={(event) => setPasswordInput(event.target.value)}
+                        placeholder="Enter your password"
+                        aria-describedby="password-hint"
+                        autoComplete="current-password"
+                        className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                      />
+                    </div>
+                    <span id="password-hint" className="text-xs text-neutral-500">
+                      Use your AAID network password. Minimum 6 characters.
                     </span>
-                  }
-                />
-              );
-            })}
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <span className="text-xs text-neutral-400">
+                    Need help? Contact{' '}
+                    <a
+                      href="mailto:ops-support@deice.local"
+                      className="focus-ring underline decoration-dotted underline-offset-4"
+                    >
+                      Ops support
+                    </a>{' '}
+                    for resets.
+                  </span>
+                  <button type="submit" className={solidButtonClasses} disabled={!canSubmitCredentials}>
+                    Continue
+                    <ArrowRight aria-hidden className="h-4 w-4" />
+                  </button>
+                </div>
+              </form>
+            </Glass>
           </motion.div>
         )}
 
@@ -261,7 +279,7 @@ export function UserGateway() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                disabled={!selectedRole || !selectedMethod}
+                disabled={!selectedRole || !selectedMethod || !credentialSummary}
                 className={solidButtonClasses}
               >
                 Continue to summary
@@ -279,6 +297,14 @@ export function UserGateway() {
                 <div className="flex flex-col gap-1">
                   <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">Method</dt>
                   <dd>{summaryMethodTitle}</dd>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">AAID</dt>
+                  <dd>{summaryAaid}</dd>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">Password</dt>
+                  <dd>{summaryPasswordMask}</dd>
                 </div>
                 <div className="flex flex-col gap-1">
                   <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">Role</dt>
@@ -302,7 +328,7 @@ export function UserGateway() {
                 <button
                   type="button"
                   onClick={handleSummaryAdvance}
-                  disabled={!selectedMethod || !selectedRole}
+                  disabled={!selectedMethod || !selectedRole || !credentialSummary}
                   className={solidButtonClasses}
                 >
                   Confirm access
@@ -318,8 +344,8 @@ export function UserGateway() {
               </div>
               {session && (
                 <p className="text-xs text-neutral-500">
-                  Active session: {session.role.title} via{' '}
-                  {methodOptions.find((option) => option.id === session.method)?.title ?? session.method} · refreshed{' '}
+                  Active session: {session.role.title} via {METHOD_LABEL}
+                  {session.identity?.aaid ? ` · ${session.identity.aaid}` : ''} · refreshed{' '}
                   {new Intl.DateTimeFormat('en', {
                     hour: 'numeric',
                     minute: '2-digit',

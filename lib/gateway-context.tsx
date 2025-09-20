@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-export type SignInMethod = 'azure-ad' | 'email-otp' | 'guest';
+export type SignInMethod = 'aaid-password';
 
 export type RoleId = 'ramp-agent' | 'trainer' | 'shift-manager' | 'gm';
 
@@ -17,6 +17,9 @@ export interface GatewaySession {
   method: SignInMethod;
   role: RoleDefinition;
   grantedAt: number;
+  identity?: {
+    aaid: string;
+  };
 }
 
 interface GatewayContextValue {
