@@ -132,6 +132,58 @@ function MicWidget({ status = "idle", level = 0, compact = false }) {
   );
 }
 
+function StatusDot({ label, state, tone = "idle" }) {
+  if (!label) return null;
+  const safeState = state || "—";
+  return (
+    <div className={`pm-statusDot pm-statusDot-${tone}`} aria-label={`${label} status: ${safeState}`}>
+      <span className="pm-statusDotIndicator" aria-hidden="true" />
+      <span className="pm-statusDotText">
+        <span className="pm-statusDotName">{label}</span>
+        <span className="pm-statusDotState">{safeState}</span>
+      </span>
+    </div>
+  );
+}
+
+function describeMicStatus(status) {
+  switch (status) {
+    case "listening":
+      return { tone: "good", text: "Listening" };
+    case "ready":
+      return { tone: "good", text: "Ready" };
+    case "manual":
+      return { tone: "warn", text: "Manual" };
+    case "idle":
+    default:
+      return { tone: "idle", text: "Idle" };
+  }
+}
+
+function describeAudioStatus(status) {
+  switch (status) {
+    case "playing":
+      return { tone: "good", text: "Playing" };
+    case "loading":
+      return { tone: "warn", text: "Loading" };
+    case "error":
+      return { tone: "bad", text: "Error" };
+    case "unlocked":
+      return { tone: "good", text: "Unlocked" };
+    case "ended":
+      return { tone: "idle", text: "Ended" };
+    case "idle":
+    default:
+      return { tone: "idle", text: "Idle" };
+  }
+}
+
+function describeNetworkStatus(status) {
+  return status === "offline"
+    ? { tone: "bad", text: "Offline" }
+    : { tone: "good", text: "Online" };
+}
+
 const _toasts = [];
 function toast(msg, kind = "info", ms = 2200) {
   _toasts.push({ id: Date.now(), msg, kind });
@@ -239,6 +291,7 @@ function TrainApp({ forcedMode }) {
   const captureModeRef = useRef(captureMode);
   const [resultsVersion, setResultsVersion] = useState(0);
   const [runState, setRunState] = useState("idle");
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const mode = useResponsiveMode(forcedMode);
   const { width: viewportWidth } = useViewportSize();
@@ -253,9 +306,31 @@ function TrainApp({ forcedMode }) {
 
   const micLevelRef = useRef(0);
   const [captainStatus, setCaptainStatus] = useState("idle");
+  const [networkStatus, setNetworkStatus] = useState(() => {
+    if (typeof navigator === "undefined") return "online";
+    return navigator.onLine ? "online" : "offline";
+  });
   useEffect(() => {
     answerRef.current = answer;
   }, [answer]);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const updateNetwork = () => {
+      setNetworkStatus(window.navigator.onLine ? "online" : "offline");
+    };
+    updateNetwork();
+    window.addEventListener("online", updateNetwork);
+    window.addEventListener("offline", updateNetwork);
+    return () => {
+      window.removeEventListener("online", updateNetwork);
+      window.removeEventListener("offline", updateNetwork);
+    };
+  }, []);
 
   // Scoring pipeline: prefer the rich scorer (lib/scoring) with optional quickScore fallback for debugging.
   const formatScoreSummary = (result) => {
@@ -326,6 +401,9 @@ function TrainApp({ forcedMode }) {
   const activeSpeechLabelId = autoAdvance ? "speech-mode-auto" : "speech-mode-manual";
   const activeRunLabelId = runState === "paused" ? "run-toggle-pause" : "run-toggle-resume";
   const isMobile = mode === "mobile";
+  const micDescriptor = useMemo(() => describeMicStatus(micStatus), [micStatus]);
+  const audioDescriptor = useMemo(() => describeAudioStatus(captainStatus), [captainStatus]);
+  const networkDescriptor = useMemo(() => describeNetworkStatus(networkStatus), [networkStatus]);
   const mobileScoreSize = useMemo(() => {
     if (!isMobile) return 72;
     const min = 44;
@@ -891,17 +969,59 @@ function TrainApp({ forcedMode }) {
   );
 
   const micBlock = <MicWidget status={micStatus} level={micLevel} compact={isMobile} />;
+  const cardClassName = `pm-card${isMobile ? " pm-cardMobile" : ""}`;
+  const primaryActionLabel = runState === "running" ? "Pause" : "Start";
+  const primaryActionAriaLabel =
+    runState === "running"
+      ? "Pause training"
+      : runState === "paused"
+      ? "Resume training"
+      : "Start training";
+  const handlePrimaryAction = () => {
+    if (runState === "running") {
+      onPause();
+    } else if (runState === "paused") {
+      onResume();
+    } else {
+      onStart();
+    }
+  };
+  const placeholderDot = { tone: "idle", text: "—" };
+  const micDot = isHydrated ? micDescriptor : placeholderDot;
+  const audioDot = isHydrated ? audioDescriptor : placeholderDot;
+  const networkDot = isHydrated ? networkDescriptor : placeholderDot;
+  const microHeader = isMobile ? (
+    <div className="pm-microHeader">
+      <StatusDot label="Mic" state={micDot.text} tone={micDot.tone} />
+      <StatusDot label="Audio" state={audioDot.text} tone={audioDot.tone} />
+      <StatusDot label="Network" state={networkDot.text} tone={networkDot.tone} />
+    </div>
+  ) : null;
+  const mobileActionBar = isMobile ? (
+    <div className="pm-mobileActionBar">
+      <div className="pm-mobileMic">
+        <MicWidget status={micStatus} level={micLevel} compact />
+      </div>
+      <button
+        type="button"
+        className={`pm-bottomBtn${runState === "running" ? " pause" : " start"}`}
+        onClick={handlePrimaryAction}
+        aria-label={primaryActionAriaLabel}
+      >
+        {primaryActionLabel}
+      </button>
+    </div>
+  ) : null;
 
   return (
     <div className={`pm-app ${mode}`}>
-      <div className="pm-card">
+      <div className={cardClassName}>
+        {microHeader}
         {/* Header */}
         {isMobile ? (
           <div className="pm-header mobile">
             <div className="pm-headerSection pm-headerBrand">{titleBlock}</div>
             <div className="pm-headerSection pm-headerScoreWrap">{scoreBlock}</div>
-            <div className="pm-headerSection pm-headerStatus">{statusBlock}</div>
-            <div className="pm-headerSection pm-headerMic">{micBlock}</div>
           </div>
         ) : (
           <div className="pm-header desktop">
@@ -966,17 +1086,15 @@ function TrainApp({ forcedMode }) {
           {/* LEFT */}
           <section className="pm-panel">
             {isMobile && <div className="pm-progressTop">{progressSummary}</div>}
-            <div className="pm-runRow">
-              <div className="pm-controlBlock">
-                <span className="pm-label">Start</span>
-                <button
-                  type="button"
-                  className={`pm-btn${isMobile ? " pm-mobileControl" : ""}`}
-                  onClick={onStart}
-                >
-                  Start
-                </button>
-              </div>
+            <div className={`pm-runRow${isMobile ? " pm-runRowMobile" : ""}`}>
+              {!isMobile && (
+                <div className="pm-controlBlock">
+                  <span className="pm-label">Start</span>
+                  <button type="button" className="pm-btn" onClick={onStart}>
+                    Start
+                  </button>
+                </div>
+              )}
               <div className="pm-controlBlock">
                 <span className="pm-label">Restart</span>
                 <button
@@ -987,44 +1105,46 @@ function TrainApp({ forcedMode }) {
                   Restart
                 </button>
               </div>
-              <div className="pm-controlBlock">
-                <span className="pm-label" id="run-toggle-label">
-                  Run control
-                </span>
-                <div className="pm-runToggle">
-                  <span
-                    id="run-toggle-resume"
-                    className={`pm-switchOption${runState === "paused" ? "" : " active"}`}
-                  >
-                    Resume
+              {!isMobile && (
+                <div className="pm-controlBlock">
+                  <span className="pm-label" id="run-toggle-label">
+                    Run control
                   </span>
-                  <button
-                    type="button"
-                    className={`pm-switch${runState === "paused" ? " on" : ""}`}
-                    role="switch"
-                    aria-checked={runState === "paused"}
-                    aria-labelledby={`run-toggle-label ${activeRunLabelId}`}
-                    disabled={runState === "idle"}
-                    onClick={() => {
-                      if (runState === "running") {
-                        onPause();
-                      } else if (runState === "paused") {
-                        onResume();
-                      }
-                    }}
-                  >
-                    <span className="pm-switchTrack">
-                      <span className="pm-switchThumb" />
+                  <div className="pm-runToggle">
+                    <span
+                      id="run-toggle-resume"
+                      className={`pm-switchOption${runState === "paused" ? "" : " active"}`}
+                    >
+                      Resume
                     </span>
-                  </button>
-                  <span
-                    id="run-toggle-pause"
-                    className={`pm-switchOption${runState === "paused" ? " active" : ""}`}
-                  >
-                    Pause
-                  </span>
+                    <button
+                      type="button"
+                      className={`pm-switch${runState === "paused" ? " on" : ""}`}
+                      role="switch"
+                      aria-checked={runState === "paused"}
+                      aria-labelledby={`run-toggle-label ${activeRunLabelId}`}
+                      disabled={runState === "idle"}
+                      onClick={() => {
+                        if (runState === "running") {
+                          onPause();
+                        } else if (runState === "paused") {
+                          onResume();
+                        }
+                      }}
+                    >
+                      <span className="pm-switchTrack">
+                        <span className="pm-switchThumb" />
+                      </span>
+                    </button>
+                    <span
+                      id="run-toggle-pause"
+                      className={`pm-switchOption${runState === "paused" ? " active" : ""}`}
+                    >
+                      Pause
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="pm-controlBlock">
                 <span className="pm-label" id="speech-mode-label">
                   Speech mode
@@ -1187,6 +1307,8 @@ function TrainApp({ forcedMode }) {
             </div>
           </section>
         </div>
+
+        {mobileActionBar}
 
         {/* Footer */}
         <div className="pm-footer">
