@@ -1,9 +1,21 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  Eye,
+  MailCheck,
+  ShieldCheck,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
+import { DeckCard } from './DeckCard';
 import { Glass } from './Glass';
+import { cn } from '@/lib/utils';
 import {
   ROLE_LIBRARY,
   RoleDefinition,
@@ -14,12 +26,15 @@ import {
   useGateway,
 } from '@/lib/gateway-context';
 
+type Accent = 'emerald' | 'sky' | 'amber';
+
 interface MethodOption {
   id: SignInMethod;
   title: string;
   subtitle: string;
   detail: string;
-  accent: string;
+  accent: Accent;
+  icon: LucideIcon;
 }
 
 const methodOptions: MethodOption[] = [
@@ -27,30 +42,49 @@ const methodOptions: MethodOption[] = [
     id: 'azure-ad',
     title: 'Azure AD SSO',
     subtitle: 'Corporate identity · MFA enforced',
-    detail: 'Instantly federate with the airport tenant. Scoped access inherits Azure entitlements.',
-    accent: 'bg-sky-400/30 text-sky-50',
+    detail: 'Instant federation with the airport tenant. Scopes inherit Azure entitlements automatically.',
+    accent: 'sky',
+    icon: ShieldCheck,
   },
   {
     id: 'email-otp',
     title: 'Email OTP',
     subtitle: 'Time-boxed · 6 digit code',
-    detail: 'Use a one-time passcode delivered to your ramp mailbox. Session expires after 12 hours.',
-    accent: 'bg-emerald-400/30 text-emerald-50',
+    detail: 'Leverage a one-time passcode delivered to your ramp mailbox. Sessions expire after 12 hours.',
+    accent: 'emerald',
+    icon: MailCheck,
   },
   {
     id: 'guest',
     title: 'Guest observation',
     subtitle: 'View only · 24h scope',
-    detail: 'Bypass authentication to preview sanitized modules. No shift actions permitted.',
-    accent: 'bg-amber-400/30 text-amber-100',
+    detail: 'Preview sanitized modules without authentication. Shift-altering actions remain locked.',
+    accent: 'amber',
+    icon: Eye,
   },
 ];
 
-const steps = ['Authenticate', 'Select role', 'Summary'];
+const accentRing: Record<Accent, string> = {
+  emerald: 'ring-2 ring-emerald-500/60',
+  sky: 'ring-2 ring-sky-500/60',
+  amber: 'ring-2 ring-amber-500/60',
+};
+
+const steps = ['Authenticate', 'Select role', 'Summary'] as const;
 
 type Step = 0 | 1 | 2;
 
+const solidButtonClasses =
+  'focus-ring inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-5 py-2 text-sm font-semibold text-neutral-950 shadow-lg shadow-emerald-500/30 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50';
+const ghostButtonClasses =
+  'focus-ring inline-flex items-center gap-2 rounded-2xl border border-neutral-800/80 bg-neutral-900/50 px-5 py-2 text-sm text-neutral-100 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50';
+const infoButtonClasses =
+  'focus-ring inline-flex items-center gap-2 rounded-2xl border border-sky-500/60 bg-sky-500/10 px-5 py-2 text-sm text-sky-200 transition-transform hover:-translate-y-0.5';
+const subtleLinkClasses =
+  'focus-ring inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-neutral-400 transition-colors hover:text-neutral-100';
+
 export function UserGateway() {
+  const reduceMotion = useReducedMotion();
   const { session, completeSignIn, clearSession } = useGateway();
   const [step, setStep] = useState<Step>(session ? 2 : 0);
   const [selectedMethod, setSelectedMethod] = useState<SignInMethod | null>(session?.method ?? null);
@@ -62,15 +96,25 @@ export function UserGateway() {
     [selectedRole]
   );
 
+  const summaryMethodTitle = selectedMethod
+    ? methodOptions.find((option) => option.id === selectedMethod)?.title ?? selectedMethod
+    : session
+    ? methodOptions.find((option) => option.id === session.method)?.title ?? session.method
+    : 'Not selected';
+  const summaryRoleTitle = roleDefinition?.title ?? session?.role.title ?? 'Not selected';
+  const summaryScopes = (roleDefinition ?? session?.role)?.scopes ?? [];
+
   const handleMethodSelect = (method: SignInMethod) => {
+    const option = methodOptions.find((entry) => entry.id === method);
     setSelectedMethod(method);
     setStep(1);
-    setAnnouncement(`Authentication method selected: ${methodOptions.find((option) => option.id === method)?.title ?? method}`);
+    setAnnouncement(`Authentication method selected: ${option?.title ?? method}.`);
   };
 
   const handleRoleSelect = (roleId: RoleId) => {
+    const role = getRoleDefinition(roleId);
     setSelectedRole(roleId);
-    setAnnouncement(`Role selected: ${getRoleDefinition(roleId).title}`);
+    setAnnouncement(`Role selected: ${role.title}.`);
   };
 
   const handleSummaryAdvance = () => {
@@ -81,7 +125,8 @@ export function UserGateway() {
       grantedAt: Date.now(),
     };
     completeSignIn(payload);
-    setAnnouncement(`Access granted as ${roleDefinition.title} via ${selectedMethod}.`);
+    const methodLabel = methodOptions.find((entry) => entry.id === selectedMethod)?.title ?? selectedMethod;
+    setAnnouncement(`Access granted as ${roleDefinition.title} via ${methodLabel}.`);
     setStep(2);
   };
 
@@ -93,159 +138,159 @@ export function UserGateway() {
     setAnnouncement('Gateway reset. Choose a sign-in method to begin again.');
   };
 
+  const motionProps = reduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: 18 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -18 },
+        transition: { duration: 0.35, ease: 'easeOut' as const },
+      };
+
   return (
     <section aria-labelledby="user-gateway-heading" className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <h1 id="user-gateway-heading" className="text-3xl font-semibold text-sky-100">
+        <h1 id="user-gateway-heading" className="flex items-center gap-3 text-3xl font-semibold text-neutral-50">
+          <Sparkles aria-hidden className="h-6 w-6 text-emerald-400" />
           User gateway
         </h1>
-        <p className="max-w-2xl text-sm text-sky-100/75">
-          Progress through authentication, role configuration, and review to unlock the Dark Glass Flight Deck.
-          Every transition is announced for assistive technology.
+        <p className="max-w-2xl text-sm text-neutral-300/80">
+          Progress through authentication, role configuration, and final review to unlock the Dark Glass Flight Deck. Screen reader announcements follow each transition.
         </p>
-        <div className="flex flex-wrap gap-3 text-xs uppercase tracking-[0.28em] text-sky-200/70">
-          {steps.map((label, index) => (
-            <span
-              key={label}
-              className={`rounded-full px-4 py-1 ${
-                step === index ? 'bg-sky-400/30 text-sky-50' : 'bg-white/5 text-sky-100/60'
-              }`}
-            >
-              {index + 1}. {label}
-            </span>
-          ))}
+        <div className="flex flex-wrap gap-3 text-xs uppercase tracking-[0.28em] text-neutral-400">
+          {steps.map((label, index) => {
+            const active = step === index;
+            return (
+              <span
+                key={label}
+                className={cn(
+                  'rounded-2xl border border-neutral-800/80 px-4 py-1',
+                  active && 'border-emerald-500/70 bg-emerald-500/10 text-emerald-300'
+                )}
+              >
+                {index + 1}. {label}
+              </span>
+            );
+          })}
         </div>
-        <div role="status" aria-live="polite" className="text-xs text-sky-100/60">
+        <div role="status" aria-live="polite" className="text-xs text-neutral-400">
           {announcement}
         </div>
       </header>
 
       <AnimatePresence mode="wait">
         {step === 0 && (
-          <motion.div
-            key="step-auth"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -18 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="grid gap-6 md:grid-cols-3"
-          >
-            {methodOptions.map((option) => (
-              <Glass
-                key={option.id}
-                interactive
-                ariaLabel={`${option.title} sign-in method`}
-                onClick={() => handleMethodSelect(option.id)}
-                className={`flex h-full flex-col gap-4 p-6 transition-shadow hover:shadow-[0_12px_45px_rgba(56,189,248,0.25)] ${
-                  selectedMethod === option.id ? 'outline outline-2 outline-sky-400/70' : ''
-                }`}
-              >
-                <div className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${option.accent}`}>{option.subtitle}</div>
-                <h2 className="text-xl font-semibold text-sky-50">{option.title}</h2>
-                <p className="text-sm text-sky-100/75">{option.detail}</p>
-                <span className="mt-auto text-xs text-sky-100/60">Tap to continue →</span>
-              </Glass>
-            ))}
+          <motion.div key="step-auth" className="grid gap-6 md:grid-cols-3" {...motionProps}>
+            {methodOptions.map((option) => {
+              const selected = selectedMethod === option.id;
+              return (
+                <DeckCard
+                  key={option.id}
+                  interactive
+                  hoverLift
+                  ariaLabel={`${option.title} sign-in method`}
+                  onClick={() => handleMethodSelect(option.id)}
+                  title={option.title}
+                  description={option.detail}
+                  eyebrow={option.subtitle}
+                  icon={option.icon}
+                  tone={option.accent}
+                  className={cn('cursor-pointer transition-all', selected && accentRing[option.accent])}
+                  actions={
+                    <span className="inline-flex items-center gap-2 text-xs text-neutral-400">
+                      Tap to continue
+                      <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+                    </span>
+                  }
+                />
+              );
+            })}
           </motion.div>
         )}
 
         {step === 1 && (
-          <motion.div
-            key="step-role"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -18 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="flex flex-col gap-6"
-          >
+          <motion.div key="step-role" className="flex flex-col gap-6" {...motionProps}>
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold text-sky-100">Select your operational role</h2>
-              <button
-                type="button"
-                onClick={() => setStep(0)}
-                className="focus-ring rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-sky-100/70"
-              >
-                ← Sign-in method
+              <h2 className="text-xl font-semibold text-neutral-100">Select your operational role</h2>
+              <button type="button" onClick={() => setStep(0)} className={ghostButtonClasses}>
+                <ArrowLeft aria-hidden className="h-4 w-4" />
+                Sign-in method
               </button>
             </div>
             <div className="grid gap-6 md:grid-cols-2">
               {ROLE_LIBRARY.map((roleOption) => {
                 const active = selectedRole === roleOption.id;
                 return (
-                  <Glass
+                  <DeckCard
                     key={roleOption.id}
                     interactive
+                    hoverLift
                     ariaLabel={`${roleOption.title} role option`}
                     onClick={() => handleRoleSelect(roleOption.id)}
-                    className={`flex h-full flex-col gap-4 p-6 ${
-                      active ? 'outline outline-2 outline-emerald-400/70' : ''
-                    }`}
+                    title={roleOption.title}
+                    description={roleOption.subtitle}
+                    eyebrow="Role access"
+                    tone="emerald"
+                    className={cn('cursor-pointer transition-all', active && 'ring-2 ring-emerald-500/60')}
+                    actions={
+                      active ? (
+                        <span className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                          <BadgeCheck aria-hidden className="h-4 w-4" />
+                          Selected
+                        </span>
+                      ) : undefined
+                    }
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <h3 className="text-lg font-semibold text-sky-50">{roleOption.title}</h3>
-                      {active && <span className="text-xs text-emerald-300">Selected</span>}
-                    </div>
-                    <p className="text-sm text-sky-100/75">{roleOption.subtitle}</p>
-                    <ul className="mt-auto grid gap-2 text-xs text-sky-100/70">
+                    <ul className="mt-auto grid gap-2 text-xs text-neutral-300/80">
                       {roleOption.scopes.map((scope) => (
-                        <li key={scope} className="inline-flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden="true" />
+                        <li key={scope} className="flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
                           {scope}
                         </li>
                       ))}
                     </ul>
-                  </Glass>
+                  </DeckCard>
                 );
               })}
             </div>
             <div className="flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => setStep(0)}
-                className="focus-ring text-xs uppercase tracking-[0.3em] text-sky-100/70"
-              >
-                ← Back
+              <button type="button" onClick={() => setStep(0)} className={subtleLinkClasses}>
+                <ArrowLeft aria-hidden className="h-4 w-4" />
+                Back
               </button>
               <button
                 type="button"
                 onClick={() => setStep(2)}
                 disabled={!selectedRole || !selectedMethod}
-                className="focus-ring inline-flex items-center gap-2 rounded-full border border-sky-400/60 bg-sky-400/10 px-5 py-2 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className={solidButtonClasses}
               >
                 Continue to summary
-                <span aria-hidden="true">→</span>
+                <ArrowRight aria-hidden className="h-4 w-4" />
               </button>
             </div>
           </motion.div>
         )}
 
         {step === 2 && (
-          <motion.div
-            key="step-summary"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -18 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="flex flex-col gap-6"
-          >
+          <motion.div key="step-summary" className="flex flex-col gap-6" {...motionProps}>
             <Glass ariaLabel="Summary" className="flex flex-col gap-6 p-8">
-              <h2 className="text-2xl font-semibold text-sky-50">Access summary</h2>
-              <dl className="grid gap-4 text-sm text-sky-100/75">
+              <h2 className="text-2xl font-semibold text-neutral-50">Access summary</h2>
+              <dl className="grid gap-4 text-sm text-neutral-300/80">
                 <div className="flex flex-col gap-1">
-                  <dt className="text-xs uppercase tracking-[0.3em] text-sky-100/60">Method</dt>
-                  <dd>{selectedMethod ? methodOptions.find((option) => option.id === selectedMethod)?.title : 'Not selected'}</dd>
+                  <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">Method</dt>
+                  <dd>{summaryMethodTitle}</dd>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <dt className="text-xs uppercase tracking-[0.3em] text-sky-100/60">Role</dt>
-                  <dd>{roleDefinition?.title ?? session?.role.title ?? 'Not selected'}</dd>
+                  <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">Role</dt>
+                  <dd>{summaryRoleTitle}</dd>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <dt className="text-xs uppercase tracking-[0.3em] text-sky-100/60">Scopes</dt>
+                  <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">Scopes</dt>
                   <dd>
                     <ul className="grid gap-1 text-xs">
-                      {(roleDefinition ?? session?.role)?.scopes.map((scope) => (
+                      {summaryScopes.map((scope) => (
                         <li key={scope} className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden="true" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
                           {scope}
                         </li>
                       ))}
@@ -253,34 +298,29 @@ export function UserGateway() {
                   </dd>
                 </div>
               </dl>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={handleSummaryAdvance}
                   disabled={!selectedMethod || !selectedRole}
-                  className="focus-ring inline-flex items-center gap-2 rounded-full border border-emerald-400/70 bg-emerald-400/10 px-5 py-2 text-sm text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className={solidButtonClasses}
                 >
                   Confirm access
-                  <span aria-hidden="true">→</span>
+                  <ArrowRight aria-hidden className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="focus-ring inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm text-sky-100"
-                >
-                  Start over
+                <button type="button" onClick={handleReset} className={ghostButtonClasses}>
+                  Reset
                 </button>
-                <Link
-                  href="/"
-                  className="focus-ring inline-flex items-center gap-2 rounded-full border border-sky-400/40 bg-sky-400/10 px-5 py-2 text-sm text-sky-100"
-                >
+                <Link href="/" className={infoButtonClasses}>
                   View index modules
+                  <ArrowRight aria-hidden className="h-4 w-4" />
                 </Link>
               </div>
               {session && (
-                <p className="text-xs text-sky-100/60">
-                  Active session: {session.role.title} via {methodOptions.find((option) => option.id === session.method)?.title}{' '}
-                  · refreshed {new Intl.DateTimeFormat('en', {
+                <p className="text-xs text-neutral-500">
+                  Active session: {session.role.title} via{' '}
+                  {methodOptions.find((option) => option.id === session.method)?.title ?? session.method} · refreshed{' '}
+                  {new Intl.DateTimeFormat('en', {
                     hour: 'numeric',
                     minute: '2-digit',
                   }).format(session.grantedAt)}
@@ -293,3 +333,4 @@ export function UserGateway() {
     </section>
   );
 }
+

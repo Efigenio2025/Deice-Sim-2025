@@ -1,8 +1,10 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Orbit } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Glass } from './Glass';
+import { DeckCard } from './DeckCard';
+import { cn } from '@/lib/utils';
 
 interface Scenario {
   id: string;
@@ -46,6 +48,7 @@ const scenarios: Scenario[] = [
 export function ScenarioCarousel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -98,14 +101,16 @@ export function ScenarioCarousel() {
   return (
     <section aria-labelledby="scenario-carousel-heading" className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h2 id="scenario-carousel-heading" className="text-2xl font-semibold text-sky-100">
+        <h2 id="scenario-carousel-heading" className="text-2xl font-semibold text-neutral-100">
           Scenario carousel
         </h2>
-        <span className="text-xs uppercase tracking-[0.3em] text-sky-100/60">Scroll + arrow keys</span>
+        <span className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-neutral-400">
+          <Orbit aria-hidden className="h-4 w-4 text-emerald-400" /> Scroll + arrow keys
+        </span>
       </div>
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-slate-950/60 to-transparent" aria-hidden="true" />
-        <div className="absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-slate-950/60 to-transparent" aria-hidden="true" />
+        <div className="absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-neutral-950 via-neutral-950/60 to-transparent" aria-hidden="true" />
+        <div className="absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-neutral-950 via-neutral-950/60 to-transparent" aria-hidden="true" />
         <div className="scroll-shadow rounded-3xl">
           <div
             ref={containerRef}
@@ -117,64 +122,70 @@ export function ScenarioCarousel() {
             className="flex snap-x snap-mandatory gap-6 overflow-x-auto px-4 py-6 focus:ring-0"
           >
             {scenarios.map((scenario, index) => (
-              <Glass
+              <DeckCard
                 key={scenario.id}
+                id={`scenario-${scenario.id}`}
+                role="option"
+                aria-selected={active === index}
                 ariaLabel={scenario.title}
-                className="snap-center shrink-0 basis-[80%] p-6 md:basis-[60%]"
-                interactive
+                title={scenario.title}
+                description={scenario.detail}
+                eyebrow="Scenario thread"
+                tone="sky"
+                media={
+                  <span
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide',
+                      scenario.status === 'Escalated'
+                        ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
+                        : scenario.status === 'In review'
+                        ? 'border-sky-500/60 bg-sky-500/10 text-sky-400'
+                        : 'border-emerald-500/60 bg-emerald-500/10 text-emerald-400'
+                    )}
+                  >
+                    {scenario.status}
+                  </span>
+                }
+                className="snap-center shrink-0 basis-[80%] md:basis-[60%]"
               >
                 <motion.div
-                  id={`scenario-${scenario.id}`}
-                  role="option"
-                  aria-selected={active === index}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+                  initial={reduceMotion ? undefined : { opacity: 0, y: 18 }}
+                  whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className="flex h-full flex-col gap-4"
+                  className="mt-auto flex flex-wrap gap-2"
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <h3 className="text-xl font-semibold text-sky-50">{scenario.title}</h3>
+                  {scenario.tags.map((tag) => (
                     <span
-                      className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs uppercase tracking-wide text-sky-100/80"
+                      key={tag}
+                      className="rounded-full border border-neutral-800/80 bg-neutral-900/70 px-3 py-1 text-xs text-neutral-300/80"
                     >
-                      {scenario.status}
+                      {tag}
                     </span>
-                  </div>
-                  <p className="text-sm text-sky-100/80">{scenario.detail}</p>
-                  <div className="mt-auto flex flex-wrap gap-2">
-                    {scenario.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-white/10 bg-sky-500/10 px-3 py-1 text-xs text-sky-100/70"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                  ))}
                 </motion.div>
-              </Glass>
+              </DeckCard>
             ))}
           </div>
         </div>
-        <div className="mt-4 flex items-center justify-between text-xs text-sky-100/60">
+        <div className="mt-4 flex items-center justify-between text-xs text-neutral-400">
           <div aria-live="polite">{scenarios[active].title}</div>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={() => scrollToIndex(active - 1)}
-              className="focus-ring rounded-full border border-white/20 bg-white/10 px-3 py-2 text-sky-200"
+              className="focus-ring inline-flex items-center gap-2 rounded-xl border border-neutral-800/80 bg-neutral-900/50 px-3 py-2 text-neutral-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5"
               aria-label="Previous scenario"
             >
-              ←
+              <ArrowLeft aria-hidden className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => scrollToIndex(active + 1)}
-              className="focus-ring rounded-full border border-white/20 bg-white/10 px-3 py-2 text-sky-200"
+              className="focus-ring inline-flex items-center gap-2 rounded-xl border border-neutral-800/80 bg-neutral-900/50 px-3 py-2 text-neutral-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5"
               aria-label="Next scenario"
             >
-              →
+              <ArrowRight aria-hidden className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -182,11 +193,11 @@ export function ScenarioCarousel() {
       <AnimatePresence mode="wait">
         <motion.p
           key={scenarios[active].id}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="text-sm text-sky-100/70"
+          initial={reduceMotion ? undefined : { opacity: 0, y: 8 }}
+          animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+          exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
+          transition={reduceMotion ? undefined : { duration: 0.35, ease: 'easeOut' }}
+          className="text-sm text-neutral-300/80"
         >
           {scenarios[active].detail}
         </motion.p>

@@ -1,6 +1,13 @@
 'use client';
 
-import { type HTMLMotionProps, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import {
+  type HTMLMotionProps,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+} from 'framer-motion';
 import { useId } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +16,8 @@ interface GlassProps extends HTMLMotionProps<'div'> {
   className?: string;
   interactive?: boolean;
   ariaLabel?: string;
+  hoverLift?: boolean;
+  flip?: boolean;
 }
 
 export function Glass({
@@ -16,12 +25,18 @@ export function Glass({
   className,
   interactive = false,
   ariaLabel,
+  hoverLift = true,
+  flip = false,
   tabIndex,
   role,
   onClick,
-  ...rest
+  style,
+  transition,
+  onKeyDown,
+  ...motionProps
 }: GlassProps) {
   const id = useId();
+  const reduceMotion = useReducedMotion();
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const springX = useSpring(x, { stiffness: 120, damping: 12, mass: 0.8 });
@@ -43,33 +58,45 @@ export function Glass({
     y.set(Math.max(-0.5, Math.min(0.5, inputY)));
   };
 
+  const motionInitial = reduceMotion ? undefined : { opacity: 0, scale: 0.98 };
+  const motionAnimate = reduceMotion ? undefined : { opacity: 1, scale: 1 };
+  const motionTransition = reduceMotion
+    ? transition
+    : transition ?? { duration: 0.45, ease: 'easeOut' as const };
+
   return (
     <motion.div
       role={ariaLabel ? role ?? 'group' : role}
       aria-label={ariaLabel}
-      tabIndex={tabIndex ?? (interactive && (onClick || rest.onKeyDown) ? 0 : undefined)}
+      tabIndex={tabIndex ?? (interactive && (onClick || onKeyDown) ? 0 : undefined)}
       aria-describedby={ariaLabel ? `${id}-desc` : undefined}
       onMouseLeave={interactive ? resetTilt : undefined}
       onMouseMove={interactive ? handleMove : undefined}
-      whileHover={interactive ? { scale: 1.015 } : undefined}
-      whileFocus={interactive ? { scale: 1.01 } : undefined}
-      style={interactive ? { rotateX, rotateY } : undefined}
+      initial={motionInitial}
+      animate={motionAnimate}
+      transition={motionTransition}
+      whileHover={hoverLift ? { y: -4 } : undefined}
+      whileFocus={hoverLift ? { y: -2 } : undefined}
+      style={{
+        ...(style ?? {}),
+        ...(flip ? { transformStyle: 'preserve-3d' } : {}),
+        ...(interactive ? { rotateX, rotateY } : {}),
+      }}
       className={cn(
-        'glass-border relative overflow-hidden border border-white/10 bg-slate-900/50 text-slate-100 transition-transform duration-300',
+        'relative overflow-hidden rounded-2xl border border-neutral-800/80 bg-neutral-900/40 text-neutral-100 shadow-[0_25px_45px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-transform duration-300',
+        'before:pointer-events-none before:absolute before:inset-px before:rounded-[inherit] before:border before:border-white/5 before:opacity-60 before:mix-blend-screen before:content-[""]',
+        'after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.15),_transparent_60%)] after:opacity-70 after:content-[""]',
         'focus-ring',
         interactive && 'cursor-pointer',
         className
       )}
       onClick={onClick}
-      {...rest}
+      onKeyDown={onKeyDown}
+      {...motionProps}
     >
       <div id={ariaLabel ? `${id}-desc` : undefined} className="relative z-10">
         {children}
       </div>
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.12),_transparent_55%)] opacity-70"
-      />
     </motion.div>
   );
 }
