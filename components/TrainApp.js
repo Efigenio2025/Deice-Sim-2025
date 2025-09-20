@@ -1004,19 +1004,19 @@ function TrainApp({ forcedMode }) {
   const micDot = isHydrated ? micDescriptor : placeholderDot;
   const audioDot = isHydrated ? audioDescriptor : placeholderDot;
   const networkDot = isHydrated ? networkDescriptor : placeholderDot;
-  const microHeader = isMobile ? (
-    <div className="pm-microHeader">
+  const microHeader = (
+    <div className={`pm-microHeader${isMobile ? " mobile" : ""}`}>
       <StatusDot label="Mic" state={micDot.text} tone={micDot.tone} />
       <StatusDot label="Audio" state={audioDot.text} tone={audioDot.tone} />
       <StatusDot label="Network" state={networkDot.text} tone={networkDot.tone} />
     </div>
-  ) : null;
-  const mobileControlPocket = isMobile ? (
-    <div className="pm-mobilePocket">
-      <button type="button" className="pm-btn ghost pm-pocketBtn" onClick={onRestart}>
+  );
+  const controlRail = isMobile ? (
+    <div className="pm-mobileControlRail">
+      <button type="button" className="pm-btn ghost pm-mobileRailBtn" onClick={onRestart}>
         Restart
       </button>
-      <div className="pm-pocketToggle">
+      <div className="pm-mobileRailToggle">
         <span className="pm-label" id="run-toggle-label-mobile">
           Run control
         </span>
@@ -1054,7 +1054,7 @@ function TrainApp({ forcedMode }) {
           </span>
         </div>
       </div>
-      <div className="pm-pocketToggle">
+      <div className="pm-mobileRailToggle">
         <span className="pm-label" id="speech-mode-label-mobile">
           Speech mode
         </span>
@@ -1093,7 +1093,86 @@ function TrainApp({ forcedMode }) {
         </div>
       </div>
     </div>
-  ) : null;
+  ) : (
+    <div className="pm-runRow">
+      <div className="pm-controlBlock">
+        <span className="pm-label">Start</span>
+        <button type="button" className="pm-btn" onClick={onStart}>
+          Start
+        </button>
+      </div>
+      <div className="pm-controlBlock">
+        <span className="pm-label">Restart</span>
+        <button type="button" className="pm-btn ghost" onClick={onRestart}>
+          Restart
+        </button>
+      </div>
+      <div className="pm-controlBlock">
+        <span className="pm-label" id="run-toggle-label">
+          Run control
+        </span>
+        <div className="pm-runToggle">
+          <span id="run-toggle-resume" className={`pm-switchOption${runState === "paused" ? "" : " active"}`}>
+            Resume
+          </span>
+          <button
+            type="button"
+            className={`pm-switch${runState === "paused" ? " on" : ""}`}
+            role="switch"
+            aria-checked={runState === "paused"}
+            aria-labelledby={`run-toggle-label ${activeRunLabelId}`}
+            disabled={runState === "idle"}
+            onClick={() => {
+              if (runState === "running") {
+                onPause();
+              } else if (runState === "paused") {
+                onResume();
+              }
+            }}
+          >
+            <span className="pm-switchTrack">
+              <span className="pm-switchThumb" />
+            </span>
+          </button>
+          <span id="run-toggle-pause" className={`pm-switchOption${runState === "paused" ? " active" : ""}`}>
+            Pause
+          </span>
+        </div>
+      </div>
+      <div className="pm-controlBlock">
+        <span className="pm-label" id="speech-mode-label">
+          Speech mode
+        </span>
+        <div className="pm-speechToggle">
+          <span id="speech-mode-auto" className={`pm-switchOption${autoAdvance ? " active" : ""}`}>
+            Auto
+          </span>
+          <button
+            type="button"
+            className={`pm-switch${autoAdvance ? "" : " manual"}`}
+            role="switch"
+            aria-checked={!autoAdvance}
+            aria-labelledby={`speech-mode-label ${activeSpeechLabelId}`}
+            disabled={captureMode !== "speech"}
+            onClick={() => {
+              if (captureMode !== "speech") return;
+              manualSpeechOverrideRef.current = true;
+              const next = !autoAdvance;
+              setAutoAdvance(next);
+              log(`Speech mode: ${next ? "Auto" : "Manual"}.`);
+            }}
+          >
+            <span className="pm-switchTrack">
+              <span className="pm-switchThumb" />
+            </span>
+          </button>
+          <span id="speech-mode-manual" className={`pm-switchOption${autoAdvance ? "" : " active"}`}>
+            Manual
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 
   const mobileActionBar = isMobile ? (
     <div className="pm-mobileActionBar">
@@ -1186,93 +1265,7 @@ function TrainApp({ forcedMode }) {
           {/* LEFT */}
           <section className="pm-panel">
             {isMobile && <div className="pm-progressTop">{progressSummary}</div>}
-            {mobileControlPocket}
-            {!isMobile && (
-              <div className="pm-runRow">
-                <div className="pm-controlBlock">
-                  <span className="pm-label">Start</span>
-                  <button type="button" className="pm-btn" onClick={onStart}>
-                    Start
-                  </button>
-                </div>
-                <div className="pm-controlBlock">
-                  <span className="pm-label">Restart</span>
-                  <button type="button" className="pm-btn ghost" onClick={onRestart}>
-                    Restart
-                  </button>
-                </div>
-                <div className="pm-controlBlock">
-                  <span className="pm-label" id="run-toggle-label">
-                    Run control
-                  </span>
-                  <div className="pm-runToggle">
-                    <span
-                      id="run-toggle-resume"
-                      className={`pm-switchOption${runState === "paused" ? "" : " active"}`}
-                    >
-                      Resume
-                    </span>
-                    <button
-                      type="button"
-                      className={`pm-switch${runState === "paused" ? " on" : ""}`}
-                      role="switch"
-                      aria-checked={runState === "paused"}
-                      aria-labelledby={`run-toggle-label ${activeRunLabelId}`}
-                      disabled={runState === "idle"}
-                      onClick={() => {
-                        if (runState === "running") {
-                          onPause();
-                        } else if (runState === "paused") {
-                          onResume();
-                        }
-                      }}
-                    >
-                      <span className="pm-switchTrack">
-                        <span className="pm-switchThumb" />
-                      </span>
-                    </button>
-                    <span
-                      id="run-toggle-pause"
-                      className={`pm-switchOption${runState === "paused" ? " active" : ""}`}
-                    >
-                      Pause
-                    </span>
-                  </div>
-                </div>
-                <div className="pm-controlBlock">
-                  <span className="pm-label" id="speech-mode-label">
-                    Speech mode
-                  </span>
-                  <div className="pm-speechToggle">
-                    <span id="speech-mode-auto" className={`pm-switchOption${autoAdvance ? " active" : ""}`}>
-                      Auto
-                    </span>
-                    <button
-                      type="button"
-                    className={`pm-switch${autoAdvance ? "" : " manual"}`}
-                    role="switch"
-                    aria-checked={!autoAdvance}
-                    aria-labelledby={`speech-mode-label ${activeSpeechLabelId}`}
-                    disabled={captureMode !== "speech"}
-                    onClick={() => {
-                      if (captureMode !== "speech") return;
-                      manualSpeechOverrideRef.current = true;
-                      const next = !autoAdvance;
-                      setAutoAdvance(next);
-                      log(`Speech mode: ${next ? "Auto" : "Manual"}.`);
-                    }}
-                    >
-                      <span className="pm-switchTrack">
-                        <span className="pm-switchThumb" />
-                      </span>
-                    </button>
-                    <span id="speech-mode-manual" className={`pm-switchOption${autoAdvance ? "" : " active"}`}>
-                      Manual
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+            {controlRail}
 
             {captureMode !== "speech" && (
               <div className="pm-manualNotice">

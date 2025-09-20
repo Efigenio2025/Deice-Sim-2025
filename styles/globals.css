@@ -79,8 +79,8 @@ body.piedmont {
 /* container + card */
 .pm-app { max-width: 1120px; margin: 24px auto; padding: 0 16px; }
 .pm-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  box-shadow: 0 12px 36px rgba(5,30,74,.12); overflow: hidden; }
-.pm-card.pm-cardMobile { overflow: visible; }
+  box-shadow: 0 12px 36px rgba(5,30,74,.12); overflow: visible; }
+
 
 /* header */
 .pm-header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
@@ -125,15 +125,23 @@ body.piedmont {
 .pm-header.mobile .pm-headerMic .pm-meter { min-width:0; }
 .pm-microHeader {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   z-index: 15;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(16px);
+  gap: 12px;
+  padding: 12px 16px;
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + env(safe-area-inset-right, 0px));
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border);
+}
+.pm-microHeader.mobile {
+  padding: 12px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  padding-bottom: 10px;
+  gap: 8px;
 }
 .pm-cardMobile .pm-microHeader {
   border-top-left-radius: 16px;
@@ -181,6 +189,7 @@ body.piedmont {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
@@ -223,19 +232,19 @@ body.piedmont {
     padding: 11px 26px;
   }
 }
-.pm-mobilePocket {
+.pm-mobileControlRail {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
 }
-.pm-pocketBtn {
+.pm-mobileRailBtn {
   flex: 1 1 120px;
   padding: 8px 12px;
   font-size: 12px;
   border-radius: 10px;
 }
-.pm-pocketToggle {
+.pm-mobileRailToggle {
   flex: 1 1 150px;
   min-width: 0;
   display: grid;
@@ -247,8 +256,8 @@ body.piedmont {
 .pm-runTogglePocket .pm-switchOption,
 .pm-speechTogglePocket .pm-switchOption { text-align: left; }
 @media (max-width: 420px) {
-  .pm-pocketBtn,
-  .pm-pocketToggle {
+  .pm-mobileRailBtn,
+  .pm-mobileRailToggle {
     flex: 1 1 100%;
   }
 }
