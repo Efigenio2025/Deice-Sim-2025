@@ -2,8 +2,17 @@
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
-import { FormEvent, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, BadgeCheck, CircleUserRound, LockKeyhole, Sparkles } from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  CircleUserRound,
+  LockKeyhole,
+  Sparkles,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 import { DeckCard } from './DeckCard';
 import { Glass } from './Glass';
 import { cn } from '@/lib/utils';
@@ -15,6 +24,7 @@ import {
   GatewaySession,
   getRoleDefinition,
   useGateway,
+  UserProfile,
 } from '@/lib/gateway-context';
 
 const steps = ['Authenticate', 'Select role', 'Summary'] as const;
@@ -31,23 +41,52 @@ const infoButtonClasses =
   'focus-ring inline-flex items-center gap-2 rounded-2xl border border-sky-500/60 bg-sky-500/10 px-5 py-2 text-sm text-sky-200 transition-transform hover:-translate-y-0.5';
 const subtleLinkClasses =
   'focus-ring inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-neutral-400 transition-colors hover:text-neutral-100';
+const toggleButtonBase =
+  'focus-ring inline-flex items-center gap-2 rounded-2xl border border-neutral-800/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-neutral-400 transition-colors hover:text-neutral-100';
 
 export function UserGateway() {
   const reduceMotion = useReducedMotion();
-  const { session, completeSignIn, clearSession } = useGateway();
+  const { session, completeSignIn, clearSession, profiles, createProfile, verifyCredentials } = useGateway();
   const [step, setStep] = useState<Step>(session ? 2 : 0);
   const [selectedMethod, setSelectedMethod] = useState<SignInMethod | null>(session?.method ?? null);
   const [selectedRole, setSelectedRole] = useState<RoleId | null>(session?.role.id ?? null);
+  const [mode, setMode] = useState<'sign-in' | 'create-profile'>(profiles.length === 0 ? 'create-profile' : 'sign-in');
   const [aaidInput, setAaidInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [newAaid, setNewAaid] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [prefilledProfileId, setPrefilledProfileId] = useState<string | null>(null);
   const [credentialSummary, setCredentialSummary] = useState<{ aaid: string; passwordLength: number } | null>(
     session?.identity ? { aaid: session.identity.aaid, passwordLength: 8 } : null
   );
   const [announcement, setAnnouncement] = useState('');
 
+  useEffect(() => {
+    if (profiles.length === 0) {
+      setMode('create-profile');
+    }
+  }, [profiles.length]);
+
   const roleDefinition: RoleDefinition | undefined = useMemo(
     () => (selectedRole ? getRoleDefinition(selectedRole) : undefined),
     [selectedRole]
+  );
+
+  const sortedProfiles = useMemo(
+    () => [...profiles].sort((a, b) => b.createdAt - a.createdAt),
+    [profiles]
+  );
+
+  const addedFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }),
+    []
   );
 
   const summaryMethodTitle = selectedMethod || session?.method ? METHOD_LABEL : 'Not selected';
@@ -60,6 +99,18 @@ export function UserGateway() {
     ? '••••••'
     : 'Not provided';
   const canSubmitCredentials = aaidInput.trim().length > 0 && passwordInput.length >= 6;
+  const canCreateProfile =
+    newAaid.trim().length >= 4 && newPassword.length >= 6 && newPassword === confirmPassword;
+
+  const handleModeChange = (nextMode: 'sign-in' | 'create-profile') => {
+    if (nextMode === mode) return;
+    setMode(nextMode);
+    setAnnouncement(
+      nextMode === 'sign-in'
+        ? 'Sign-in mode activated. Enter stored AAID credentials.'
+        : 'Profile creation mode activated. Provide a new AAID and password.'
+    );
+  };
 
   const handleCredentialSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -67,14 +118,60 @@ export function UserGateway() {
       setAnnouncement('Enter a valid AAID and password to continue.');
       return;
     }
+    if (profiles.length === 0) {
+      setAnnouncement('No stored profiles found. Create a profile before signing in.');
+      return;
+    }
+
     const trimmedAaid = aaidInput.trim();
+    const credentialMatch = verifyCredentials(trimmedAaid, passwordInput);
+
+    if (!credentialMatch) {
+      setAnnouncement('Credentials not recognized. Check your AAID or create a new profile.');
+      return;
+    }
+
     const passwordLength = passwordInput.length;
     setSelectedMethod('aaid-password');
     setCredentialSummary({ aaid: trimmedAaid, passwordLength });
-    setAnnouncement(`Credentials captured for AAID ${trimmedAaid}. Proceed to role selection.`);
+    setAnnouncement(`Credentials validated for AAID ${trimmedAaid}. Proceed to role selection.`);
     setAaidInput(trimmedAaid);
     setPasswordInput('');
+    setPrefilledProfileId(credentialMatch.id);
     setStep(1);
+  };
+
+  const handleCreateProfile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canCreateProfile) {
+      setAnnouncement('Enter a unique AAID and matching password to create a profile.');
+      return;
+    }
+
+    const trimmedAaid = newAaid.trim();
+    const result = createProfile({ aaid: trimmedAaid, password: newPassword });
+
+    if (!result.ok || !result.profile) {
+      setAnnouncement(result.error ?? 'Unable to create profile. Try again.');
+      return;
+    }
+
+    setAnnouncement(`Profile ${trimmedAaid} created. Switch to sign-in to authenticate.`);
+    setMode('sign-in');
+    setNewAaid('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setAaidInput(trimmedAaid);
+    setPasswordInput(newPassword);
+    setPrefilledProfileId(result.profile.id);
+  };
+
+  const handleProfilePrefill = (profile: UserProfile) => {
+    setMode('sign-in');
+    setPrefilledProfileId(profile.id);
+    setAaidInput(profile.aaid);
+    setPasswordInput('');
+    setAnnouncement(`AAID ${profile.aaid} selected. Enter password to continue.`);
   };
 
   const handleRoleSelect = (roleId: RoleId) => {
@@ -101,10 +198,15 @@ export function UserGateway() {
     setSelectedRole(null);
     setAaidInput('');
     setPasswordInput('');
+    setNewAaid('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPrefilledProfileId(null);
     setCredentialSummary(null);
     clearSession();
     setStep(0);
-    setAnnouncement('Gateway reset. Enter AAID credentials to begin again.');
+    setMode(profiles.length === 0 ? 'create-profile' : 'sign-in');
+    setAnnouncement('Gateway reset. Enter AAID credentials or create a profile to begin again.');
   };
 
   const motionProps = reduceMotion
@@ -149,79 +251,270 @@ export function UserGateway() {
 
       <AnimatePresence mode="wait">
         {step === 0 && (
-          <motion.div key="step-auth" {...motionProps}>
-            <Glass ariaLabel="AAID credential sign-in" className="max-w-2xl p-8">
-              <form className="flex flex-col gap-6" onSubmit={handleCredentialSubmit}>
+          <motion.div
+            key="step-auth"
+            className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]"
+            {...motionProps}
+          >
+            <Glass ariaLabel="AAID credential management" className="flex flex-col gap-6 p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex flex-col gap-2">
                   <span className="inline-flex w-fit items-center gap-2 rounded-2xl border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-sky-200/80">
-                    <LockKeyhole aria-hidden className="h-3.5 w-3.5" />
-                    Secure access
+                    {mode === 'sign-in' ? (
+                      <LockKeyhole aria-hidden className="h-3.5 w-3.5" />
+                    ) : (
+                      <UserPlus aria-hidden className="h-3.5 w-3.5" />
+                    )}
+                    {mode === 'sign-in' ? 'Secure access' : 'New profile'}
                   </span>
-                  <h2 className="text-2xl font-semibold text-neutral-50">Sign in with AAID</h2>
+                  <h2 className="text-2xl font-semibold text-neutral-50">
+                    {mode === 'sign-in' ? 'Sign in with AAID' : 'Create an AAID profile'}
+                  </h2>
                   <p className="max-w-xl text-sm text-neutral-300/80">
-                    Enter your Airport Associate ID and password to continue to role assignment. Credentials are
-                    encrypted client-side for this simulation.
+                    {mode === 'sign-in'
+                      ? 'Enter your Airport Associate ID and password to continue to role assignment. Credentials are validated against stored profiles.'
+                      : 'Save a new Airport Associate ID and password to your local flight deck profile directory. Profiles are stored in-browser for this simulation.'}
                   </p>
                 </div>
-                <div className="grid gap-4">
-                  <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="aaid">
-                    AAID
-                    <div className="relative">
-                      <CircleUserRound aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400" />
-                      <input
-                        id="aaid"
-                        name="aaid"
-                        type="text"
-                        required
-                        minLength={4}
-                        value={aaidInput}
-                        onChange={(event) => setAaidInput(event.target.value)}
-                        placeholder="AAID-2045"
-                        autoComplete="username"
-                        className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/60"
-                      />
-                    </div>
-                  </label>
-                  <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="password">
-                    Password
-                    <div className="relative">
-                      <LockKeyhole aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
-                      <input
-                        id="password"
-                        name="password"
-                        type="password"
-                        required
-                        minLength={6}
-                        value={passwordInput}
-                        onChange={(event) => setPasswordInput(event.target.value)}
-                        placeholder="Enter your password"
-                        aria-describedby="password-hint"
-                        autoComplete="current-password"
-                        className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-                      />
-                    </div>
-                    <span id="password-hint" className="text-xs text-neutral-500">
-                      Use your AAID network password. Minimum 6 characters.
-                    </span>
-                  </label>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <span className="text-xs text-neutral-400">
-                    Need help? Contact{' '}
-                    <a
-                      href="mailto:ops-support@deice.local"
-                      className="focus-ring underline decoration-dotted underline-offset-4"
-                    >
-                      Ops support
-                    </a>{' '}
-                    for resets.
-                  </span>
-                  <button type="submit" className={solidButtonClasses} disabled={!canSubmitCredentials}>
-                    Continue
-                    <ArrowRight aria-hidden className="h-4 w-4" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('sign-in')}
+                    className={cn(toggleButtonBase, mode === 'sign-in' && 'border-sky-500/60 bg-sky-500/10 text-sky-200')}
+                    aria-pressed={mode === 'sign-in'}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('create-profile')}
+                    className={cn(
+                      toggleButtonBase,
+                      mode === 'create-profile' && 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200'
+                    )}
+                    aria-pressed={mode === 'create-profile'}
+                  >
+                    Create profile
                   </button>
                 </div>
-              </form>
+              </div>
+
+              {mode === 'sign-in' ? (
+                <form className="flex flex-col gap-6" onSubmit={handleCredentialSubmit}>
+                  <div className="grid gap-4">
+                    <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="aaid">
+                      AAID
+                      <div className="relative">
+                        <CircleUserRound aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400" />
+                        <input
+                          id="aaid"
+                          name="aaid"
+                          type="text"
+                          required
+                          minLength={4}
+                          value={aaidInput}
+                          onChange={(event) => {
+                            setAaidInput(event.target.value);
+                            setPrefilledProfileId(null);
+                          }}
+                          placeholder="AAID-2045"
+                          autoComplete="username"
+                          className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+                        />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="password">
+                      Password
+                      <div className="relative">
+                        <LockKeyhole aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
+                        <input
+                          id="password"
+                          name="password"
+                          type="password"
+                          required
+                          minLength={6}
+                          value={passwordInput}
+                          onChange={(event) => setPasswordInput(event.target.value)}
+                          placeholder="Enter your password"
+                          aria-describedby="password-hint"
+                          autoComplete="current-password"
+                          className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                        />
+                      </div>
+                      <span id="password-hint" className="text-xs text-neutral-500">
+                        Use your AAID network password. Minimum 6 characters.
+                      </span>
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span className="text-xs text-neutral-400">
+                      Need help? Contact{' '}
+                      <a
+                        href="mailto:ops-support@deice.local"
+                        className="focus-ring underline decoration-dotted underline-offset-4"
+                      >
+                        Ops support
+                      </a>{' '}
+                      for resets.
+                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        type="submit"
+                        className={solidButtonClasses}
+                        disabled={!canSubmitCredentials || profiles.length === 0}
+                      >
+                        Continue
+                        <ArrowRight aria-hidden className="h-4 w-4" />
+                      </button>
+                      {profiles.length === 0 && (
+                        <span className="text-xs text-amber-400/80">Add a profile to enable sign-in.</span>
+                      )}
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <form className="flex flex-col gap-6" onSubmit={handleCreateProfile}>
+                  <div className="grid gap-4">
+                    <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="new-aaid">
+                      AAID
+                      <div className="relative">
+                        <CircleUserRound aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
+                        <input
+                          id="new-aaid"
+                          name="new-aaid"
+                          type="text"
+                          required
+                          minLength={4}
+                          value={newAaid}
+                          onChange={(event) => setNewAaid(event.target.value.toUpperCase())}
+                          placeholder="AAID-4098"
+                          autoComplete="off"
+                          className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                        />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="new-password">
+                      Password
+                      <div className="relative">
+                        <LockKeyhole aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
+                        <input
+                          id="new-password"
+                          name="new-password"
+                          type="password"
+                          required
+                          minLength={6}
+                          value={newPassword}
+                          onChange={(event) => setNewPassword(event.target.value)}
+                          placeholder="Set a password"
+                          aria-describedby="password-create-hint"
+                          autoComplete="new-password"
+                          className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                        />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm text-neutral-300/80" htmlFor="confirm-password">
+                      Confirm password
+                      <div className="relative">
+                        <LockKeyhole aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400" />
+                        <input
+                          id="confirm-password"
+                          name="confirm-password"
+                          type="password"
+                          required
+                          minLength={6}
+                          value={confirmPassword}
+                          onChange={(event) => setConfirmPassword(event.target.value)}
+                          placeholder="Repeat password"
+                          aria-describedby="password-create-hint"
+                          autoComplete="new-password"
+                          className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 pl-10 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+                        />
+                      </div>
+                    </label>
+                    <span id="password-create-hint" className="text-xs text-neutral-500">
+                      AAIDs must be unique. Passwords require at least 6 characters and must match.
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span className="text-xs text-neutral-400">
+                      Profiles stay on this device for training and can be removed by clearing browser storage.
+                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewAaid('');
+                          setNewPassword('');
+                          setConfirmPassword('');
+                          handleModeChange('sign-in');
+                        }}
+                        className={ghostButtonClasses}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className={solidButtonClasses} disabled={!canCreateProfile}>
+                        Save profile
+                        <UserPlus aria-hidden className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </Glass>
+
+            <Glass ariaLabel="Stored AAID profiles" className="flex flex-col gap-5 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-neutral-400">
+                    <Users aria-hidden className="h-4 w-4 text-sky-400" />
+                    Stored profiles
+                  </div>
+                  <h2 className="text-lg font-semibold text-neutral-100">AAID directory</h2>
+                </div>
+                <span className="rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-400">
+                  {sortedProfiles.length} total
+                </span>
+              </div>
+              {sortedProfiles.length > 0 ? (
+                <ul className="grid gap-3" role="list">
+                  {sortedProfiles.map((profile) => (
+                    <li key={profile.id} role="listitem">
+                      <button
+                        type="button"
+                        onClick={() => handleProfilePrefill(profile)}
+                        className={cn(
+                          'focus-ring flex w-full items-center justify-between gap-4 rounded-2xl border border-neutral-800/80 bg-neutral-900/60 px-4 py-3 text-left transition-colors hover:border-sky-500/60 hover:bg-neutral-900/40',
+                          prefilledProfileId === profile.id && 'border-sky-500/70 bg-sky-500/10 text-sky-100'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <CircleUserRound
+                            aria-hidden
+                            className={cn(
+                              'h-5 w-5 text-sky-300',
+                              prefilledProfileId === profile.id && 'text-sky-200'
+                            )}
+                          />
+                          <span className="flex flex-col">
+                            <span className="text-sm font-semibold text-neutral-100">{profile.aaid}</span>
+                            <span className="text-xs text-neutral-400">
+                              Added {addedFormatter.format(profile.createdAt)}
+                            </span>
+                          </span>
+                        </span>
+                        <span className="text-xs text-sky-200">Prefill →</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-neutral-300/80">
+                  No profiles stored yet. Create a profile to enable AAID authentication.
+                </p>
+              )}
+              <p className="text-xs text-neutral-500">
+                Profile data is saved in local storage for this simulation and never leaves your browser.
+              </p>
             </Glass>
           </motion.div>
         )}
